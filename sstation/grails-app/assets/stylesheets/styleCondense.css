@@ -1,0 +1,505 @@
+@CHARSET "UTF-8";
+
+/*Nav Bar*/
+
+/*Side Bar. Used on the dashboard.gsp*/
+#sideBar{
+	height:100%;
+	width:11%;
+}
+ul.navLink>li{
+	font-size:18px;
+	text-align:center;
+	margin:0px;
+	background-color: rgba(178, 9, 56, 0.74);
+	height:20%;
+}
+ul.navLink>li>a{
+	padding: 30px 15px 20px 15px;
+	color:rgb(247, 232, 197)
+}
+
+
+ul.navLink>li>a:hover{
+	color:white;
+	background-color:transparent;
+	font-size:19px;
+}
+ul.navLink>li.activePill{
+	background-color:transparent;
+}
+ul.navLink>li.activePill>a{
+	color:#B20938;
+	background-color:transparent;
+}
+
+
+/*Top Bar*/
+.navbar{
+	margin-bottom:0px;
+	background-color: rgba(33, 32, 30, 0.5);
+	background-image:none;
+	border-color:transparent;
+}
+
+.navbar-collapse {
+	padding:0px;
+	background-color:transparent;		
+}
+.navbar-default .navbar-nav>li>a {
+    color: white;
+    padding-left: 0px;
+    font-weight: 700;
+}
+.navbar-default .navbar-brand {/*Austin College Service Station Title*/
+    color:white;
+}
+.navbar-nav>li>.dropdown-menu{
+	background-color: rgba(27, 26, 26, 0.69);
+}
+.dropdown-menu>li>a {
+	color:white;
+}
+.navbar-default .navbar-nav>.active>a, .navbar-default .navbar-nav>.open>a, .navbar-nav>.open>a:hover {
+    -webkit-box-shadow: none;
+    box-shadow: 0px 0px 0px 0px;
+    background-color: transparent;
+    background-image:none;
+}
+
+.navbar-default .navbar-nav>.open>a, .navbar-default .navbar-nav>.open>a:focus, .navbar-default .navbar-nav>.open>a:hover{
+	background-color:transparent;
+}
+.nav>li>a.open{
+	background-color:transparent;
+}
+.dropdown-menu>li>a:focus, .dropdown-menu>li>a:hover{
+	background-color:rgba(255, 255, 255, 0.20);
+	background-image:none;
+	color:white;
+}
+.right-corner{/*the div contains image buttons on the right corner drop down menu of the dashboard*/
+	padding-right:20px;
+}
+
+
+/*Gradient color-changed tabs navigation*/
+.nav-tabs {/*Light yellow background block*/
+    border-bottom:none;
+    background-color: #F7F0D6;
+}
+.nav-tabs>li{
+    width: 170px;
+    margin: 0px;
+    color: #777675;
+    font-weight: 700;
+}
+.nav-tabs>li>a{
+	color:#777675;
+	border:none;
+	border-radius:0px;
+	margin:0px;
+	border-color: transparent;
+    border-bottom-style: ridge;
+    border-width: 2px;
+}
+.nav-tabs>li>a:hover,.activeTab{
+   	background-color:#F7F0D6;
+   	border-color: #C53E3E;
+    border-bottom-style: ridge;
+    border-width: 2px;
+}
+.tab1{
+	background-color: #FFB701;
+}
+.tab2{
+	background-color:#FFC501
+}
+.tab3{
+	background-color:#FFD867;
+}
+.tab4{
+	background-color:#FEECA2;
+}
+.nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover{
+	border:none;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*Body*/
+.container-fluid{
+	background-image:none;
+}
+body{
+	background-image:url("b8.jpg");
+	background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size:cover;
+}
+
+
+
+
+
+
+
+
+
+
+/*Specific Div*/
+#homeOverallDiv{/*div that contains everything except the background*/
+	margin:25px;
+}
+.panel-default{/*overall div which contains main content*/
+	width: 85%;
+    margin: 20px 20px 20px 145px;
+	border-color:transparent;
+	box-shadow:none;
+	background-color:rgba(251, 248, 248, 0.75);
+}
+.panel{
+	border:none;
+    border-radius: 0px;
+    background-color: transparent;
+}
+.panel-default>.panel-heading {
+    background-image: none;
+    background-color: rgba(178, 9, 56, 0.72);
+    /*box-shadow: inset -3px 3px 50px 35px rgba(255, 252, 252, 0.31);*/
+    padding: 30px;
+    border-color: transparent;
+ 
+}
+.panel-title{
+	color:white;
+	font-size:30px;
+}
+
+.mainback{/*used for main page light yellow background*/
+	background-color: #F7F3EA;
+    color: #353535;
+    padding:20px;
+}
+
+.cornerButtons{
+	text-align:right;
+	padding-right:20px;
+	padding-bottom: 20px;
+	font-weight:700;
+	font-size:16px;
+}
+.cornerButtons>span,.cornerButtons>a{
+	color: #FFDE97;
+	padding-right: 10px;
+}
+
+
+.report{
+	font-size:14px;
+	padding-bottom:20px;
+}
+.reportTitle{
+	text-align:center;
+	font-size: 20px;
+    font-weight: 700;
+}
+
+.editStatus{
+	font-weight:700;
+}
+.htableLabel{
+	width:30px;
+}
+.titletop {/*The div that specifies the title of the current page*/
+	padding:20px 0px 0px 0px;
+    background-color: rgb(197, 62, 62);
+    color: #FFDE97;
+}
+.pagetitle{
+	padding-left:20px;
+	font-weight:700;
+}
+
+.editform{
+	background-color:
+}
+
+.showButtons{
+	margin-top: 20px;
+    background-color: rgba(78, 78, 77, 0.88);
+    padding: 10px 20px;
+}
+
+
+/*Buttons, Link*/
+.btn-default {/*Typical Red Buttons*/
+    background-color: #B20938;
+    color: white;
+    background-image:none;
+    border-color:transparent;
+}
+.btn-default:hover{
+	background-color:rgba(241, 11, 75, 0.8);
+	color:white;
+	border-color:transparent;
+}
+
+
+
+.tabledelete{
+	background-color:transparent;
+	border:none;
+	color:#FFDE97;
+}
+.tabledelete.hover{
+	background-color:transparent;
+	border:none;
+	color:#FFDE97;
+	text-decoration:underline;
+}
+
+/*Form*/
+.time_textField{
+	width:4em;
+	margin-left:7px;
+}
+
+
+/*Table*/
+td{
+	text-align:left;
+	padding:20px;
+}
+.table-bordered>tbody>tr>td{
+	border: 1px solid #FDDCAE;
+	padding:12px;
+	
+}
+.table-bordered {
+     border: none;
+}
+.table>thead>tr>th {
+    border: none;
+    background-color: rgba(178, 9, 56, 0.71);
+}
+.table>thead>tr>th{
+	color:white;
+}
+td.studentid{
+	font-weight:700;
+}
+tr.white {
+    background-color: rgba(78, 76, 76, 0.67);
+    color: white;
+    font-size: 15px;
+}
+td>a{
+	font-size:15px;
+	color: black;
+    font-weight: 700;
+}
+div.table_buttons{	    
+	margin-top: 20px;
+    background-color: rgba(78, 78, 77, 0.88);
+    padding: 0.5px;
+}
+div.totalHour{
+	text-align:right;
+	margin-top:20px;
+	background-color:rgba(255,255,255,0.8);
+	font-weight:900;
+	padding:20px;
+}
+tr.odd{
+	background-color:rgba(255,255,255,0.8);
+	font-size:15px;
+}
+tr.even{
+	background-color:rgba(251, 247, 205, 0.79);
+	font-size:15px;
+}
+a{
+	color:black;
+}
+ .alert-danger {   
+    border-color: #F54848;
+       background-color: rgba(255, 255, 255, 0.45);
+    font-size: 15px;
+    padding:20px;
+    margin-top:30px;
+    background-image:none;
+}
+.table-striped>tbody>tr:nth-of-type(odd) {
+    background-color:rgba(251, 247, 205, 0.79);
+}
+.table>tbody>tr>th{
+	border:none;
+}
+
+/* MESSAGES AND ERRORS */
+
+.errors,
+.message {
+	font-size: 0.8em;
+	line-height: 2;
+	margin: 1em 2em;
+	padding: 0.25em;
+}
+
+.message {
+	background: #f3f3ff;
+	border: 1px solid #b2d1ff;
+	color: #006dba;
+	   -moz-box-shadow: 0 0 0.25em #b2d1ff;
+	-webkit-box-shadow: 0 0 0.25em #b2d1ff;
+	        box-shadow: 0 0 0.25em #b2d1ff;
+}
+
+.errors {
+	background: #fff3f3;
+	border: 1px solid #ffaaaa;
+	color: #cc0000;
+	   -moz-box-shadow: 0 0 0.25em #ff8888;
+	-webkit-box-shadow: 0 0 0.25em #ff8888;
+	        box-shadow: 0 0 0.25em #ff8888;
+}
+
+.errors ul,
+.message {
+	padding: 0;
+}
+
+.errors li {
+	list-style: none;
+	background: transparent url(../images/skin/exclamation.png) 0.5em 50% no-repeat;
+	text-indent: 2.2em;
+}
+
+.message {
+	background: transparent url(../images/skin/information.png) 0.5em 50% no-repeat;
+	text-indent: 2.2em;
+}
+
+/* form fields with errors */
+
+.error input, .error select, .error textarea {
+	background: #fff3f3;
+	border-color: #ffaaaa;
+	color: #cc0000;
+}
+
+.error input:focus, .error select:focus, .error textarea:focus {
+	   -moz-box-shadow: 0 0 0.5em #ffaaaa;
+	-webkit-box-shadow: 0 0 0.5em #ffaaaa;
+	        box-shadow: 0 0 0.5em #ffaaaa;
+}
+
+/* CREATE/EDIT FORMS AND SHOW PAGES */
+
+fieldset, .property-list{
+	position: relative;
+	zoom: 1;
+	border: none;
+}
+
+.property-list .fieldcontain {
+	list-style: none;
+	overflow: hidden;
+	zoom: 1;
+}
+
+.fieldcontain {
+	margin-top: 1em;
+}
+
+.fieldcontain label,
+.fieldcontain .property-label {
+	color: #666666;
+	text-align: right;
+	width: 25%;
+}
+
+.fieldcontain .property-label {
+	float: left;
+}
+
+.fieldcontain .property-value {
+	display: block;
+	margin-left: 27%;
+}
+
+label {
+	cursor: pointer;
+	display: inline-block;
+	margin: 0 0.25em 0 0;
+}
+
+input, select, textarea {
+	background-color: #fcfcfc;
+	border: 1px solid #cccccc;
+	font-size: 1em;
+	padding: 0.2em 0.4em;
+}
+
+select {
+	padding: 0.2em 0.2em 0.2em 0;
+}
+
+select[multiple] {
+	vertical-align: top;
+}
+
+textarea {
+	width: 250px;
+	height: 150px;
+	overflow: auto; /* IE always renders vertical scrollbar without this */
+	vertical-align: top;
+}
+
+input[type=checkbox], input[type=radio] {
+	background-color: transparent;
+	border: 0;
+	padding: 0;
+}
+
+input:focus, select:focus, textarea:focus {
+	background-color: #ffffff;
+	border: 1px solid #eeeeee;
+	outline: 0;
+	   -moz-box-shadow: 0 0 0.5em #ffffff;
+	-webkit-box-shadow: 0 0 0.5em #ffffff;
+	        box-shadow: 0 0 0.5em #ffffff;
+}
+
+.required-indicator {
+	color: #48802C;
+	display: inline-block;
+	font-weight: bold;
+	margin-left: 0.3em;
+	position: relative;
+	top: 0.1em;
+}
+
+ul.one-to-many {
+	display: inline-block;
+	list-style-position: inside;
+	vertical-align: top;
+}
+
+.ie6 ul.one-to-many, .ie7 ul.one-to-many {
+	display: inline;
+	zoom: 1;
+}
+
+ul.one-to-many li.add {
+	list-style-type: none;
+}

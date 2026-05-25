@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:8080/acStudent/_studentList" />
+<title>test hour kpi</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">test hour kpi</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/Success/acStudent/_totalHour</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertElementPresent</td>
+	<td>css=div.mainback</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>id=showYear</td>
+	<td>Current Year Tendency</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=ul.tendencyList</td>
+	<td>Five Years Tendency Current Year Tendency Current Month Tendency</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=div.mainback</td>
+	<td>Core Statistics<br /><br /> Total Students: 10 <br />Total Service Hours: 57.75 hr <br />Service Hours Per Student: 5.775 hr <br />Service Hours in the Current Year:9.75 hr <br />Num. Pending: 29 Service Hours</td>
+</tr>
+<tr>
+	<td>verifyElementPresent</td>
+	<td>css=a</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyElementPresent</td>
+	<td>css=li</td>
+	<td></td>
+</tr>
+
+</tbody></table>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:8080/" />
+<title>test_student_crud</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">test_student_crud</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/sstation/login/auth</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=inputEmail3</td>
+	<td>admin</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=inputPassword3</td>
+	<td>admin_secret</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>css=input.btn.btn-default</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Students</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/acStudent/studentList</td>
+	<td></td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>link=New Student</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>id=firstname</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=firstname</td>
+	<td>testFirst</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=lastname</td>
+	<td>testLast</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acid</td>
+	<td>testID</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acBox</td>
+	<td>testBox</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acEmail</td>
+	<td>x@ac.com</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=classification</td>
+	<td>label=SR</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acYear</td>
+	<td>2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=phone</td>
+	<td>555</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>name=_action_saveStudent</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=li.fieldcontain</td>
+	<td>First Name: testFirst</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[2]</td>
+	<td>Last Name: testLast</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[3]</td>
+	<td>AC ID: testID</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[4]</td>
+	<td>exact:Classification: SR</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[6]</td>
+	<td>AC Year: 2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[7]</td>
+	<td>AC Box: testBox</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[8]</td>
+	<td>AC Email: x@ac.com</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[9]</td>
+	<td>exact:Phone: 555</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>//div[@id='student']/div/a/b</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>id=firstname</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=firstname</td>
+	<td>testFirst2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=lastname</td>
+	<td>testLast2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acid</td>
+	<td>testID2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acBox</td>
+	<td>testBox2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acEmail</td>
+	<td>x2@ac.com</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=classification</td>
+	<td>label=JR</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=acYear</td>
+	<td>3</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=phone</td>
+	<td>5552</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>name=_action__updateStudent</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>css=li.fieldcontain</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=li.fieldcontain</td>
+	<td>First Name: testFirst2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[2]</td>
+	<td>Last Name: testLast2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[3]</td>
+	<td>AC ID: testID2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[4]</td>
+	<td>exact:Classification: JR</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[6]</td>
+	<td>AC Year: 3</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[7]</td>
+	<td>AC Box: testBox2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[8]</td>
+	<td>AC Email: x2@ac.com</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='show-acStudent']/ol/li[9]</td>
+	<td>exact:Phone: 5552</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>//b[@onclick=&quot;return confirm('Are you sure?');&quot;]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertConfirmation</td>
+	<td>Are you sure?</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>//tr[@id='1']/td[3]</td>
+	<td>testFirst2 testLast2</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>css=span.glyphicon.glyphicon-menu-hamburger</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Log Out</td>
+	<td></td>
+</tr>
+</tbody></table>
+</body>
+</html>

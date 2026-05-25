@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:8080/" />
+<title>test_acGroup_crud</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">test_acGroup_crud</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/sstation/login/auth</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=inputEmail3</td>
+	<td>admin</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=inputPassword3</td>
+	<td>admin_secret</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>css=input.btn.btn-default</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Campus Groups</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/ACGroup/index</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=New Campus Group</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/ACGroup/orgForm</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=name</td>
+	<td>testName</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=description</td>
+	<td>testDesc</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contact</td>
+	<td>testContact</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactPhone</td>
+	<td>555</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactEmail</td>
+	<td>x@ac.com</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>name=_action_index</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/ACGroup/index</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testName</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testDesc</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testContact</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>555</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>x@ac.com</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=New Campus Group</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=name</td>
+	<td>testName</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=description</td>
+	<td>testDesc</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contact</td>
+	<td>testContact</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactPhone</td>
+	<td>555</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactEmail</td>
+	<td>x@ac.com</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>name=_action__saveOnTable</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/ACGroup/index</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>//div[@id='orgTopList']/div/div[9]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/h4/b</td>
+	<td>testName</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/p</td>
+	<td>testDesc</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li</td>
+	<td>exact:Contact: testContact</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li[2]</td>
+	<td>Contact Phone: 555</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li[3]</td>
+	<td>Contact Email: x@ac.com</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>css=#8 &gt; b</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>id=name</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=name</td>
+	<td>testName2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=description</td>
+	<td>testDesc2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contact</td>
+	<td>testContact2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactPhone</td>
+	<td>5552</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>id=contactEmail</td>
+	<td>x2@ac.com</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>name=_action__saveOnCard</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>//div[@id='orgTopList']/div/div[9]/p</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/h4/b</td>
+	<td>testName2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/p</td>
+	<td>testDesc2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li</td>
+	<td>exact:Contact: testContact2</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li[2]</td>
+	<td>Contact Phone: 5552</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//div[@id='orgTopList']/div/div[9]/ol/li[3]</td>
+	<td>Contact Email: x2@ac.com</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>xpath=(//a[@id='_deleteOnCard']/b)[8]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertConfirmation</td>
+	<td>Are you sure?</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testName2</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testDesc2</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>testContact2</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>5552</td>
+</tr>
+<tr>
+	<td>assertNotText</td>
+	<td>id=homeOverallDiv</td>
+	<td>x2@ac.com</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>css=a.dropdown-toggle</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Log Out</td>
+	<td></td>
+</tr>
+
+</tbody></table>
+</body>
+</html>

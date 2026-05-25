@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:8080/" />
+<title>test_studentReport</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">test_studentReport</td></tr>
+</thead><tbody>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/login/auth</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>css=input.btn.btn-default</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Students</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/acStudent/studentList</td>
+	<td></td>
+</tr>
+<tr>
+	<td>open</td>
+	<td>http://localhost:8080/sstation/acStudent/student/1</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertLocation</td>
+	<td>http://localhost:8080/sstation/acStudent/student/1</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Report</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>css=div.mainback</td>
+	<td>Total Service Hours: 17.0hr <br /> Total Approved Service Hours: 3.25hr <br /> Total Pending Service Hours: 4.25hr <br /> Total Rejected Service Hours: 9.5hr</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>css=h4.list-group-item-heading</td>
+	<td>General Report</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//div[@id='reportTopList']/div[2]/div</td>
+	<td>Report by Semester Generate a report of service hours organized by semesters<br /> Generate Report</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//div[@id='reportTopList']/div[3]/div</td>
+	<td>Report by Campus Group Generates a report of service hours organized by Campus groups.<br /> Generate Report</td>
+</tr>
+<tr>
+	<td></td>
+	<td></td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Generate Report</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>css=div.report</td>
+	<td>Brittany Block <br /> Austin College ID: AC59051 <br /> Classification: SR</td>
+</tr>
+<tr>
+	<td>open</td>
+	<td>http://localhost:8080/sstation/acStudent/reportAdmin/1</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>xpath=(//a[contains(text(),'Generate Report')])[2]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=div.report</td>
+	<td>Brittany Block <br />Austin College ID: AC59051 <br />Classification: SR</td>
+</tr>
+<tr>
+	<td>open</td>
+	<td>http://localhost:8080/sstation/acStudent/reportAdmin/1</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>xpath=(//a[contains(text(),'Generate Report')])[3]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//div[@id='main']/div[2]/div[3]</td>
+	<td>Total Approved Service Hours: 3.25hr</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>css=tbody &gt; tr &gt; td</td>
+	<td>Service Station</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>//table[@id='htable']/tbody/tr/td[2]</td>
+	<td>Austin College Tutoring(ACT</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//table[@id='htable']/tbody/tr/td[3]</td>
+	<td>Other</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//table[@id='htable']/tbody/tr/td[4]</td>
+	<td>09/02/2011 13:59</td>
+</tr>
+<tr>
+	<td>verifyText</td>
+	<td>//table[@id='htable']/tbody/tr/td[5]</td>
+	<td>1.25</td>
+</tr>
+
+</tbody></table>
+</body>
+</html>
