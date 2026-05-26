@@ -119,10 +119,20 @@ jobs:
         timeout-minutes: 20
         run: grails --non-interactive -noreloading --stacktrace prod war
 
+      # github.ref_name can contain '/' (e.g. "docs/configure-proj") which
+      # upload-artifact rejects (NTFS-incompatible). Sanitize to '-'.
+      - name: Compute artifact name
+        id: artifact-name
+        working-directory: ${{ github.workspace }}
+        run: |
+          SAFE_REF=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          SHORT_SHA="${GITHUB_SHA::8}"
+          echo "name=sstation-war-${SAFE_REF}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Upload WAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sstation-war-${{ github.ref_name }}-${{ github.sha }}
+          name: ${{ steps.artifact-name.outputs.name }}
           path: sstation/target/*.war
           if-no-files-found: error
           retention-days: 30
