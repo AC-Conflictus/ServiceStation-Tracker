@@ -26,6 +26,10 @@ jobs:
   test:
     name: Unit tests (JDK 8 + Grails 2.4.4)
     runs-on: ubuntu-22.04
+    # Cap the whole job so a hung Grails process can't burn 6h of CI minutes
+    # (the GH Actions default). Cold dependency resolve is ~10min; cached
+    # runs ~2–3min; 30min leaves a comfortable margin for both.
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -85,11 +89,22 @@ jobs:
           restore-keys: |
             grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
 
+      # Cold resolve of Grails 2.4's transitive plugin tree is the slowest
+      # thing in this workflow (~5–10min). Step timeout fails fast if a
+      # repo is unreachable; --stacktrace gives us a line to diagnose with.
       - name: Refresh dependencies
-        run: grails --non-interactive refresh-dependencies
+        timeout-minutes: 15
+        run: grails --non-interactive --stacktrace refresh-dependencies
 
+      # Disable the Grails forked-test daemon (BuildConfig sets daemon:true).
+      # The daemon JVM is known to occasionally hang on exit in headless CI,
+      # which is the most likely cause of the prior 6h timeout. Forking the
+      # JVM per run is slower but deterministic.
       - name: Run unit tests
-        run: "grails --non-interactive test-app unit:"
+        timeout-minutes: 15
+        env:
+          GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m -Dgrails.project.fork.test.daemon=false"
+        run: "grails --non-interactive --stacktrace test-app unit:"
 
       - name: Upload test reports (always)
         if: always()
@@ -127,6 +142,7 @@ jobs:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -172,7 +188,8 @@ jobs:
             grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
 
       - name: Build WAR
-        run: grails --non-interactive prod war
+        timeout-minutes: 20
+        run: grails --non-interactive --stacktrace prod war
 
       - name: Upload WAR artifact
         uses: actions/upload-artifact@v4
