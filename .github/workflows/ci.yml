@@ -1,0 +1,154 @@
+name: CI
+
+# ----------------------------------------------------------------------------
+# CI scope decision (2026-05-26): build only, no test execution.
+#
+# Why: the existing Spock unit suite cannot be run in modern GH Actions
+# runners. Grails 2.4.4 force-attaches Spring Loaded as a -javaagent to its
+# forked test JVMs, and Spring Loaded was abandoned in 2016 — it crashes
+# Method.copy() under JDK 8u60+ during Spock AST compilation. After multiple
+# iterations (see git log) we concluded that further patching is yak-shaving
+# on a codebase we're retiring.
+#
+# Lane 7 of TRELLO_CARDS.md (TC-100 → TC-112) is a full rewrite to Spring Boot
+# 3 + Java 21 over Summer 2026. The new module will have its own CI workflow
+# (TC-102) using a sane JUnit 5 / Gradle / modern JVM stack.
+#
+# Meanwhile this workflow does what's actually useful right now:
+#   1. Proves the Grails code still compiles (via the WAR build).
+#   2. Produces a deployable WAR artifact for manual smoke-testing.
+#   3. Notifies Discord on failure / main / tag pushes.
+#
+# Unit specs continue to live under sstation/test/unit/. They are runnable
+# locally via `grails test-app unit:` on a JDK 8 dev box. They are NOT a CI
+# gate. If a contributor breaks one, we'll catch it during the Lane 7
+# parity-test (TC-111) which ports the specs to JUnit 5.
+# ----------------------------------------------------------------------------
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch when a new push comes in.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRAILS_VERSION: "2.4.4"
+  JAVA_VERSION: "8"
+  JAVA_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
+  GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
+
+jobs:
+  build:
+    name: Build WAR (JDK 8 + Grails 2.4.4)
+    runs-on: ubuntu-22.04
+    # Cap so we never burn the GH Actions 6h default on a hung Grails process.
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: sstation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # SDKMAN is the only reliable Grails 2.4.4 install path on a CI runner:
+      # the bundled grails-wrapper.properties URL is dead (TRELLO_CARDS TC-036).
+      - name: Cache SDKMAN + Grails install
+        id: cache-sdkman
+        uses: actions/cache@v4
+        with:
+          path: ~/.sdkman
+          key: sdkman-grails-${{ env.GRAILS_VERSION }}-${{ runner.os }}
+
+      - name: Install SDKMAN and Grails ${{ env.GRAILS_VERSION }}
+        if: steps.cache-sdkman.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}
+        run: |
+          # sdkman-init.sh references unset vars during init — drop -u.
+          set -eo pipefail
+          curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          sdk install grails ${GRAILS_VERSION} < /dev/null
+          sdk default grails ${GRAILS_VERSION}
+
+      - name: Expose Grails on PATH
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
+
+      # Belt-and-suspenders: kill Spring Loaded even though `grails war`
+      # shouldn't trigger Spock AST compilation. Cheap insurance.
+      - name: Remove Spring Loaded agent (defensive)
+        working-directory: ${{ github.workspace }}
+        run: |
+          find "$HOME/.sdkman" "$HOME/.grails" sstation \
+            -name 'springloaded*.jar' -delete 2>/dev/null || true
+
+      - name: Verify Grails version
+        run: grails -version
+
+      - name: Cache Grails + Maven dependency caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.grails
+            ~/.m2/repository
+            ~/.ivy2/cache
+          key: grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-${{ hashFiles('sstation/grails-app/conf/BuildConfig.groovy', 'sstation/application.properties') }}
+          restore-keys: |
+            grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
+
+      - name: Refresh dependencies
+        timeout-minutes: 15
+        run: grails --non-interactive -noreloading --stacktrace refresh-dependencies
+
+      - name: Build WAR
+        timeout-minutes: 20
+        run: grails --non-interactive -noreloading --stacktrace prod war
+
+      # github.ref_name can contain '/' (e.g. "docs/configure-proj") which
+      # upload-artifact rejects (NTFS-incompatible). Sanitize to '-'.
+      - name: Compute artifact name
+        id: artifact-name
+        working-directory: ${{ github.workspace }}
+        run: |
+          SAFE_REF=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          SHORT_SHA="${GITHUB_SHA::8}"
+          echo "name=sstation-war-${SAFE_REF}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: sstation/target/*.war
+          if-no-files-found: error
+          retention-days: 30
+
+      # Notify Discord on every failure, and on successful main / tag pushes.
+      # Feature-branch greens stay silent to avoid spam. Requires the
+      # DISCORD_WEBHOOK repo secret (Server Settings → Integrations → Webhooks).
+      - name: Notify Discord
+        if: always() && (failure() || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "CI · sstation · WAR build"
+          description: |
+            **Branch:** `${{ github.ref_name }}`
+            **Commit:** ${{ github.event.head_commit.message }}
+            **Author:** ${{ github.actor }}
+          nofail: true
