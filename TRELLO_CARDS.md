@@ -372,8 +372,7 @@ Not on the critical path to hand-off. Park these.
 - **Estimate:** L.
 
 ### TC-040 🧹 Port to Grails 5/6 or Spring Boot
-- **Why:** Grails 2.4.4 is end-of-life. Spring Security plugin 2.0, GSP, the build system all changed significantly between 2.x and 3.x+. This is months of work but is the long-term answer.
-- **Estimate:** XL. Park unless AC IT signals they'd own ongoing maintenance.
+- **Status:** **Promoted to Lane 7** — broken into TC-100 through TC-112 below. Originally parked; now planned for Summer 2026 since we have the runway.
 
 ### TC-041 ✨ Two-factor auth for admins
 - **Why:** Approving service hours = a credentialing record. 2FA at least on admin accounts is worth it once we're on a maintained Spring Security version (TC-040 or a backport).
@@ -381,16 +380,197 @@ Not on the critical path to hand-off. Park these.
 
 ---
 
+## Lane 7 — Modernization / Rewrite (Summer 2026)
+
+We have ~12 weeks of runway before handing the project to AC IT. That's enough for a full rewrite to a modern, maintainable stack — provided we scope tight, keep the Grails app shippable as a fallback throughout, and don't redesign the UX.
+
+**Working assumption — recommended target stack:**
+- **Java 21 LTS** + **Spring Boot 3.x** + **Spring Security 6** + **Spring Data JPA** + **Hibernate 6**
+- **Thymeleaf** server-rendered templates (1:1 conceptual port from GSP, low-risk; no SPA)
+- **PostgreSQL** (matches TC-029)
+- **Gradle 8** build, single executable JAR + Dockerfile
+- **JUnit 5 + Mockito + Testcontainers** (replaces Spock unit specs + Selenium IDE)
+- **Playwright** for E2E (matches TC-039)
+- **Flyway** for migrations (replaces Grails `database-migration` plugin)
+
+**Why Spring Boot + Thymeleaf and not [other]:**
+- Java is the most universally-supported enterprise language; AC IT almost certainly has Java ops experience.
+- Spring Boot is the de-facto enterprise Java standard; documentation and hires are abundant.
+- Thymeleaf is server-rendered like GSP — porting is mechanical, not a redesign.
+- Single executable JAR / Docker image is easier for AC IT to deploy than a WAR-into-Tomcat dance.
+- We avoid frontend complexity (no SPA, no Node/npm in the deploy story).
+- Spring Boot 3 + Java 21 has at least 5 years of LTS runway.
+
+**Alternative considered:** Grails 6 (incremental 2.4 → 3 → 4 → 5 → 6 climb). Rejected because (a) each step requires hand-tuning and the cumulative effort is similar to a Spring Boot rewrite, (b) Grails has lost mindshare — harder for AC IT to hire/maintain long-term, (c) Groovy adds a language AC IT may not want.
+
+🏫 **Confirm target stack with AC IT before TC-100 lands.** If they have a different house standard (e.g. .NET, Django), revise this lane accordingly — the *sequence* of work below still applies, only the destination changes.
+
+---
+
+### TC-100 📝 🏫 Lock target stack with AC IT
+- **Why:** Everything else in this lane depends on the answer. Don't write a single line of Spring Boot code before this is confirmed.
+- **Acceptance criteria:**
+  - One-page memo emailed to AC IT contact: recommended stack (Spring Boot 3 / Java 21 / Postgres / Thymeleaf), why, what we're trading off, ask for written confirmation or a counter-proposal.
+  - AC IT's preferred deploy target documented (Tomcat? bare JAR? Docker? Kubernetes? OS preference?).
+  - Their existing Java version on the prod box, if any.
+  - Decision recorded in this file as an update to the "Working assumption" block above.
+- **Estimate:** S (the writing) + however long AC IT takes to respond.
+- **Blocks:** Everything else in Lane 7.
+
+### TC-101 ☁️ Scaffold new repo structure
+- **Why:** Decide where the rewrite lives. Two options: (a) new top-level dir `sstation-next/` in the same repo, parallel to `sstation/`; (b) brand-new repo. Option (a) keeps git history and commit references intact; option (b) is cleaner for handoff. I lean (a) for the rewrite phase, then move it to its own repo for the handoff.
+- **Acceptance criteria:**
+  - `sstation-next/` directory with a Spring Initializr-generated baseline: Spring Boot 3.3+, Java 21, Gradle (Kotlin DSL), dependencies: web, security, data-jpa, validation, thymeleaf, postgresql, flyway, actuator.
+  - `./gradlew bootRun` produces a "Hello World" page on port 8080.
+  - Lint / formatter set up (Spotless + Google Java Format, or equivalent).
+  - `README-NEXT.md` in the new dir with a "this is the rewrite-in-progress" disclaimer.
+- **Estimate:** S.
+
+### TC-102 ☁️ Parallel CI for the new module
+- **Why:** Lane 5's CI workflow is Grails-specific. The new module needs its own workflow that doesn't fight with the old one.
+- **Acceptance criteria:**
+  - `.github/workflows/ci-next.yml` runs `./gradlew check` on JDK 21.
+  - Triggers on changes to `sstation-next/**` only (path filter).
+  - The existing Grails workflow keeps working unchanged on `sstation/**` paths.
+  - Both badges in the README.
+- **Estimate:** S.
+
+### TC-103 🧹 Port the domain model to JPA entities
+- **Why:** The domain model is the spine of the app. Get this right first — everything else (services, controllers, views) depends on the entity shapes.
+- **Acceptance criteria:**
+  - JPA `@Entity` classes for: `User`, `Role`, `UserRole`, `Student` (renamed from `AcStudent`), `ServiceHour`, `Event`, `CampusOrg`, `CommunityAgency` (renamed from `CommAg`), `Contact`.
+  - Enums `Status` and `Classification` ported (kept as Java enums, mapped via `@Enumerated(EnumType.STRING)`).
+  - **Crucially:** real `@ManyToOne` FK from `User` to `Student` — fixes the email-string hack from [TC-009](#tc-009-).
+  - **Crucially:** `commAg`, `event`, `campusOrg` on `ServiceHour` are `@ManyToOne(optional = false)` unless we deliberately want them nullable (decide per field — confirm with the requirements).
+  - Flyway migration `V1__initial_schema.sql` matches the entity shapes.
+  - JUnit 5 tests cover entity validation + relationships.
+- **Files:** new `sstation-next/src/main/java/edu/austincollege/sstation/domain/*.java`, `src/main/resources/db/migration/V1__*.sql`.
+- **Estimate:** M.
+
+### TC-104 🔒 Port authentication & authorization
+- **Why:** Spring Security 6 is the modern equivalent of the EOL plugin we're using. Done right, it also gets us CSRF + bcrypt + proper session management for free.
+- **Acceptance criteria:**
+  - Form login + logout against the `User` / `Role` tables.
+  - BCrypt password encoding (no plaintext fallback — fixes TC-008 at the source).
+  - Role-based authorization annotations on every controller method (`@PreAuthorize("hasRole('ADMIN')")` etc.) — closes the audit gap from [TC-019](#tc-019-).
+  - CSRF protection enabled (fixes TC-018 at the source).
+  - Three seeded users in dev profile only (matches the current `admin` / `student` / `moderator`), credentials from env vars (fixes TC-017 at the source).
+  - 🏫 Optional: pluggable SAML/OIDC if AC IT runs an IdP — leave a config seam, document it.
+- **Estimate:** M.
+
+### TC-105 ✨ Port read-only views first (dashboards, lists, reports)
+- **Why:** Read views are the lowest-risk port and exercise most of the data model. Get these working before touching write paths.
+- **Acceptance criteria:**
+  - Admin dashboard with the same KPIs and charts as the Grails app (same Highcharts data shapes — keeps the JS frontend nearly identical).
+  - Student dashboard.
+  - All six reports: summary, semester, year, event, community-org, campus-org.
+  - Per-student report.
+  - **All "current year" / "current semester" logic uses `LocalDate.now()`** — no hardcoded years (fixes TC-001 + TC-002 at the source, permanently).
+  - **All loops over top-N are bounds-safe** (fixes TC-003 at the source).
+  - **All FK accesses are null-safe** (fixes TC-006 at the source).
+- **Estimate:** L (the reports alone are ~3 days; six of them).
+
+### TC-106 ✨ Port CRUD: students, hours, events, orgs, agencies
+- **Why:** The write-path features. Largest single chunk of porting work.
+- **Acceptance criteria:**
+  - CRUD pages for each of the five entity types, with the same fields as the Grails forms.
+  - Server-side validation via Jakarta Bean Validation annotations.
+  - "Quick approve / reject" AJAX endpoint preserved (now a proper REST endpoint with CSRF token).
+  - Moderator promote/demote flow preserved.
+  - Audit trail (matches [TC-027](#tc-027-)) — write entries on every status change.
+- **Estimate:** L.
+
+### TC-107 ✨ Port + modernize the frontend layer
+- **Why:** Thymeleaf templates instead of GSP. Same page structure, modern asset versions, vendored not CDN.
+- **Acceptance criteria:**
+  - Thymeleaf templates mirror the existing GSP layout (`main.gsp` → `fragments/layout.html`, etc.).
+  - **Vendored assets:** Bootstrap 5.3, jQuery 3.7, DataTables 2.x, Highcharts (with a license note — Highcharts is non-free for commercial use; confirm AC IT's situation 🏫), no CDN dependencies (closes TC-038 at the source).
+  - The dashboard charts render with the same data shapes as before (we change *backends*, not chart configs).
+  - Mobile-friendly (Bootstrap 5 gives us this almost for free).
+- **Estimate:** M.
+
+### TC-108 ✨ Port + implement the Lane 4 features in the new stack
+- **Why:** Several Lane 4 cards (email notifications, CSV export, PDF export, bulk approve, date-range filter, signup flow, audit log, password reset) are easier to implement in Spring Boot than to port from Grails 2.4 and then re-port. If we're rewriting anyway, build these in the new stack from the start.
+- **Acceptance criteria:**
+  - Email via Spring Mail (TC-021 equivalent) — env-driven SMTP.
+  - CSV export via OpenCSV or Spring's `HttpMessageConverter` (TC-023).
+  - PDF export via OpenPDF or Flying Saucer (TC-024).
+  - Bulk approve/reject (TC-022).
+  - Date-range filter (TC-025).
+  - Event sign-up (TC-026).
+  - Audit log (TC-027) — built into TC-106 from day one.
+  - Password reset (TC-028).
+- **Estimate:** L. Roughly halves the Lane 4 work since we're not doing it twice.
+
+### TC-109 ☁️ Migrate the AWS demo to the new stack
+- **Why:** Beanstalk Tomcat 8 (TC-032) is end-of-life-on-borrowed-time. Spring Boot 3 fat JAR runs natively on AWS App Runner, ECS Fargate, or even Lambda — all modern, all supported.
+- **Acceptance criteria:**
+  - Dockerfile based on `eclipse-temurin:21-jre-alpine`, multi-stage build.
+  - AWS App Runner service deployed from the image. RDS Postgres `db.t4g.micro` retained.
+  - HTTPS via App Runner's built-in cert.
+  - DNS: same `sstation-demo.<our-domain>` as the original demo (🏫 — AC will substitute their own).
+  - Cost target: still **< $25/mo**.
+  - Old Beanstalk environment torn down once new demo is verified.
+- **Estimate:** M.
+
+### TC-110 📝 Update DEPLOY.md to target the new stack
+- **Why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needs a full rewrite of its own.
+- **Acceptance criteria:**
+  - Prerequisites: JDK 21 (or just "the Dockerfile, if you do Docker"), PostgreSQL 13+, SMTP relay.
+  - Build: `./gradlew bootJar` or pull pre-built image from GHCR.
+  - Same env var names as the Grails version where possible (`SSTATION_DB_URL`, `SSTATION_MAIL_HOST`, etc.) so AC IT's secrets manager doesn't need rework.
+  - Migration story: Flyway auto-runs on boot.
+  - 🏫 same placeholder set as TC-035.
+  - Old `DEPLOY.md` retained as `DEPLOY-legacy.md` for one release, then removed.
+- **Estimate:** M.
+
+### TC-111 🧹 Parity test the new app against the old
+- **Why:** Before we declare the rewrite "done," prove that user-visible behavior matches. Don't rely on humans clicking through.
+- **Acceptance criteria:**
+  - Playwright suite (from [TC-039](#tc-039-)) is ported to point at the new app. Same expectations pass.
+  - Side-by-side test: spin up both apps against the same seed data, hit a representative set of pages, diff the rendered HTML for major structural drift. Differences are explained or fixed.
+  - At least one AC IT-side stakeholder clicks through and signs off.
+- **Estimate:** M.
+
+### TC-112 🧹 Decommission the Grails app
+- **Why:** Once TC-111 signs off, the old app is dead weight in the repo and a source of confusion.
+- **Acceptance criteria:**
+  - `sstation/` directory removed (history preserved in git).
+  - `sstation-next/` renamed to `sstation/` (or moved to a new clean repo for handoff — decide with AC IT).
+  - CI workflow for the Grails app deleted.
+  - README rewritten to describe only the new app.
+  - `CLAUDE.md` rewritten to describe the new stack (or replaced with a stub pointing at handoff docs).
+  - Old Selenium IDE folder removed.
+  - Final tag `v1.0.0-handoff` cut.
+- **Estimate:** S.
+
+---
+
 ## Suggested order of attack
 
-1. **Lane 1 entirely.** TC-001 → TC-008. Without these the app is broken for fresh data and unsafe for prod.
-2. **CI first** (TC-034). Don't write more code without a green check.
-3. **Lane 2 fixes** in any order, in PRs of 1–3 cards each.
-4. **Lane 3 security** before any public URL (TC-032 must wait for at least TC-007, TC-008, TC-017).
-5. **DEPLOY.md draft** (TC-035) — even half-finished, this is what we hand AC IT.
-6. **Postgres + WAR + Beanstalk** (TC-029, TC-031, TC-032) for the demo.
-7. **Features** (Lane 4) opportunistically. TC-021 (email) unlocks TC-028 (password reset).
-8. **Future lane** parked.
+With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks** after the critical fixes. Either we commit to the rewrite and most of Lane 4 collapses into TC-108, or we stay on Grails and grind out the existing backlog. **AC IT's answer to TC-100 decides which branch.**
+
+### Phase 0 — Stabilize (week 1, regardless of fork)
+1. **Lane 1 entirely.** TC-001 → TC-008. Without these the app is broken for fresh data and unsafe for prod. Even if we rewrite, we want a runnable reference implementation.
+2. **CI green** (TC-034 ✅ in progress). Don't write more code without a green check.
+3. **Ask AC IT** (TC-100). Send the target-stack memo *now* — their response gates Lane 7.
+
+### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
+4. **Lane 7 in sequence:** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 → TC-108 → TC-109 → TC-110 → TC-111 → TC-112.
+5. **Skip most of Lane 4** in the Grails app — those features get built directly in the new stack as TC-108.
+6. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-109 and TC-110 supersede them.
+7. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.
+
+### Phase 1B — If AC IT says "stay on Grails" (original plan)
+4. **Lane 2 fixes** in any order, in PRs of 1–3 cards each.
+5. **Lane 3 security** before any public URL (TC-032 must wait for at least TC-007, TC-008, TC-017).
+6. **DEPLOY.md draft** (TC-035) — even half-finished, this is what we hand AC IT.
+7. **Postgres + WAR + Beanstalk** (TC-029, TC-031, TC-032) for the demo.
+8. **Features** (Lane 4) opportunistically. TC-021 (email) unlocks TC-028 (password reset).
+9. **Lane 6** revisited as time permits (TC-038, TC-039).
+
+### Recommendation
+Default to **Phase 1A (rewrite)** unless AC IT specifically pushes back. The summer is exactly the right size for it, the resulting codebase is dramatically more maintainable, and most of the Lane 4 features are easier to build clean than to retrofit into 2014-era Grails.
 
 ## Notes for AC IT (collect placeholders here)
 
