@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch when a new push comes in.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRAILS_VERSION: "2.4.4"
+  JAVA_VERSION: "8"
+  # Grails 2.4.4 build memory; mirrors BuildConfig.groovy fork settings.
+  JAVA_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
+  GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # test: install JDK 8 + Grails 2.4.4 via SDKMAN, run the Spock unit suite.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Unit tests (JDK 8 + Grails 2.4.4)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: sstation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # SDKMAN is the only reliable way to install Grails 2.4.4 on a CI runner:
+      # the bundled grails-wrapper.properties URL (dist.springframework.org S3)
+      # is dead (see TRELLO_CARDS.md TC-036).
+      - name: Cache SDKMAN + Grails install
+        id: cache-sdkman
+        uses: actions/cache@v4
+        with:
+          path: ~/.sdkman
+          key: sdkman-grails-${{ env.GRAILS_VERSION }}-${{ runner.os }}
+
+      - name: Install SDKMAN and Grails ${{ env.GRAILS_VERSION }}
+        if: steps.cache-sdkman.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          sdk install grails ${GRAILS_VERSION} < /dev/null
+          sdk default grails ${GRAILS_VERSION}
+
+      - name: Expose Grails on PATH
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Grails version
+        run: grails -version
+
+      # Grails 2.4 resolves dependencies into ~/.grails (work dir + plugins)
+      # and ~/.m2 (Maven local — BuildConfig sets resolver = "maven").
+      # First-time resolve is slow (~5–10min); cache aggressively.
+      - name: Cache Grails + Maven dependency caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.grails
+            ~/.m2/repository
+            ~/.ivy2/cache
+          key: grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-${{ hashFiles('sstation/grails-app/conf/BuildConfig.groovy', 'sstation/application.properties') }}
+          restore-keys: |
+            grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
+
+      - name: Refresh dependencies
+        run: grails --non-interactive refresh-dependencies
+
+      - name: Run unit tests
+        run: grails --non-interactive test-app unit:
+
+      - name: Upload test reports (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            sstation/target/test-reports/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # package: build a deployable WAR on tag pushes. Depends on tests passing.
+  # Artifact lands on the workflow run; attaching to a GitHub Release is left
+  # for the next slice (see TRELLO_CARDS.md TC-031 acceptance criteria).
+  # ---------------------------------------------------------------------------
+  package:
+    name: Build WAR
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: sstation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore SDKMAN + Grails cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.sdkman
+          key: sdkman-grails-${{ env.GRAILS_VERSION }}-${{ runner.os }}
+
+      - name: Install SDKMAN + Grails if cache missed
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          if [ ! -d "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}" ]; then
+            curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
+            source "$HOME/.sdkman/bin/sdkman-init.sh"
+            sdk install grails ${GRAILS_VERSION} < /dev/null
+          fi
+          echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Restore dependency caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.grails
+            ~/.m2/repository
+            ~/.ivy2/cache
+          key: grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-${{ hashFiles('sstation/grails-app/conf/BuildConfig.groovy', 'sstation/application.properties') }}
+          restore-keys: |
+            grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
+
+      - name: Build WAR
+        run: grails --non-interactive prod war
+
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sstation-war-${{ github.ref_name }}
+          path: sstation/target/*.war
+          if-no-files-found: error
+          retention-days: 30
