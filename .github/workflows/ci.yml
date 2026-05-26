@@ -72,6 +72,18 @@ jobs:
         run: |
           echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
 
+      # Spring Loaded is auto-attached as a -javaagent to forked JVMs by the
+      # Grails launcher script, regardless of -noreloading (that flag only
+      # affects Grails' own reload watcher). The agent is abandoned, was
+      # never patched for JDK 8u60+, and crashes Method.copy() during Spock
+      # AST compilation. Removing the jar is the only reliable fix —
+      # Grails skips agent attach silently if the jar is missing.
+      - name: Remove Spring Loaded agent
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -fv "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/lib/springloaded-"*.jar || true
+          rm -fv sstation/wrapper/springloaded-*.jar || true
+
       - name: Verify Grails version
         run: grails -version
 
@@ -180,6 +192,13 @@ jobs:
             sdk install grails ${GRAILS_VERSION} < /dev/null
           fi
           echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
+
+      # See test job for explanation; same JDK 8u60+ incompatibility applies.
+      - name: Remove Spring Loaded agent
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -fv "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/lib/springloaded-"*.jar || true
+          rm -fv sstation/wrapper/springloaded-*.jar || true
 
       - name: Restore dependency caches
         uses: actions/cache@v4
