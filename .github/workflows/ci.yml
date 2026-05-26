@@ -1,5 +1,30 @@
 name: CI
 
+# ----------------------------------------------------------------------------
+# CI scope decision (2026-05-26): build only, no test execution.
+#
+# Why: the existing Spock unit suite cannot be run in modern GH Actions
+# runners. Grails 2.4.4 force-attaches Spring Loaded as a -javaagent to its
+# forked test JVMs, and Spring Loaded was abandoned in 2016 — it crashes
+# Method.copy() under JDK 8u60+ during Spock AST compilation. After multiple
+# iterations (see git log) we concluded that further patching is yak-shaving
+# on a codebase we're retiring.
+#
+# Lane 7 of TRELLO_CARDS.md (TC-100 → TC-112) is a full rewrite to Spring Boot
+# 3 + Java 21 over Summer 2026. The new module will have its own CI workflow
+# (TC-102) using a sane JUnit 5 / Gradle / modern JVM stack.
+#
+# Meanwhile this workflow does what's actually useful right now:
+#   1. Proves the Grails code still compiles (via the WAR build).
+#   2. Produces a deployable WAR artifact for manual smoke-testing.
+#   3. Notifies Discord on failure / main / tag pushes.
+#
+# Unit specs continue to live under sstation/test/unit/. They are runnable
+# locally via `grails test-app unit:` on a JDK 8 dev box. They are NOT a CI
+# gate. If a contributor breaks one, we'll catch it during the Lane 7
+# parity-test (TC-111) which ports the specs to JUnit 5.
+# ----------------------------------------------------------------------------
+
 on:
   push:
     branches: ["**"]
@@ -15,20 +40,14 @@ concurrency:
 env:
   GRAILS_VERSION: "2.4.4"
   JAVA_VERSION: "8"
-  # Grails 2.4.4 build memory; mirrors BuildConfig.groovy fork settings.
   JAVA_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
   GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m"
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # test: install JDK 8 + Grails 2.4.4 via SDKMAN, run the Spock unit suite.
-  # ---------------------------------------------------------------------------
-  test:
-    name: Unit tests (JDK 8 + Grails 2.4.4)
+  build:
+    name: Build WAR (JDK 8 + Grails 2.4.4)
     runs-on: ubuntu-22.04
-    # Cap the whole job so a hung Grails process can't burn 6h of CI minutes
-    # (the GH Actions default). Cold dependency resolve is ~10min; cached
-    # runs ~2–3min; 30min leaves a comfortable margin for both.
+    # Cap so we never burn the GH Actions 6h default on a hung Grails process.
     timeout-minutes: 30
     defaults:
       run:
@@ -45,9 +64,8 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      # SDKMAN is the only reliable way to install Grails 2.4.4 on a CI runner:
-      # the bundled grails-wrapper.properties URL (dist.springframework.org S3)
-      # is dead (see TRELLO_CARDS.md TC-036).
+      # SDKMAN is the only reliable Grails 2.4.4 install path on a CI runner:
+      # the bundled grails-wrapper.properties URL is dead (TRELLO_CARDS TC-036).
       - name: Cache SDKMAN + Grails install
         id: cache-sdkman
         uses: actions/cache@v4
@@ -59,8 +77,7 @@ jobs:
         if: steps.cache-sdkman.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}
         run: |
-          # SDKMAN's sdkman-init.sh references unset vars during init, so
-          # avoid `set -u`. Keep -e + pipefail so genuine failures still abort.
+          # sdkman-init.sh references unset vars during init — drop -u.
           set -eo pipefail
           curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
           source "$HOME/.sdkman/bin/sdkman-init.sh"
@@ -72,24 +89,17 @@ jobs:
         run: |
           echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
 
-      # Spring Loaded is auto-attached as a -javaagent to forked JVMs by the
-      # Grails launcher script, regardless of -noreloading (that flag only
-      # affects Grails' own reload watcher). The agent is abandoned, was
-      # never patched for JDK 8u60+, and crashes Method.copy() during Spock
-      # AST compilation. Removing the jar is the only reliable fix —
-      # Grails skips agent attach silently if the jar is missing.
-      - name: Remove Spring Loaded agent
+      # Belt-and-suspenders: kill Spring Loaded even though `grails war`
+      # shouldn't trigger Spock AST compilation. Cheap insurance.
+      - name: Remove Spring Loaded agent (defensive)
         working-directory: ${{ github.workspace }}
         run: |
-          rm -fv "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/lib/springloaded-"*.jar || true
-          rm -fv sstation/wrapper/springloaded-*.jar || true
+          find "$HOME/.sdkman" "$HOME/.grails" sstation \
+            -name 'springloaded*.jar' -delete 2>/dev/null || true
 
       - name: Verify Grails version
         run: grails -version
 
-      # Grails 2.4 resolves dependencies into ~/.grails (work dir + plugins)
-      # and ~/.m2 (Maven local — BuildConfig sets resolver = "maven").
-      # First-time resolve is slow (~5–10min); cache aggressively.
       - name: Cache Grails + Maven dependency caches
         uses: actions/cache@v4
         with:
@@ -101,115 +111,9 @@ jobs:
           restore-keys: |
             grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
 
-      # Cold resolve of Grails 2.4's transitive plugin tree is the slowest
-      # thing in this workflow (~5–10min). Step timeout fails fast if a
-      # repo is unreachable; --stacktrace gives us a line to diagnose with.
       - name: Refresh dependencies
         timeout-minutes: 15
         run: grails --non-interactive -noreloading --stacktrace refresh-dependencies
-
-      # `-noreloading` disables Spring Loaded (the hot-reload agent bundled
-      # at sstation/wrapper/springloaded-1.2.1.RELEASE.jar). Spring Loaded
-      # was abandoned in 2016 and is incompatible with JDK 8u60+ — it throws
-      # `Can not copy a non-root Method` from java.lang.reflect.Method.copy
-      # during Spock AST compilation. We never need hot reload in CI anyway.
-      #
-      # Forked-test daemon (BuildConfig sets daemon:true) is also disabled —
-      # the daemon JVM occasionally hangs on exit in headless CI. Forking
-      # the JVM per run is slower but deterministic.
-      - name: Run unit tests
-        timeout-minutes: 15
-        env:
-          GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m -Dgrails.project.fork.test.daemon=false"
-        run: "grails --non-interactive -noreloading --stacktrace test-app unit:"
-
-      - name: Upload test reports (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: |
-            sstation/target/test-reports/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      # Notify Discord on every failure, and on successful main-branch / tag
-      # pushes. Feature-branch greens are silent to avoid spam. Requires the
-      # DISCORD_WEBHOOK repo secret (Server Settings → Integrations → Webhooks).
-      - name: Notify Discord
-        if: always() && (failure() || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        uses: sarisia/actions-status-discord@v1
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: ${{ job.status }}
-          title: "CI · sstation · unit tests"
-          description: |
-            **Branch:** `${{ github.ref_name }}`
-            **Commit:** ${{ github.event.head_commit.message }}
-            **Author:** ${{ github.actor }}
-          nofail: true
-
-  # ---------------------------------------------------------------------------
-  # package: build a deployable WAR on tag pushes. Depends on tests passing.
-  # Artifact lands on the workflow run; attaching to a GitHub Release is left
-  # for the next slice (see TRELLO_CARDS.md TC-031 acceptance criteria).
-  # ---------------------------------------------------------------------------
-  package:
-    name: Build WAR
-    needs: test
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-        working-directory: sstation
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 8 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Restore SDKMAN + Grails cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.sdkman
-          key: sdkman-grails-${{ env.GRAILS_VERSION }}-${{ runner.os }}
-
-      - name: Install SDKMAN + Grails if cache missed
-        working-directory: ${{ github.workspace }}
-        run: |
-          # sdkman-init.sh references unset vars during init — drop -u.
-          set -eo pipefail
-          if [ ! -d "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}" ]; then
-            curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
-            source "$HOME/.sdkman/bin/sdkman-init.sh"
-            sdk install grails ${GRAILS_VERSION} < /dev/null
-          fi
-          echo "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/bin" >> "$GITHUB_PATH"
-
-      # See test job for explanation; same JDK 8u60+ incompatibility applies.
-      - name: Remove Spring Loaded agent
-        working-directory: ${{ github.workspace }}
-        run: |
-          rm -fv "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}/lib/springloaded-"*.jar || true
-          rm -fv sstation/wrapper/springloaded-*.jar || true
-
-      - name: Restore dependency caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.grails
-            ~/.m2/repository
-            ~/.ivy2/cache
-          key: grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-${{ hashFiles('sstation/grails-app/conf/BuildConfig.groovy', 'sstation/application.properties') }}
-          restore-keys: |
-            grails-deps-${{ runner.os }}-${{ env.GRAILS_VERSION }}-
 
       - name: Build WAR
         timeout-minutes: 20
@@ -218,20 +122,23 @@ jobs:
       - name: Upload WAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sstation-war-${{ github.ref_name }}
+          name: sstation-war-${{ github.ref_name }}-${{ github.sha }}
           path: sstation/target/*.war
           if-no-files-found: error
           retention-days: 30
 
-      # WAR builds are tag-driven and rare — notify on every outcome.
+      # Notify Discord on every failure, and on successful main / tag pushes.
+      # Feature-branch greens stay silent to avoid spam. Requires the
+      # DISCORD_WEBHOOK repo secret (Server Settings → Integrations → Webhooks).
       - name: Notify Discord
-        if: always()
+        if: always() && (failure() || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ job.status }}
           title: "CI · sstation · WAR build"
           description: |
-            **Tag:** `${{ github.ref_name }}`
-            Artifact attached to the workflow run.
+            **Branch:** `${{ github.ref_name }}`
+            **Commit:** ${{ github.event.head_commit.message }}
+            **Author:** ${{ github.actor }}
           nofail: true

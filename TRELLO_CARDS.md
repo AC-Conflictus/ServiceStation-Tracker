@@ -307,18 +307,25 @@ This is the "leave it bow-tied for IT" track. Goal: anyone at AC IT with a Linux
   - Documented in a new `DEPLOY.md`.
 - **Estimate:** M.
 
-### TC-034 ☁️ GitHub Actions CI — build + test + war
-- **Why:** No CI today. This is the *next* slice we're picking up after this card list.
-- **Acceptance criteria:**
-  - Workflow on push and PR.
-  - Pins JDK 8 (Temurin).
-  - Installs Grails 2.4.4 via SDKMAN (or downloads the zip directly from a mirror we control — the Spring S3 wrapper URL is dead).
-  - Runs `grails test-app`.
-  - On tag push, runs `grails war` and uploads the WAR as a release asset.
-  - Status badge in the README.
-- **Files:** new `.github/workflows/ci.yml`, README badge.
-- **Estimate:** M.
-- **Note:** This is the *next* slice — defer the actual cards-to-PRs work above until CI is green.
+### TC-034 ☁️ GitHub Actions CI — build-only WAR pipeline
+- **Status:** ✅ **Landed 2026-05-26 in a reduced form** (see "Scope reduction" below).
+- **Why:** No CI today.
+- **Acceptance criteria (as shipped):**
+  - Workflow on push and PR. ✅
+  - Pins JDK 8 (Temurin). ✅
+  - Installs Grails 2.4.4 via SDKMAN — the bundled wrapper URL is dead. ✅
+  - Builds the WAR (`grails prod war`) on **every push** (not just tags) — proves the code compiles. ✅
+  - Uploads the WAR as a workflow artifact, keyed by `${branch}-${sha}`. ✅
+  - Discord notifications on failure / main / tag pushes. ✅
+  - Status badge in the README. ✅
+- **Scope reduction — no test execution in CI:**
+  - Grails 2.4.4 hardcodes a `-javaagent` attachment of the abandoned Spring Loaded library to its forked test JVMs.
+  - Spring Loaded is incompatible with JDK 8u60+ — it crashes `Method.copy()` during Spock AST compilation. The crash is logged as SEVERE but not fatal, so the build slogs along producing thousands of error lines until it hits the 30min job timeout.
+  - After multiple attempts (`-noreloading` flag, removing the JAR from `$GRAILS_HOME/lib`, removing from `sstation/wrapper/`), the agent kept reappearing from locations we hadn't grepped. We stopped chasing it.
+  - **Decision:** ship CI without tests rather than burn more time on a stack we're rewriting in Lane 7. Unit specs continue to live under `sstation/test/unit/` and can be run locally on a JDK 8 dev machine via `grails test-app unit:`.
+  - **Lane 7 takeover:** TC-102 sets up CI for the new Spring Boot module on JDK 21 / Gradle / JUnit 5 — none of these stack landmines apply. TC-111 ports the Spock specs to JUnit 5 as the parity gate before TC-112 deletes the Grails app.
+- **Files:** [.github/workflows/ci.yml](.github/workflows/ci.yml), README badge.
+- **Estimate:** M. **Actual:** M+ (we spent the back half of the estimate fighting Spring Loaded before pivoting).
 
 ### TC-035 📝 🏫 Austin College IT handoff runbook (`DEPLOY.md`)
 - **Why:** The whole point of the project: ship something AC IT can stand up. We can't deploy to their network — we *can* hand them a checklist.
