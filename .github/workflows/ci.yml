@@ -55,7 +55,9 @@ jobs:
         if: steps.cache-sdkman.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}
         run: |
-          set -euo pipefail
+          # SDKMAN's sdkman-init.sh references unset vars during init, so
+          # avoid `set -u`. Keep -e + pipefail so genuine failures still abort.
+          set -eo pipefail
           curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
           source "$HOME/.sdkman/bin/sdkman-init.sh"
           sdk install grails ${GRAILS_VERSION} < /dev/null
@@ -99,6 +101,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      # Notify Discord on every failure, and on successful main-branch / tag
+      # pushes. Feature-branch greens are silent to avoid spam. Requires the
+      # DISCORD_WEBHOOK repo secret (Server Settings → Integrations → Webhooks).
+      - name: Notify Discord
+        if: always() && (failure() || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "CI · sstation · unit tests"
+          description: |
+            **Branch:** `${{ github.ref_name }}`
+            **Commit:** ${{ github.event.head_commit.message }}
+            **Author:** ${{ github.actor }}
+          nofail: true
+
   # ---------------------------------------------------------------------------
   # package: build a deployable WAR on tag pushes. Depends on tests passing.
   # Artifact lands on the workflow run; attaching to a GitHub Release is left
@@ -133,7 +151,8 @@ jobs:
       - name: Install SDKMAN + Grails if cache missed
         working-directory: ${{ github.workspace }}
         run: |
-          set -euo pipefail
+          # sdkman-init.sh references unset vars during init — drop -u.
+          set -eo pipefail
           if [ ! -d "$HOME/.sdkman/candidates/grails/${GRAILS_VERSION}" ]; then
             curl -sSL "https://get.sdkman.io?rcupdate=false" | bash
             source "$HOME/.sdkman/bin/sdkman-init.sh"
@@ -162,3 +181,16 @@ jobs:
           path: sstation/target/*.war
           if-no-files-found: error
           retention-days: 30
+
+      # WAR builds are tag-driven and rare — notify on every outcome.
+      - name: Notify Discord
+        if: always()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: "CI · sstation · WAR build"
+          description: |
+            **Tag:** `${{ github.ref_name }}`
+            Artifact attached to the workflow run.
+          nofail: true
