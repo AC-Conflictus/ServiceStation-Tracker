@@ -94,17 +94,22 @@ jobs:
       # repo is unreachable; --stacktrace gives us a line to diagnose with.
       - name: Refresh dependencies
         timeout-minutes: 15
-        run: grails --non-interactive --stacktrace refresh-dependencies
+        run: grails --non-interactive -noreloading --stacktrace refresh-dependencies
 
-      # Disable the Grails forked-test daemon (BuildConfig sets daemon:true).
-      # The daemon JVM is known to occasionally hang on exit in headless CI,
-      # which is the most likely cause of the prior 6h timeout. Forking the
-      # JVM per run is slower but deterministic.
+      # `-noreloading` disables Spring Loaded (the hot-reload agent bundled
+      # at sstation/wrapper/springloaded-1.2.1.RELEASE.jar). Spring Loaded
+      # was abandoned in 2016 and is incompatible with JDK 8u60+ — it throws
+      # `Can not copy a non-root Method` from java.lang.reflect.Method.copy
+      # during Spock AST compilation. We never need hot reload in CI anyway.
+      #
+      # Forked-test daemon (BuildConfig sets daemon:true) is also disabled —
+      # the daemon JVM occasionally hangs on exit in headless CI. Forking
+      # the JVM per run is slower but deterministic.
       - name: Run unit tests
         timeout-minutes: 15
         env:
           GRAILS_OPTS: "-Xmx1g -XX:MaxPermSize=256m -Dgrails.project.fork.test.daemon=false"
-        run: "grails --non-interactive --stacktrace test-app unit:"
+        run: "grails --non-interactive -noreloading --stacktrace test-app unit:"
 
       - name: Upload test reports (always)
         if: always()
@@ -189,7 +194,7 @@ jobs:
 
       - name: Build WAR
         timeout-minutes: 20
-        run: grails --non-interactive --stacktrace prod war
+        run: grails --non-interactive -noreloading --stacktrace prod war
 
       - name: Upload WAR artifact
         uses: actions/upload-artifact@v4
