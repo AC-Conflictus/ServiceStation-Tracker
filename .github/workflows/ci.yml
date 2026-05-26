@@ -87,7 +87,7 @@ jobs:
         run: grails --non-interactive refresh-dependencies
 
       - name: Run unit tests
-        run: grails --non-interactive test-app unit:
+        run: "grails --non-interactive test-app unit:"
 
       - name: Upload test reports (always)
         if: always()
