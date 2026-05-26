@@ -1,0 +1,405 @@
+# Trello Cards — Service Station Web App
+
+A prioritized backlog of cards to copy/paste into Trello. The goal: get the project as close to "ready to hand off to Austin College IT" as possible, leaving clearly marked placeholders for things only AC IT can supply (SMTP creds, prod DB, domain name, SSL cert, server hardening). A secondary deliverable is a public AWS demo deployment so reviewers can click through the app without a local Grails 2.4.4 install.
+
+Cards are grouped by lane and ordered by priority within each lane. Each card has: **Title**, **Why**, **Acceptance criteria**, **Notes / files to touch**, **Estimate** (S = <½ day, M = ½–2 days, L = 2–5 days, XL = >5 days).
+
+Legend:
+- ⛔ **Blocker** — breaks the app on a fresh run or fresh data.
+- ⚠️ **Bug** — wrong behavior, but app still runs.
+- 🔒 **Security**
+- 🧹 **Quality / tech debt**
+- ✨ **Feature**
+- ☁️ **Infra / DevOps**
+- 📝 **Docs**
+- 🏫 **AC IT placeholder** — needs Austin College IT to fill in a value/credential before going to prod.
+
+---
+
+## Lane 1 — Critical fixes (do these first)
+
+These cards make the app *actually work* on a fresh checkout against fresh data. Until they're done, the dashboard is misleading and the student login is broken.
+
+### TC-001 ⛔ Replace hardcoded `currentYear = 2015` in HourService
+- **Why:** [HourService.groovy:27](sstation/grails-app/services/sstation/HourService.groovy#L27) hardcodes the year. Every "this year" KPI on the admin dashboard (totals, by-classification chart, by-status chart) silently filters to 2015, so on a 2026 run the dashboard shows zero hours.
+- **Acceptance criteria:**
+  - `HourService.init()` derives `currentYear` from `Calendar.getInstance().get(Calendar.YEAR)`.
+  - Admin dashboard shows non-zero "current year" numbers against the BootStrap seed data (seed dates may also need adjusting — see TC-004).
+  - Existing `HourServiceSpec` (if any) still passes; add one if missing.
+- **Files:** [HourService.groovy](sstation/grails-app/services/sstation/HourService.groovy).
+- **Estimate:** S.
+
+### TC-002 ⛔ Replace hardcoded `year = 2016` in ReportsController.summaryReport
+- **Why:** [ReportsController.groovy:50](sstation/grails-app/controllers/sstation/ReportsController.groovy#L50) hardcodes `year = 2016`. The summary report is permanently stuck on 2016.
+- **Acceptance criteria:**
+  - `summaryReport` defaults to the current year and accepts an optional `year` param to view past years.
+  - Summary page renders non-zero totals against seed data.
+- **Files:** [ReportsController.groovy](sstation/grails-app/controllers/sstation/ReportsController.groovy), [summaryReport.gsp](sstation/grails-app/views/reports/summaryReport.gsp) (add a year selector).
+- **Estimate:** S.
+
+### TC-003 ⛔ Fix `IndexOutOfBoundsException` risk in summaryReport / semesterReport
+- **Why:** Both methods loop `for (int i = 0; i < constant; i++)` where `constant = 5` and call `allAgs.get(i)`, `allOrgs.get(i)`, `allEvs.get(i)`. If any of those lists has fewer than 5 entries (very likely with real-world data, possible even with seed data), the report 500s.
+- **Acceptance criteria:**
+  - Replace `constant = 5` with `Math.min(5, allAgs.size())`, similarly for orgs/events.
+  - Manual test: delete entries until each list has 2 items, hit summary and semester reports — no 500.
+- **Files:** [ReportsController.groovy:48-93](sstation/grails-app/controllers/sstation/ReportsController.groovy#L48-L93), [ReportsController.groovy:95-163](sstation/grails-app/controllers/sstation/ReportsController.groovy#L95-L163).
+- **Estimate:** S.
+
+### TC-004 ⛔ Seed data uses Java legacy Date constructor — dates land in years 2011–2015
+- **Why:** [BootStrap.groovy:158](sstation/grails-app/conf/BootStrap.groovy#L158) does `def year = 111 + random.nextInt(5)` then `new Date(year, month, date, ...)`. `new Date(int year, ...)` uses `year + 1900`, so seed `starttime` values fall in 2011–2015. Combined with TC-001/TC-002, this is why nothing shows up on the current-year dashboard.
+- **Acceptance criteria:**
+  - Seed service hours have `starttime` distributed across the last 5 calendar years ending today.
+  - Use `Calendar.getInstance()` + `add(Calendar.DAY_OF_YEAR, -random.nextInt(5*365))` instead of `new Date(year,...)`.
+- **Files:** [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy).
+- **Estimate:** S.
+
+### TC-005 ⛔ Seed an `AcStudent` for the `student` test login
+- **Why:** [HomeController.groovy:41](sstation/grails-app/controllers/sstation/HomeController.groovy#L41) looks up the student by `AcStudent.findByAcEmail(username + "@austincollege.edu")`. The `student` user is seeded but no matching `AcStudent` is. Result: logging in as `student` lands on a broken redirect.
+- **Acceptance criteria:**
+  - BootStrap creates one deterministic `AcStudent` with `acEmail = "student@austincollege.edu"` (plus a known acid / firstname / lastname / classification) and attaches a handful of `ServiceHour` records spanning several statuses.
+  - `student` / `student_secret` login lands on a populated student dashboard.
+- **Files:** [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy).
+- **Estimate:** S.
+- **Depends on:** TC-004 (otherwise the student's hours will still all be in the past).
+
+### TC-006 ⚠️ Null-safe access in ReportsController.semesterReport
+- **Why:** `semesterReport` dereferences `s.commAg.name`, `s.event.name`, `s.campusOrg.name` ([ReportsController.groovy:144-153](sstation/grails-app/controllers/sstation/ReportsController.groovy#L144-L153)), but all three are declared `nullable:true` in [ServiceHour.groovy:25-37](sstation/grails-app/domain/sstation/ServiceHour.groovy#L25-L37). A single hour record without one of these will NPE the whole report.
+- **Acceptance criteria:**
+  - All three uses guard with `?.`.
+  - Add a unit test that inserts a `ServiceHour` with null `commAg` and asserts the report still renders.
+- **Files:** [ReportsController.groovy](sstation/grails-app/controllers/sstation/ReportsController.groovy), [ReportsControllerSpec.groovy](sstation/test/unit/sstation/ReportsControllerSpec.groovy).
+- **Estimate:** S.
+
+### TC-007 ⛔ Gate `BootStrap.init` to non-production environments
+- **Why:** `BootStrap.init` runs in every environment, including production. On every prod boot it tries to recreate the three test users and ~100 random students with the same passwords (`admin_secret`, etc.). At best the asserts fail and the app refuses to start; at worst (production with `dbCreate = "update"`) the seeded test users are recreated alongside real ones, creating a permanent admin backdoor.
+- **Acceptance criteria:**
+  - Wrap the random data seeding in `if (Environment.current != Environment.PRODUCTION)`.
+  - In production, only ensure the three `AcRole` rows exist (ROLE_ADMIN, ROLE_STUDENT, ROLE_MODERATOR). No `AcUser`, no test data.
+  - Remove the `assert AcUser.count() == 3` lines or move them inside the dev branch.
+- **Files:** [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy).
+- **Estimate:** S.
+- **Dependency for prod cutover:** must land before any AWS / AC IT deploy.
+
+### TC-008 🔒 Remove plaintext password fallback in AcUser.encodePassword
+- **Why:** [AcUser.groovy:52](sstation/grails-app/domain/sstation/AcUser.groovy#L52) reads `springSecurityService?.passwordEncoder ? springSecurityService.encodePassword(password) : password`. The trailing `: password` means if `springSecurityService` is null (or the encoder bean isn't wired yet, e.g. early in BootStrap), passwords get stored as plaintext. This is exactly when you'd notice it least — early boot — and once stored plaintext, the bcrypt check on login silently fails.
+- **Acceptance criteria:**
+  - If `springSecurityService` is null, throw `IllegalStateException("springSecurityService not wired — cannot save AcUser")` instead of falling back.
+  - Verify all three seeded users still log in after the change.
+- **Files:** [AcUser.groovy](sstation/grails-app/domain/sstation/AcUser.groovy).
+- **Estimate:** S.
+
+---
+
+## Lane 2 — Bug fixes and small quality wins
+
+### TC-009 ⚠️ Add `AcStudent` FK on `AcUser` and remove email-string hack
+- **Why:** The coupling between login identity and student record is currently a string match: `username + "@austincollege.edu"`. The TODO comment in [HomeController.groovy:39-41](sstation/grails-app/controllers/sstation/HomeController.groovy#L39-L41) explicitly calls this out. Any student whose AC email doesn't follow the pattern, or who has a typo'd email in the DB, can't see their dashboard.
+- **Acceptance criteria:**
+  - Add a nullable `AcStudent acStudent` field on `AcUser` (or vice-versa — pick one direction and document it).
+  - Backfill on BootStrap by linking the seed `student` user (TC-005) to the seed `AcStudent`.
+  - `HomeController.index` looks up student by FK, not email.
+  - Add a Grails migration script under `grails-app/migrations/` rather than relying on `dbCreate`.
+- **Files:** [AcUser.groovy](sstation/grails-app/domain/sstation/AcUser.groovy), [AcStudent.groovy](sstation/grails-app/domain/sstation/AcStudent.groovy), [HomeController.groovy](sstation/grails-app/controllers/sstation/HomeController.groovy), [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy).
+- **Estimate:** M.
+
+### TC-010 🧹 Convert ReportsController helpers to proper Grails services
+- **Why:** `CampusOrgReportService`, `CommAgReportService`, `EventReportService` are instantiated with `new` inside `summaryReport` / `semesterReport` and carry per-request mutable state. They're services in name only. This makes them hard to test and prevents Spring from managing transactions.
+- **Acceptance criteria:**
+  - Refactor each into a stateless service injected into `ReportsController`. The target entity and hour list become method parameters, not constructor args.
+  - All report pages still render identically.
+- **Files:** the three services under [grails-app/services/sstation/](sstation/grails-app/services/sstation/), [ReportsController.groovy](sstation/grails-app/controllers/sstation/ReportsController.groovy).
+- **Estimate:** M.
+
+### TC-011 ⚠️ Reports re-iterate `ServiceHour.list()` inside nested loops
+- **Why:** `commOrgReport` and `campusOrgReport` call `ServiceHour.list()` inside a `for(orgList)` loop. With N orgs and M hours that's N×M scans. Trivially fixable with one `groupBy` pass. Hits performance once data crosses a few hundred rows.
+- **Acceptance criteria:**
+  - Build a single `Map<String, Double>` of org-name → total hours, then look up per org.
+  - Same render output.
+- **Files:** [ReportsController.groovy:165-195](sstation/grails-app/controllers/sstation/ReportsController.groovy#L165-L195).
+- **Estimate:** S.
+
+### TC-012 🧹 Promote `Status` and `Classification` enums to Groovy and co-locate with domain
+- **Why:** They live under [src/java/sstation/](sstation/src/java/sstation/) as Java files. Grails 2.4 handles them fine, but moving to `grails-app/domain/sstation/` (or `src/groovy`) reduces the build's surface area and removes the awkward "Java sub-source-set" — useful when we eventually port off Grails 2.
+- **Acceptance criteria:** Enums moved, all references compile, `grails test-app` passes.
+- **Estimate:** S.
+
+### TC-013 ⚠️ `ServiceHour.status` constraint says `blank:false` on an enum
+- **Why:** [ServiceHour.groovy:33](sstation/grails-app/domain/sstation/ServiceHour.groovy#L33) declares `status(nullable:false,blank:false)`. `blank` is meaningful for strings, not for enum-typed fields — it's silently ignored by GORM. Either it's a no-op (cosmetic) or the original author intended a string field. Confirm intent, fix the constraint.
+- **Acceptance criteria:** Constraint cleaned up; nothing else changes.
+- **Estimate:** S.
+
+### TC-014 🧹 Remove duplicate `otherCommAg` declaration in ServiceHour constraints
+- **Why:** [ServiceHour.groovy:31-36](sstation/grails-app/domain/sstation/ServiceHour.groovy#L31-L36) declares `otherCommAg` twice in the constraints block. Likely a merge artifact. Harmless but smelly.
+- **Estimate:** S.
+
+### TC-015 🧹 Rename `selinium_tests/` → `selenium_tests/`
+- **Why:** Typo in directory name. Either fix the spelling, or — better — delete the directory and replace it with modern Selenium WebDriver / Playwright tests (see TC-024).
+- **Estimate:** S.
+
+### TC-016 🧹 Spring Security plugin is on a release candidate (2.0-RC5)
+- **Why:** [BuildConfig.groovy:65](sstation/grails-app/conf/BuildConfig.groovy#L65) pins `spring-security-core:2.0-RC5`. Upgrade to the final 2.0.0 (last release compatible with Grails 2.4.x) — RC5 has known bugs that were fixed in the final release.
+- **Acceptance criteria:** Plugin upgraded, all three logins still work, `grails test-app` passes.
+- **Estimate:** S.
+
+---
+
+## Lane 3 — Security hardening (before any public deploy)
+
+### TC-017 🔒 Move seed passwords out of source control
+- **Why:** `admin_secret` / `student_secret` / `moderator_secret` are committed in [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy). Fine for a dev seed, but the file currently runs in prod (see TC-007). Even after TC-007 lands, leaving the strings hardcoded means anyone who reads the repo knows the dev passwords — and dev DBs sometimes accidentally get exposed.
+- **Acceptance criteria:**
+  - Read dev seed passwords from environment variables with a default of `changeme-{role}` and a startup log line saying "using default dev credentials — set `SSTATION_DEV_ADMIN_PASSWORD` to override".
+  - Document in [CLAUDE.md](CLAUDE.md) and the AC IT runbook (TC-035).
+- **Estimate:** S.
+
+### TC-018 🔒 Enable CSRF protection on state-changing endpoints
+- **Why:** Spring Security Core plugin 2.0 doesn't enable CSRF by default. `ajaxUpdateStatus`, all CRUD save actions, and the moderator promote/demote endpoint are vulnerable.
+- **Acceptance criteria:**
+  - Add `<g:set var="org.codehaus.groovy.grails.SYNCHRONIZER_TOKEN_URI" .../>` (or the equivalent useToken: true on forms) for non-AJAX forms.
+  - For AJAX endpoints (`ajaxUpdateStatus`), require a CSRF header or move to a same-origin POST with a token rendered into the page.
+- **Estimate:** M.
+
+### TC-019 🔒 Audit `@Secured` annotations on every controller action
+- **Why:** Some actions inherit class-level `@Secured(['ROLE_ADMIN','ROLE_STUDENT','ROLE_MODERATOR'])`. `AcStudentController` notably mixes student-self-service actions and admin actions under one wide annotation. A student could potentially hit `delete` on another student's record if the action doesn't re-check ownership.
+- **Acceptance criteria:**
+  - Inventory every action across all controllers; document the *intended* role(s).
+  - Tighten `@Secured` per-action where the class-level annotation is too permissive.
+  - Add a `before` interceptor that asserts the current user matches the `AcStudent` they're editing.
+- **Files:** all controllers under [grails-app/controllers/sstation/](sstation/grails-app/controllers/sstation/).
+- **Estimate:** M.
+
+### TC-020 🔒 H2 version pinned at Grails 2.4.4 default has known CVEs
+- **Why:** Grails 2.4.4 ships H2 ~1.3.x which has the H2-2022-23221 RCE among others. Even in dev this is sketchy if the H2 web console is exposed. In prod (file-based H2) it's a hard no — see TC-029 for Postgres migration.
+- **Acceptance criteria:**
+  - Confirm H2 web console is disabled (`grails.dbconsole.enabled = false` in [Config.groovy](sstation/grails-app/conf/Config.groovy) for non-dev).
+  - Pin H2 to the latest 1.4.x patch the Grails 2.4.4 plugin set will tolerate, OR migrate to Postgres (TC-029).
+- **Estimate:** S (after Postgres migration this becomes a non-issue).
+
+---
+
+## Lane 4 — Features (paper-form-replacement parity)
+
+These bring the app to "we can actually replace the paper form" — the original project pitch.
+
+### TC-021 ✨ Email notifications on approve / reject
+- **Why:** The `mail` plugin is wired in [Config.groovy:62](sstation/grails-app/conf/Config.groovy#L62), but SMTP credentials are empty and no controller actually calls `mailService.sendMail`. The README explicitly promises this.
+- **Acceptance criteria:**
+  - `HomeController.ajaxUpdateStatus` (and the equivalent in `HourController`) sends an email to the affected `AcStudent.acEmail` on transitions to APPROVED or REJECTED.
+  - Email template is a GSP under `grails-app/views/email/`.
+  - SMTP host / port / username / password / from-address are read from environment variables with the placeholders 🏫 in TC-035.
+  - In dev (no creds set) the call is a no-op with a `log.info` line.
+- **Files:** [Config.groovy](sstation/grails-app/conf/Config.groovy), [HomeController.groovy](sstation/grails-app/controllers/sstation/HomeController.groovy), [HourController.groovy](sstation/grails-app/controllers/sstation/HourController.groovy), new `views/email/*.gsp`.
+- **Estimate:** M.
+
+### TC-022 ✨ Bulk approve / reject from the pending queue
+- **Why:** The pending queue today only supports one-at-a-time approval via the AJAX dialog. For an office processing 100+ paper forms a week, this is a non-starter.
+- **Acceptance criteria:**
+  - Checkbox column on the pending table.
+  - Toolbar "Approve selected" / "Reject selected" buttons that POST a list of IDs.
+  - Single audit log entry per batch (see TC-027).
+- **Files:** [hour/pending.gsp](sstation/grails-app/views/hour/pending.gsp), [HourController.groovy](sstation/grails-app/controllers/sstation/HourController.groovy).
+- **Estimate:** M.
+
+### TC-023 ✨ CSV export on every report page
+- **Why:** The `csv` plugin (`org.grails.plugins:csv:0.3.1`) is already in [BuildConfig.groovy:66](sstation/grails-app/conf/BuildConfig.groovy#L66) but unused. The actual paper-form workflow ends with "give me a spreadsheet."
+- **Acceptance criteria:**
+  - "Download CSV" button on summaryReport, semesterReport, yearReport, eventReport, commOrgReport, campusOrgReport, and per-student report.
+  - One controller action per report serves `text/csv` with a sensible filename (`summary_2026.csv`, `student_AC50012_hours.csv`).
+- **Files:** [ReportsController.groovy](sstation/grails-app/controllers/sstation/ReportsController.groovy), [AcStudentController.groovy](sstation/grails-app/controllers/sstation/AcStudentController.groovy).
+- **Estimate:** M.
+
+### TC-024 ✨ PDF export of a student's per-semester report
+- **Why:** Direct paper-form replacement: students need a printable record to attach to applications.
+- **Acceptance criteria:**
+  - "Download PDF" button on the per-student report.
+  - Uses the `rendering` plugin or generates HTML and pipes through `wkhtmltopdf` (decide during the card — note the choice in the PR).
+  - PDF includes: student name, AC ID, classification, year, table of approved hours with totals per semester and grand total.
+- **Estimate:** M.
+
+### TC-025 ✨ Date-range filter on the admin dashboard
+- **Why:** "Current year" is too rigid. Office staff need "last 30 days", "this semester", "custom range" for grant reporting.
+- **Acceptance criteria:**
+  - Date pickers on the admin dashboard.
+  - All KPIs and charts respond to the range.
+  - URL is shareable (`?from=2026-01-01&to=2026-05-25`).
+- **Estimate:** M.
+
+### TC-026 ✨ Service-event sign-up flow
+- **Why:** README promises "post service events and recruit students to participate", but no controller supports student → event sign-up. Today a student can only log hours *after* the fact.
+- **Acceptance criteria:**
+  - New `EventSignup` domain (`AcStudent`, `Event`, `signupTime`, `status` enum: SIGNED_UP / ATTENDED / NO_SHOW).
+  - Student view: list of upcoming events with "Sign up" button.
+  - Admin view: roster per event; one-click "convert attended sign-ups to ServiceHour records".
+- **Estimate:** L.
+
+### TC-027 ✨ Audit log on every ServiceHour status change
+- **Why:** "Who approved my hours?" is a real question. Today there's no record.
+- **Acceptance criteria:**
+  - New `ServiceHourAuditLog` domain (`serviceHour`, `actor` (`AcUser`), `fromStatus`, `toStatus`, `timestamp`, `note`).
+  - Every status mutation writes an entry.
+  - Admin-only view that lists the log per ServiceHour.
+- **Estimate:** M.
+
+### TC-028 ✨ Student self-service password reset
+- **Why:** No way to reset a password today. Every forgotten password is a manual DB poke.
+- **Acceptance criteria:**
+  - "Forgot password" link on login page → enter AC email → email with a single-use token (depends on TC-021 for SMTP).
+  - Token valid for 1 hour, single-use, stored hashed.
+- **Estimate:** M.
+
+---
+
+## Lane 5 — Infra / DevOps (this is where AC IT picks up)
+
+This is the "leave it bow-tied for IT" track. Goal: anyone at AC IT with a Linux box and an hour to spare can deploy this.
+
+### TC-029 ☁️ Migrate prod DataSource from H2 to PostgreSQL
+- **Why:** H2 file-mode is fine for a class project, not for an office that processes hundreds of records a year. Postgres is what AC IT almost certainly already runs.
+- **Acceptance criteria:**
+  - Add `runtime 'org.postgresql:postgresql:9.4-1206-jdbc41'` (latest version compatible with JDK 8 / Grails 2.4.4 — pin carefully) to [BuildConfig.groovy](sstation/grails-app/conf/BuildConfig.groovy).
+  - `DataSource.groovy` production block reads `jdbcUrl`, `username`, `password` from environment variables 🏫:
+    - `SSTATION_DB_URL` (e.g. `jdbc:postgresql://db.austincollege.edu:5432/sstation`)
+    - `SSTATION_DB_USER`
+    - `SSTATION_DB_PASSWORD`
+  - `dbCreate = "validate"` in prod — schema is managed by `database-migration` plugin migrations, not GORM auto-DDL.
+  - Initial migration generated via `grails dbm-generate-gorm-changelog`.
+  - Dev keeps H2 in-memory; test keeps H2 in-memory.
+- **Files:** [BuildConfig.groovy](sstation/grails-app/conf/BuildConfig.groovy), [DataSource.groovy](sstation/grails-app/conf/DataSource.groovy), new `grails-app/migrations/changelog.groovy`.
+- **Estimate:** L.
+
+### TC-030 ☁️ Externalize all environment-specific config
+- **Why:** Right now `serverURL` is missing, mail creds are empty, DB creds are empty. All of these should come from env vars or a config file Grails loads from outside the WAR.
+- **Acceptance criteria:**
+  - [Config.groovy](sstation/grails-app/conf/Config.groovy) uses `grails.config.locations = ["file:${System.properties['catalina.base']}/conf/sstation-config.groovy"]` (or a Tomcat-friendly equivalent) plus env var overrides.
+  - A documented `sstation-config.groovy.example` lives at the repo root with every value AC IT must set, with comments. Values marked 🏫.
+  - Boot logs explicitly list which placeholders were not overridden.
+- **Estimate:** M.
+
+### TC-031 ☁️ Produce a deployable WAR via CI
+- **Why:** `grails war` works locally but there's no artifact pipeline.
+- **Acceptance criteria:**
+  - CI job (TC-034) produces `sstation-${version}.war` as a release artifact on tagged commits.
+  - WAR is tested end-to-end by booting it under Tomcat 8 in the CI job and hitting `/sstation/login/auth`.
+- **Estimate:** M.
+
+### TC-032 ☁️ AWS demo deployment — Elastic Beanstalk (Tomcat 8 platform)
+- **Why:** A click-through demo URL we can put in front of the AC team. EB is the lowest-effort Tomcat-friendly target.
+- **Acceptance criteria:**
+  - EB application created in `us-east-1` (or AC's preferred region). Platform: **Tomcat 8 with Corretto 8** (the only Tomcat 8 platform AWS still offers; required because Grails 2.4.4 won't run on Java 11+).
+  - WAR uploaded via `eb deploy` from the CI job (or manually for the first cut).
+  - RDS Postgres `db.t4g.micro` instance, single-AZ, in the same VPC. Credentials wired via EB environment variables matching TC-029/TC-030 (`SSTATION_DB_URL` etc.).
+  - HTTPS via an ACM cert on the EB load balancer. Domain: `sstation-demo.<our-domain>` (placeholder 🏫 — we own a domain for the demo; AC IT will substitute their own DNS).
+  - Security group rules: 443 from anywhere, 5432 only from EB security group.
+  - Cost target: **< $25/mo** on free-tier-eligible instance sizes. Document monthly burn estimate in the card.
+  - Demo seed loaded once via a one-off `grails dbm-update` run; demo users (`admin` / `student` / `moderator`) have non-trivial passwords stored in 1Password / shared vault.
+  - README gets a "Live demo" link.
+- **Notes:**
+  - **Not for prod use by AC.** This is a showcase. AC IT deploys to their own infra.
+  - Beanstalk's Tomcat 8 platform is on extended support — we should expect to retire the demo or migrate when AWS drops it.
+- **Estimate:** L.
+
+### TC-033 ☁️ Containerize the app (Dockerfile + docker-compose)
+- **Why:** Even though AC IT will probably deploy to a VM, a working `docker compose up` is the fastest "does this run?" smoke test for any reviewer, and the same image can drive the AWS demo if we move off Beanstalk later (ECS Fargate, AppRunner, etc.).
+- **Acceptance criteria:**
+  - `Dockerfile` based on `tomcat:8-jre8` (or Corretto 8 base), `COPY target/sstation-*.war /usr/local/tomcat/webapps/sstation.war`.
+  - `docker-compose.yml` brings up `app` + `postgres:13` with seeded data.
+  - One-command demo: `docker compose up` → `http://localhost:8080/sstation`.
+  - Documented in a new `DEPLOY.md`.
+- **Estimate:** M.
+
+### TC-034 ☁️ GitHub Actions CI — build + test + war
+- **Why:** No CI today. This is the *next* slice we're picking up after this card list.
+- **Acceptance criteria:**
+  - Workflow on push and PR.
+  - Pins JDK 8 (Temurin).
+  - Installs Grails 2.4.4 via SDKMAN (or downloads the zip directly from a mirror we control — the Spring S3 wrapper URL is dead).
+  - Runs `grails test-app`.
+  - On tag push, runs `grails war` and uploads the WAR as a release asset.
+  - Status badge in the README.
+- **Files:** new `.github/workflows/ci.yml`, README badge.
+- **Estimate:** M.
+- **Note:** This is the *next* slice — defer the actual cards-to-PRs work above until CI is green.
+
+### TC-035 📝 🏫 Austin College IT handoff runbook (`DEPLOY.md`)
+- **Why:** The whole point of the project: ship something AC IT can stand up. We can't deploy to their network — we *can* hand them a checklist.
+- **Acceptance criteria:** A single `DEPLOY.md` at the repo root with these sections, every 🏫 placeholder clearly marked and explained:
+  - **Prerequisites:** JDK 8, Tomcat 8 (or 9 with compat tweaks), PostgreSQL 12+, an SMTP relay AC already runs.
+  - **Build:** `grails war` (or download from GitHub Releases — link to artifact from TC-031).
+  - **Database:**
+    - 🏫 Create a database (suggested name `sstation`) and a user.
+    - 🏫 Set `SSTATION_DB_URL`, `SSTATION_DB_USER`, `SSTATION_DB_PASSWORD`.
+    - First boot runs migrations.
+  - **SMTP:**
+    - 🏫 `SSTATION_MAIL_HOST`, `SSTATION_MAIL_PORT`, `SSTATION_MAIL_USERNAME`, `SSTATION_MAIL_PASSWORD`, `SSTATION_MAIL_FROM`.
+    - Likely values: AC's existing Exchange / Office 365 relay.
+  - **Server URL:** 🏫 `SSTATION_SERVER_URL = https://service-station.austincollege.edu` (or wherever).
+  - **TLS:** Assume AC IT terminates TLS at a load balancer / reverse proxy. Document the X-Forwarded-* header config Tomcat needs.
+  - **First admin user:** AC IT runs a one-off SQL script (we provide it) or hits a one-time bootstrap endpoint to create a real admin account, then immediately changes the password.
+  - **Backups:** point to AC's existing Postgres backup procedure — we don't prescribe one.
+  - **Monitoring:** the app logs to stdout. AC IT plugs into their existing log aggregator (Splunk, Graylog, whatever).
+  - **Upgrade path:** download new WAR, replace, restart Tomcat. Migrations auto-apply.
+- **Estimate:** M. Iterate with AC IT once a draft exists.
+
+### TC-036 📝 Fix the dead Grails wrapper URL or remove the wrapper
+- **Why:** [wrapper/grails-wrapper.properties](sstation/wrapper/grails-wrapper.properties) points at `dist.springframework.org.s3.amazonaws.com`, which 404s. The wrapper script is therefore broken — but it's still in the repo, so anyone who tries `./grailsw run-app` first wastes an hour.
+- **Acceptance criteria:**
+  - Either: (a) point the wrapper at a working mirror (we host the 2.4.4 zip on our own S3 bucket — note 🏫 if we want AC to host it) and verify `./grailsw run-app` works, OR
+  - (b) Delete the wrapper entirely and rely on SDKMAN-installed Grails, documented in [CLAUDE.md](CLAUDE.md) and the new [DEPLOY.md](DEPLOY.md).
+  - Recommendation: (b). The wrapper buys nothing here.
+- **Estimate:** S.
+
+### TC-037 📝 Finish the README
+- **Why:** README "Workflow" section is empty; `CampusOrg` description ends mid-sentence. First impression of the repo is "abandoned class project."
+- **Acceptance criteria:**
+  - Workflow section diagrams (Mermaid) the three primary flows: student logs hours → admin approves → student sees report.
+  - CampusOrg description completed.
+  - Link to live AWS demo (TC-032).
+  - Link to [CLAUDE.md](CLAUDE.md) and [DEPLOY.md](DEPLOY.md).
+- **Estimate:** S.
+
+---
+
+## Lane 6 — Future / nice-to-have
+
+Not on the critical path to hand-off. Park these.
+
+### TC-038 🧹 Replace CDN frontend assets with locally-served copies
+- **Why:** jQuery 1.11.3, Bootstrap 3.3.5, DataTables 1.10.10, Highcharts, jQuery UI 1.11.4 are all loaded from CDNs in [main.gsp](sstation/grails-app/views/layouts/main.gsp). CDN URLs go stale; AC IT may be behind a proxy that blocks them. Vendor them into `web-app/js/` and `web-app/css/`.
+- **Estimate:** S.
+
+### TC-039 ✨ Migrate Selenium IDE HTML scripts to Playwright
+- **Why:** [selinium_tests/](selinium_tests/) needs legacy Firefox + Selenium IDE to run. Rewrite the half-dozen useful flows in Playwright, plumb them into CI (TC-034).
+- **Estimate:** L.
+
+### TC-040 🧹 Port to Grails 5/6 or Spring Boot
+- **Why:** Grails 2.4.4 is end-of-life. Spring Security plugin 2.0, GSP, the build system all changed significantly between 2.x and 3.x+. This is months of work but is the long-term answer.
+- **Estimate:** XL. Park unless AC IT signals they'd own ongoing maintenance.
+
+### TC-041 ✨ Two-factor auth for admins
+- **Why:** Approving service hours = a credentialing record. 2FA at least on admin accounts is worth it once we're on a maintained Spring Security version (TC-040 or a backport).
+- **Estimate:** M.
+
+---
+
+## Suggested order of attack
+
+1. **Lane 1 entirely.** TC-001 → TC-008. Without these the app is broken for fresh data and unsafe for prod.
+2. **CI first** (TC-034). Don't write more code without a green check.
+3. **Lane 2 fixes** in any order, in PRs of 1–3 cards each.
+4. **Lane 3 security** before any public URL (TC-032 must wait for at least TC-007, TC-008, TC-017).
+5. **DEPLOY.md draft** (TC-035) — even half-finished, this is what we hand AC IT.
+6. **Postgres + WAR + Beanstalk** (TC-029, TC-031, TC-032) for the demo.
+7. **Features** (Lane 4) opportunistically. TC-021 (email) unlocks TC-028 (password reset).
+8. **Future lane** parked.
+
+## Notes for AC IT (collect placeholders here)
+
+When TC-035 lands, this section should be expanded into a checklist AC IT can tick through. Keeping a stub here so we don't forget any:
+
+- 🏫 SMTP host / port / user / password / from-address.
+- 🏫 Postgres host / port / DB name / user / password.
+- 🏫 Public hostname + TLS cert.
+- 🏫 Initial admin account (created post-deploy, not seeded).
+- 🏫 Log aggregation endpoint, if any.
+- 🏫 Backup schedule for Postgres.
+- 🏫 Whether AC IT wants to host the Grails 2.4.4 distribution zip internally (for the wrapper, if we keep it).
