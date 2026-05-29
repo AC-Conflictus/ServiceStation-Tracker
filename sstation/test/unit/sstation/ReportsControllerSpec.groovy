@@ -7,7 +7,7 @@ import spock.lang.Specification
  * See the API for {@link grails.test.mixin.web.ControllerUnitTestMixin} for usage instructions
  */
 @TestFor(ReportsController)
-@Mock([ServiceHour,StationReportService,Event])
+@Mock([ServiceHour,StationReportService,Event,CommAg,CampusOrg,AcStudent])
 class ReportsControllerSpec extends Specification {
 
 	def setup() {
@@ -43,6 +43,45 @@ class ReportsControllerSpec extends Specification {
 		view=="/reports/eventReport"
 	}
 	
+	void "summaryReport is bounds-safe when fewer than 5 agencies/orgs/events exist (TC-003)"() {
+		given: "only 2 of each entity, so the old constant=5 loop would have thrown"
+		2.times { int i ->
+			new CommAg(address:"a", name:"Ag$i", description:"d", contact:"c", contactPhone:"1", contactEmail:"c@a.edu").save(flush:true, failOnError:true)
+			new CampusOrg(name:"Org$i", description:"d", contact:"c", contactPhone:"1", contactEmail:"c@a.edu").save(flush:true, failOnError:true)
+			randomEvent("Ev$i")
+		}
+
+		when:
+		controller.summaryReport()
+
+		then:
+		notThrown(IndexOutOfBoundsException)
+		view == "/reports/summaryReport"
+		model.constant == 2
+	}
+
+	void "semesterReport tolerates a ServiceHour with a null commAg (TC-006)"() {
+		given: "one of each entity so the top-N loop runs, plus an hour with no community agency"
+		def ag = new CommAg(address:"a", name:"Crisis Center", description:"d", contact:"c", contactPhone:"1", contactEmail:"c@a.edu").save(flush:true, failOnError:true)
+		def org = new CampusOrg(name:"THINK", description:"d", contact:"c", contactPhone:"1", contactEmail:"c@a.edu").save(flush:true, failOnError:true)
+		def ev = randomEvent("Great Day of Service")
+		def student = new AcStudent(isModerator:false, firstname:"Test", lastname:"Student", status:('A' as char), acid:"AC99999", acEmail:"student@austincollege.edu", acBox:"1", acYear:2026, classification:Classification.SR, phone:"1").save(flush:true, failOnError:true)
+
+		def cal = Calendar.getInstance()
+		cal.set(Calendar.MONTH, Calendar.MARCH)
+		def sh = new ServiceHour(event:ev, campusOrg:org, description:"s", status:Status.APPROVED, commAg:null, duration:2.0, starttime:cal.getTime(), lastmodified:new Date())
+		student.addToServiceHours(sh).save(flush:true, failOnError:true)
+
+		when:
+		params.yearComboBox = String.valueOf(cal.get(Calendar.YEAR))
+		params.semesterComboBox = "Spring"
+		controller.semesterReport()
+
+		then:
+		notThrown(NullPointerException)
+		view == "/reports/semesterReport"
+	}
+
 	private Event randomEvent(String eventName){
 		Event e=new Event(name:eventName)
 		e.description="Contact the Service Station office to sign up! "

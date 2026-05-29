@@ -46,20 +46,24 @@ class ReportsController {
 	}
 	
 	def summaryReport(){
-		constant = 5;
-		def year = 2016;
+		// Default to the current year; allow ?year=YYYY to view past years (TC-002).
+		def year = params.year ? (params.year as Integer) : new Date().getAt(Calendar.YEAR)
 		def totalHours = 0;
-		
+
 
 		def allHours = ServiceHour.list();
 		def allAgs = CommAg.list();
 		def allOrgs = CampusOrg.list();
 		def allEvs = Event.list();
-		
+
+		// Bound the top-N loop by the shortest list so allAgs/allOrgs/allEvs.get(i)
+		// never runs past the end of any of them when seed/real data has < 5 (TC-003).
+		constant = [5, allAgs.size(), allOrgs.size(), allEvs.size()].min();
+
 		def topAgs = [];
 		def topEvs = [];
 		def topOrgs = [];
-		
+
 		def agHours = [];
 		def evHours = [];
 		def orgHours = [];
@@ -84,12 +88,18 @@ class ReportsController {
 				totalHours += allHours.get(i).duration
 			}
 		}
-		
-		
-		render view:"summaryReport", model: [totalHours:totalHours ,constant:constant, topAgs:topAgs, allHours:allHours, topOrgs:topOrgs, topEvs:topEvs, agHours:agHours, evHours:evHours, orgHours:orgHours]
-		
-		
-	
+
+		// Year options for the selector: current year and the previous four.
+		int currentYear = new Date().getAt(Calendar.YEAR)
+		def yearList = []
+		for (int a = currentYear; a > currentYear - 5; a--){
+			yearList.add(a)
+		}
+
+		render view:"summaryReport", model: [totalHours:totalHours ,constant:constant, topAgs:topAgs, allHours:allHours, topOrgs:topOrgs, topEvs:topEvs, agHours:agHours, evHours:evHours, orgHours:orgHours, year:year, yearList:yearList]
+
+
+
 	}
 	
 	def semesterReport() {
@@ -131,24 +141,28 @@ class ReportsController {
 		def agHours = [];
 		def evHours = [];
 		def orgHours = [];
+		// Bound by the shortest list so .get(i) is always safe (TC-003).
+		constant = [5, allAgs.size(), allOrgs.size(), allEvs.size()].min();
 		for (int i = 0; i < constant; i++){
-			
+
 			topAgs.add(allAgs.get(i));
 			topEvs.add(allEvs.get(i));
 			topOrgs.add(allOrgs.get(i));
-			
+
 			def agli = 0
 			def evli = 0
 			def orgli = 0
-			
+
+			// commAg/event/campusOrg are nullable:true on ServiceHour — guard every
+			// deref so a single hour with a null FK can't NPE the whole report (TC-006).
 			for (ServiceHour s: list){
-				if (s.commAg.name.equals(allAgs.get(i).name)){
+				if (s.commAg?.name?.equals(allAgs.get(i).name)){
 					agli += s.duration
 				}
-				if (s.event.name.equals(allEvs.get(i).name)){
+				if (s.event?.name?.equals(allEvs.get(i).name)){
 					evli += s.duration
 				}
-				if (s.campusOrg.name.equals(allOrgs.get(i).name)){
+				if (s.campusOrg?.name?.equals(allOrgs.get(i).name)){
 					orgli += s.duration
 				}
 			}
