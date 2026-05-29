@@ -49,7 +49,13 @@ class AcUser implements Serializable {
 	}
 
 	protected void encodePassword() {
-		password = springSecurityService?.passwordEncoder ? springSecurityService.encodePassword(password) : password
+		// Never silently store a plaintext password. If springSecurityService isn't
+		// wired (e.g. too early in boot) the bcrypt check on login would later fail
+		// against the plaintext value — fail loudly instead (TC-008).
+		if (springSecurityService == null) {
+			throw new IllegalStateException("springSecurityService not wired — cannot save AcUser")
+		}
+		password = springSecurityService.encodePassword(password)
 	}
 
 	static transients = ['springSecurityService']
