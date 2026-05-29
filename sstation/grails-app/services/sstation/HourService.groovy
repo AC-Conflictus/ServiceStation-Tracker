@@ -11,7 +11,7 @@ import grails.transaction.Transactional
  *
  */
 class HourService {
-	int currentYear//current year  i.e. 2015
+	int currentYear//current calendar year, derived from the system clock in init()
 	List<ServiceHour> currentList//stores all approved service hours in the current year.
 	List<ServiceHour> totalList//stores all approved service hours
 	double totalDuration//stores the sum of duration in totalList
@@ -24,7 +24,7 @@ class HourService {
 	 * Initialize all values
 	 */
 	private void init(){
-		currentYear=2015
+		currentYear=Calendar.getInstance().get(Calendar.YEAR)
 
 		totalList=ServiceHour.findAllByStatus(Status.APPROVED)//grails method
 

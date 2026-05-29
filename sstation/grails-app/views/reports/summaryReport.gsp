@@ -23,7 +23,15 @@
 	Service Station Service Hours Summary Report <br>
 	<h4>Total Service Hours: ${totalHours}</h4>
 	</div>
-	
+
+	<div class="reportControls" style="margin-bottom:15px;">
+		<g:form controller="reports" action="summaryReport" method="get">
+			<label for="year">Year:</label>
+			<g:select name="year" from="${yearList}" value="${year}" onchange="this.form.submit()" />
+			<noscript><g:submitButton name="go" value="View"/></noscript>
+		</g:form>
+	</div>
+
 	<div class="report">
 	</div>
 

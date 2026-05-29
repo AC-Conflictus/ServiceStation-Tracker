@@ -32,20 +32,19 @@ class HomeController {
 		
 		
 		if (SpringSecurityUtils.ifAllGranted('ROLE_STUDENT')) {
-			
-			// find the current student id by using the user login (email?) 
-			def sid = 1  
-			
-			// smelly code here.   we need a dedicated field to hold just the username 
-			// part by itself
+
+			// Resolve the student record from the login. Still matched by email suffix
+			// for now (the proper AcUser->AcStudent FK is TC-009). Redirect to the
+			// *found* student's id, not a hardcoded 1, so the student lands on their
+			// own populated dashboard instead of NPEing acStudent/home (TC-005).
 			def stud = AcStudent.findByAcEmail(username+"@austincollege.edu")
 			if (stud) {
-				// if we found a match
-			} else {
-				// redirect to error page... no matching student id.
+				return redirect (controller:'acStudent',action:'home', id:stud.id)
 			}
-			
-			return redirect (controller:'acStudent',action:'home', id:sid)
+
+			// No student record linked to this account — avoid the id:1 NPE.
+			flash.message = "No student record is linked to your account. Contact the Service Station office."
+			return redirect (controller:'acStudent',action:'studentList')
 		}
 		else {
 		

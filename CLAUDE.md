@@ -34,7 +34,7 @@ There is **no Gradle/Maven setup** — this is a Grails 2.4.4 app. To bring it u
 | `student`   | `student_secret`   | `ROLE_STUDENT`  |
 | `moderator` | `moderator_secret` | `ROLE_MODERATOR`|
 
-Login redirects through Spring Security's auth controller. The `student` user only works if a matching `AcStudent` row exists whose `acEmail` is `student@austincollege.edu` — see the "smelly code" note in [HomeController.groovy:41](sstation/grails-app/controllers/sstation/HomeController.groovy#L41). With the current random seed, the student dashboard will likely fail to resolve the student record; admin/moderator land correctly.
+Login redirects through Spring Security's auth controller. All three logins work against the seed data. The `student` user resolves via `AcStudent.findByAcEmail("student@austincollege.edu")` — a deterministic `AcStudent` (Sam Student, ACID AC50000) with 5 seeded `ServiceHour` records is created by BootStrap (TC-005). The email-suffix lookup is still a string match with no FK — see TC-009 for the full fix.
 
 ### Selenium tests
 [selinium_tests/](selinium_tests/) (note the typo) holds Selenium IDE `.html`/folder exports — they require Selenium IDE (legacy Firefox) and a running app. They are not wired into `grails test-app`.
@@ -51,7 +51,7 @@ Login redirects through Spring Security's auth controller. The `student` user on
 ### Domain model — the conceptual core
 All in [grails-app/domain/sstation/](sstation/grails-app/domain/sstation/). Read [BootStrap.groovy](sstation/grails-app/conf/BootStrap.groovy) for how these relate in practice.
 
-- **`AcUser` / `AcRole` / `AcUserAcRole`** — Spring Security auth tables. Username + bcrypt-encoded password (with a plaintext fallback in [AcUser.groovy:52](sstation/grails-app/domain/sstation/AcUser.groovy#L52) if `springSecurityService` is null — a small risk).
+- **`AcUser` / `AcRole` / `AcUserAcRole`** — Spring Security auth tables. Username + bcrypt-encoded password. `encodePassword()` now throws `IllegalStateException` if `springSecurityService` is null instead of silently storing plaintext (TC-008).
 - **`AcStudent`** — the student profile (separate from `AcUser` — they are *not* linked by FK, only loosely by email). `hasMany serviceHours`. Carries `Classification` enum (`FR/SO/JR/SR/OTHER`) and an `isModerator` flag that intersects with the role system.
 - **`ServiceHour`** — the central transactional record. `belongsTo AcStudent`, references one `Event`, one `CampusOrg`, one `CommAg`, and has a `Status` enum (`PENDING/APPROVED/REJECTED` — defined as a Java enum in [src/java/sstation/Status.java](sstation/src/java/sstation/Status.java)). Most relations are nullable (see constraints).
 - **`Event`** — service event (e.g. "Great Day of Service", "JanServe").
@@ -84,26 +84,29 @@ Services in [grails-app/services/sstation/](sstation/grails-app/services/sstatio
 
 ### Things to know before editing
 
-- **`HourService.init()` hardcodes `currentYear = 2015`** ([HourService.groovy:27](sstation/grails-app/services/sstation/HourService.groovy#L27)). All "current year" KPIs are frozen there.
-- **`ReportsController.summaryReport` hardcodes `year = 2016`** ([ReportsController.groovy:50](sstation/grails-app/controllers/sstation/ReportsController.groovy#L50)).
-- **`ReportsController.summaryReport` / `semesterReport` assume `allAgs/allOrgs/allEvs` each have ≥ `constant` (5) entries** — `allAgs.get(i)` will throw IndexOutOfBounds if seed data shrinks.
-- **`semesterReport` dereferences `s.commAg.name`, `s.event.name`, `s.campusOrg.name`** unconditionally even though all three are declared `nullable:true` in `ServiceHour` constraints. NPE risk with real data.
-- **`BootStrap.init` runs in every environment**, including production. It will try to recreate roles/users on every boot.
-- **`AcUser.encodePassword` silently falls back to plaintext** when `springSecurityService` is unavailable.
-- **Mail plugin credentials in [Config.groovy:62](sstation/grails-app/conf/Config.groovy#L62) are blank** — email actions will fail until populated.
+- **`HourService.init()` derives `currentYear` from `Calendar.getInstance()`** — fixed TC-001 (2026-05-29). KPIs now reflect the actual current year.
+- **`ReportsController.summaryReport` defaults to the current year** and accepts a `year` param — fixed TC-002 (2026-05-29). A year selector is rendered on the GSP.
+- **`ReportsController.summaryReport` / `semesterReport` use `constant = [5, allAgs.size(), allOrgs.size(), allEvs.size()].min()`** — fixed TC-003 (2026-05-29). No more IndexOutOfBounds with sparse data.
+- **`semesterReport` uses `?.` on `s.commAg?.name`, `s.event?.name`, `s.campusOrg?.name`** — fixed TC-006 (2026-05-29). Still, all three fields remain `nullable:true` in `ServiceHour` constraints — always use `?.` in new code.
+- **`BootStrap.init` is gated on `Environment.current != Environment.PRODUCTION`** — fixed TC-007 (2026-05-29). Roles are created idempotently in every environment; test users and random data are dev/test only.
+- **`AcUser.encodePassword` throws `IllegalStateException` if `springSecurityService` is null** — fixed TC-008 (2026-05-29). No plaintext fallback.
+- **Mail plugin credentials in [Config.groovy:62](sstation/grails-app/conf/Config.groovy#L62) are blank** — email actions will fail until populated (TC-021).
+- **`CampusOrgReportService`, `CommAgReportService`, `EventReportService`** still dereference `s.commAg.name` unguarded internally — TC-010 covers the refactor. Don't call `ServiceHour.list()` inside their loops without checking for nulls.
 
 ## What the app already does (today)
 
 Working flows you can demo against the seed data:
 
-- Three-role authentication (admin / moderator / student) via Spring Security.
-- Admin dashboard with KPIs, charts (by classification, by status, by year), and a pending-hours queue with inline approve/reject.
+- Three-role authentication (admin / moderator / student) via Spring Security. All three seeded logins work on a fresh run.
+- Admin dashboard with KPIs, charts (by classification, by status, by year) reflecting the **current calendar year** — seed dates are spread across the last 5 years so data is always visible (TC-001, TC-004).
+- Pending-hours queue with inline approve/reject.
 - CRUD for: students, service hours, events, community agencies, campus orgs.
 - Promote/demote students to moderator.
 - Quick status updates via AJAX dialog (`ajaxUpdateStatus`).
-- Reports: summary, by year (5-year window), by semester (Fall/Janterm/Spring/Summer), per event, per community agency, per campus org — rendered as Highcharts.
-- Per-student report view with their own hours.
+- Reports: summary (with a year selector), by year (5-year window), by semester (Fall/Janterm/Spring/Summer), per event, per community agency, per campus org — rendered as Highcharts. Reports are bounds-safe and null-safe (TC-002, TC-003, TC-006).
+- Per-student report view with their own hours. The `student` / `student_secret` login lands on Sam Student's dashboard with 5 seeded hours (TC-005).
 - Plugin scaffolding for CSV upload (`StudentService`) and email (`mail` plugin).
+- GitHub Actions build-only WAR pipeline (TC-034, landed 2026-05-26).
 - Spock unit-test specs for most domain classes and several controllers under [sstation/test/unit/sstation/](sstation/test/unit/sstation/).
 - Selenium IDE regression scripts checked in under [selinium_tests/](selinium_tests/).
 
@@ -111,49 +114,36 @@ Working flows you can demo against the seed data:
 
 Concrete gaps you can confirm by reading the code:
 
-- **Hardcoded years.** `HourService` (2015) and `ReportsController.summaryReport` (2016) — the dashboard and summary will look broken on any fresh run.
-- **Student login is fragile.** `HomeController` matches student email by concatenating `username + "@austincollege.edu"`. There is no `AcUser → AcStudent` FK; the comment in [HomeController.groovy:41](sstation/grails-app/controllers/sstation/HomeController.groovy#L41) explicitly calls this out as a TODO.
-- **No `AcStudent` is created for the seeded `student` user**, so logging in as `student` likely lands on an empty/error page.
-- **README workflow section is empty**, and the README description of `CampusOrg` is truncated (`A CampusOrg class includes`).
-- **`BootStrap.init` runs in production** — it should be gated by `Environment.current`.
-- **`AcUser` plaintext password fallback** ([AcUser.groovy:52](sstation/grails-app/domain/sstation/AcUser.groovy#L52)).
-- **Mail credentials missing** in [Config.groovy](sstation/grails-app/conf/Config.groovy) — any feature that sends mail (e.g. approval notifications) is non-functional.
-- **NPE-prone report iteration** when `ServiceHour.commAg/event/campusOrg` is null (allowed by constraints).
-- **`IndexOutOfBoundsException` risk** in `summaryReport`/`semesterReport` when there are fewer than 5 agencies/orgs/events.
-- **`selinium_tests/` is misspelled** and not wired into CI.
-- **No CI/build pipeline files** (no `.github/`, no `azure-pipelines.yml`, no `Jenkinsfile`).
-- **Stack is end-of-life.** Grails 2.4.4 is unsupported; Spring Security plugin 2.0‑RC5 is a release candidate; jQuery 1.11 / Bootstrap 3 are out of support; H2 versions in this era have known CVEs.
+- ~~**Hardcoded years.**~~ **Fixed (TC-001, TC-002, TC-004 — 2026-05-29).** `HourService` and `ReportsController.summaryReport` now use the current year; seed dates span the last 5 years.
+- **Student login uses an email-string match** (`username + "@austincollege.edu"`) — no `AcUser → AcStudent` FK. The `student` login now lands correctly (TC-005), but the underlying coupling is fragile. TC-009 adds a real FK.
+- ~~**No `AcStudent` for the seeded `student` user.**~~ **Fixed (TC-005 — 2026-05-29).** Sam Student (AC50000) is seeded with 5 service hours.
+- **README workflow section is empty**, and the README description of `CampusOrg` is truncated (`A CampusOrg class includes`). See TC-037.
+- ~~**`BootStrap.init` runs in production.**~~ **Fixed (TC-007 — 2026-05-29).** Seed data is gated on non-production; roles are created idempotently everywhere.
+- ~~**`AcUser` plaintext password fallback.**~~ **Fixed (TC-008 — 2026-05-29).** `encodePassword` now fails fast with `IllegalStateException`.
+- **Mail credentials missing** in [Config.groovy](sstation/grails-app/conf/Config.groovy) — any feature that sends mail is non-functional. TC-021.
+- ~~**NPE-prone report iteration**~~ **Fixed (TC-006 — 2026-05-29).** `semesterReport` uses `?.` for all nullable FK accesses. Note: the three `*ReportService` helpers still dereference `.name` unguarded — TC-010.
+- ~~**`IndexOutOfBoundsException` risk** in `summaryReport`/`semesterReport`.~~ **Fixed (TC-003 — 2026-05-29).** `constant` is now `min(5, list sizes)`.
+- **`selinium_tests/` is misspelled** and not wired into CI. TC-015 / TC-039.
+- ~~**No CI/build pipeline.**~~ **Fixed (TC-034 — 2026-05-26).** Build-only WAR pipeline via GitHub Actions. Test execution still requires a local JDK 8 machine (see TC-034 scope reduction).
+- **Stack is end-of-life.** Grails 2.4.4 is unsupported; Spring Security plugin 2.0‑RC5 is a release candidate; jQuery 1.11 / Bootstrap 3 are out of support; H2 versions in this era have known CVEs. Lane 7 (TC-100–TC-112) is the rewrite path.
 
-## Suggested Trello cards / features to add
+## Trello backlog (see TRELLO_CARDS.md for full details)
 
-These are *suggestions only* derived from reading the code — confirm with the user before working on any.
+The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick reference:
 
-**Stability / bug-fix cards**
-1. Replace hardcoded years in `HourService.init` and `ReportsController.summaryReport` with `Calendar.getInstance().get(Calendar.YEAR)`.
-2. Add a real FK between `AcUser` and `AcStudent` (e.g. `AcStudent acStudent` on `AcUser`) and remove the email-suffix hack in `HomeController`.
-3. Guard `BootStrap.init` with `if (Environment.current == Environment.DEVELOPMENT)`; provide a separate prod seeder for roles only.
-4. Null-safe access to `commAg/event/campusOrg.name` in `ReportsController.semesterReport` / `summaryReport`.
-5. Defensive bounds-checking around `constant = 5` loops in `ReportsController`.
-6. Wire `student@austincollege.edu` seed `AcStudent` so the `student` test login actually lands somewhere useful.
-7. Remove the plaintext password fallback in `AcUser.encodePassword`.
+**Lane 1 — Critical fixes** ✅ All landed 2026-05-29 (`lane-01-critical-fixes`)
+- TC-001 Hardcoded `currentYear = 2015` in HourService ✅
+- TC-002 Hardcoded `year = 2016` in ReportsController.summaryReport ✅
+- TC-003 IndexOutOfBounds risk in summaryReport/semesterReport ✅
+- TC-004 Seed dates in years 2011–2015 due to legacy Date constructor ✅
+- TC-005 No AcStudent for the `student` test login ✅
+- TC-006 NPE on nullable commAg/event/campusOrg in semesterReport ✅
+- TC-007 BootStrap.init runs in production ✅
+- TC-008 Plaintext password fallback in AcUser ✅
 
-**Feature cards**
-8. CSV export for each report page (the `csv` plugin is already in `BuildConfig.groovy`).
-9. PDF export of a student's per-semester report (for actual paper-form replacement).
-10. Email notifications on hour approval/rejection (fill in `Config.groovy` mail creds + wire `mailService` calls).
-11. Bulk approve/reject from the pending queue.
-12. Student self-service password reset.
-13. Service-event sign-up flow (the README promises "recruit students to participate" but no controller does this today).
-14. Date-range filter on the dashboard instead of "current year" only.
-15. Audit log of who approved/rejected which `ServiceHour`.
-
-**Infra / modernization cards**
-16. Fill in the README "Workflow" section and finish the truncated `CampusOrg` description.
-17. Set up GitHub Actions to run `grails test-app` on push (requires pinning JDK 8).
-18. Replace the dead Spring S3 wrapper URL in [wrapper/grails-wrapper.properties](sstation/wrapper/grails-wrapper.properties) or remove the wrapper entirely and document SDKMAN.
-19. Migrate H2 to PostgreSQL for prod (add dependency, swap `DataSource.groovy` prod block).
-20. Rename `selinium_tests/` → `selenium_tests/` and either modernize to Selenium WebDriver or delete.
-21. Long-term: port to Grails 5/6 (or Spring Boot + a modern frontend) — non-trivial; Spring Security plugin API and GSP both changed significantly.
+**Lane 2 — Next up:** TC-009 (AcUser↔AcStudent FK), TC-010 (refactor report services), TC-033 (Dockerize).
+**Lane 5 — CI:** TC-034 build-only WAR pipeline ✅ (2026-05-26).
+**Lane 7 — Rewrite:** Spring Boot 3 / Java 21 / Thymeleaf / Postgres (TC-100–TC-112, Summer 2026).
 
 ## Pointers for working in this repo
 

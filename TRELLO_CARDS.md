@@ -21,6 +21,7 @@ Legend:
 These cards make the app *actually work* on a fresh checkout against fresh data. Until they're done, the dashboard is misleading and the student login is broken.
 
 ### TC-001 ⛔ Replace hardcoded `currentYear = 2015` in HourService
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** [HourService.groovy:27](sstation/grails-app/services/sstation/HourService.groovy#L27) hardcodes the year. Every "this year" KPI on the admin dashboard (totals, by-classification chart, by-status chart) silently filters to 2015, so on a 2026 run the dashboard shows zero hours.
 - **Acceptance criteria:**
   - `HourService.init()` derives `currentYear` from `Calendar.getInstance().get(Calendar.YEAR)`.
@@ -30,6 +31,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Estimate:** S.
 
 ### TC-002 ⛔ Replace hardcoded `year = 2016` in ReportsController.summaryReport
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** [ReportsController.groovy:50](sstation/grails-app/controllers/sstation/ReportsController.groovy#L50) hardcodes `year = 2016`. The summary report is permanently stuck on 2016.
 - **Acceptance criteria:**
   - `summaryReport` defaults to the current year and accepts an optional `year` param to view past years.
@@ -38,6 +40,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Estimate:** S.
 
 ### TC-003 ⛔ Fix `IndexOutOfBoundsException` risk in summaryReport / semesterReport
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** Both methods loop `for (int i = 0; i < constant; i++)` where `constant = 5` and call `allAgs.get(i)`, `allOrgs.get(i)`, `allEvs.get(i)`. If any of those lists has fewer than 5 entries (very likely with real-world data, possible even with seed data), the report 500s.
 - **Acceptance criteria:**
   - Replace `constant = 5` with `Math.min(5, allAgs.size())`, similarly for orgs/events.
@@ -46,6 +49,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Estimate:** S.
 
 ### TC-004 ⛔ Seed data uses Java legacy Date constructor — dates land in years 2011–2015
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** [BootStrap.groovy:158](sstation/grails-app/conf/BootStrap.groovy#L158) does `def year = 111 + random.nextInt(5)` then `new Date(year, month, date, ...)`. `new Date(int year, ...)` uses `year + 1900`, so seed `starttime` values fall in 2011–2015. Combined with TC-001/TC-002, this is why nothing shows up on the current-year dashboard.
 - **Acceptance criteria:**
   - Seed service hours have `starttime` distributed across the last 5 calendar years ending today.
@@ -54,6 +58,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Estimate:** S.
 
 ### TC-005 ⛔ Seed an `AcStudent` for the `student` test login
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`). Also fixed the hardcoded `id:1` redirect in `HomeController` as part of this card.
 - **Why:** [HomeController.groovy:41](sstation/grails-app/controllers/sstation/HomeController.groovy#L41) looks up the student by `AcStudent.findByAcEmail(username + "@austincollege.edu")`. The `student` user is seeded but no matching `AcStudent` is. Result: logging in as `student` lands on a broken redirect.
 - **Acceptance criteria:**
   - BootStrap creates one deterministic `AcStudent` with `acEmail = "student@austincollege.edu"` (plus a known acid / firstname / lastname / classification) and attaches a handful of `ServiceHour` records spanning several statuses.
@@ -63,6 +68,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Depends on:** TC-004 (otherwise the student's hours will still all be in the past).
 
 ### TC-006 ⚠️ Null-safe access in ReportsController.semesterReport
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** `semesterReport` dereferences `s.commAg.name`, `s.event.name`, `s.campusOrg.name` ([ReportsController.groovy:144-153](sstation/grails-app/controllers/sstation/ReportsController.groovy#L144-L153)), but all three are declared `nullable:true` in [ServiceHour.groovy:25-37](sstation/grails-app/domain/sstation/ServiceHour.groovy#L25-L37). A single hour record without one of these will NPE the whole report.
 - **Acceptance criteria:**
   - All three uses guard with `?.`.
@@ -71,6 +77,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Estimate:** S.
 
 ### TC-007 ⛔ Gate `BootStrap.init` to non-production environments
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** `BootStrap.init` runs in every environment, including production. On every prod boot it tries to recreate the three test users and ~100 random students with the same passwords (`admin_secret`, etc.). At best the asserts fail and the app refuses to start; at worst (production with `dbCreate = "update"`) the seeded test users are recreated alongside real ones, creating a permanent admin backdoor.
 - **Acceptance criteria:**
   - Wrap the random data seeding in `if (Environment.current != Environment.PRODUCTION)`.
@@ -81,6 +88,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Dependency for prod cutover:** must land before any AWS / AC IT deploy.
 
 ### TC-008 🔒 Remove plaintext password fallback in AcUser.encodePassword
+- **Status:** ✅ **Landed 2026-05-29** (branch `lane-01-critical-fixes`).
 - **Why:** [AcUser.groovy:52](sstation/grails-app/domain/sstation/AcUser.groovy#L52) reads `springSecurityService?.passwordEncoder ? springSecurityService.encodePassword(password) : password`. The trailing `: password` means if `springSecurityService` is null (or the encoder bean isn't wired yet, e.g. early in BootStrap), passwords get stored as plaintext. This is exactly when you'd notice it least — early boot — and once stored plaintext, the bcrypt check on login silently fails.
 - **Acceptance criteria:**
   - If `springSecurityService` is null, throw `IllegalStateException("springSecurityService not wired — cannot save AcUser")` instead of falling back.
@@ -140,6 +148,16 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Why:** [BuildConfig.groovy:65](sstation/grails-app/conf/BuildConfig.groovy#L65) pins `spring-security-core:2.0-RC5`. Upgrade to the final 2.0.0 (last release compatible with Grails 2.4.x) — RC5 has known bugs that were fixed in the final release.
 - **Acceptance criteria:** Plugin upgraded, all three logins still work, `grails test-app` passes.
 - **Estimate:** S.
+
+### TC-033 ☁️ Containerize the app (Dockerfile + docker-compose)
+- **Why:** Even though AC IT will probably deploy to a VM, a working `docker compose up` is the fastest "does this run?" smoke test for any reviewer, and the same image can drive the AWS demo if we move off Beanstalk later (ECS Fargate, AppRunner, etc.).
+- **Acceptance criteria:**
+  - `Dockerfile` based on `tomcat:8-jre8` (or Corretto 8 base), `COPY target/sstation-*.war /usr/local/tomcat/webapps/sstation.war`.
+  - `docker-compose.yml` brings up `app` + `postgres:13` with seeded data.
+  - One-command demo: `docker compose up` → `http://localhost:8080/sstation`.
+  - Documented in a new `DEPLOY.md`.
+- **Depends on:** TC-029 (Postgres migration) for a fully wired compose stack; can ship a minimal H2-only compose file first as a dev convenience.
+- **Estimate:** M.
 
 ---
 
@@ -297,15 +315,6 @@ This is the "leave it bow-tied for IT" track. Goal: anyone at AC IT with a Linux
   - **Not for prod use by AC.** This is a showcase. AC IT deploys to their own infra.
   - Beanstalk's Tomcat 8 platform is on extended support — we should expect to retire the demo or migrate when AWS drops it.
 - **Estimate:** L.
-
-### TC-033 ☁️ Containerize the app (Dockerfile + docker-compose)
-- **Why:** Even though AC IT will probably deploy to a VM, a working `docker compose up` is the fastest "does this run?" smoke test for any reviewer, and the same image can drive the AWS demo if we move off Beanstalk later (ECS Fargate, AppRunner, etc.).
-- **Acceptance criteria:**
-  - `Dockerfile` based on `tomcat:8-jre8` (or Corretto 8 base), `COPY target/sstation-*.war /usr/local/tomcat/webapps/sstation.war`.
-  - `docker-compose.yml` brings up `app` + `postgres:13` with seeded data.
-  - One-command demo: `docker compose up` → `http://localhost:8080/sstation`.
-  - Documented in a new `DEPLOY.md`.
-- **Estimate:** M.
 
 ### TC-034 ☁️ GitHub Actions CI — build-only WAR pipeline
 - **Status:** ✅ **Landed 2026-05-26 in a reduced form** (see "Scope reduction" below).
@@ -558,8 +567,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks** after the critical fixes. Either we commit to the rewrite and most of Lane 4 collapses into TC-108, or we stay on Grails and grind out the existing backlog. **AC IT's answer to TC-100 decides which branch.**
 
 ### Phase 0 — Stabilize (week 1, regardless of fork)
-1. **Lane 1 entirely.** TC-001 → TC-008. Without these the app is broken for fresh data and unsafe for prod. Even if we rewrite, we want a runnable reference implementation.
-2. **CI green** (TC-034 ✅ in progress). Don't write more code without a green check.
+1. **Lane 1 entirely.** TC-001 → TC-008. ✅ **Done 2026-05-29** (`lane-01-critical-fixes`). The app runs on fresh data, student login lands on a populated dashboard, dashboard KPIs reflect the current year, reports are bounds-safe and null-safe, BootStrap is prod-gated, and passwords are bcrypt-only.
+2. **CI green** (TC-034 ✅ **Done 2026-05-26** — build-only WAR pipeline). Don't write more code without a green check.
 3. **Ask AC IT** (TC-100). Send the target-stack memo *now* — their response gates Lane 7.
 
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)

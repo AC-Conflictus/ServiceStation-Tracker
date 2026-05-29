@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat
 
+import grails.util.Environment
 import sstation.*
 
 /**
@@ -24,10 +25,19 @@ class BootStrap {
 
 		log.debug("creating roles and users")
 		
-		def adminRole = new AcRole(authority: "ROLE_ADMIN").save(flush:true)
-		def studentRole = new AcRole(authority: "ROLE_STUDENT").save(flush:true)
-		def moderatorRole = new AcRole(authority: "ROLE_MODERATOR").save(flush:true)
-	
+		// Roles must exist in every environment. Idempotent because prod uses
+		// dbCreate="update" and would otherwise duplicate them on each boot (TC-007).
+		def adminRole = AcRole.findByAuthority("ROLE_ADMIN") ?: new AcRole(authority: "ROLE_ADMIN").save(flush:true)
+		def studentRole = AcRole.findByAuthority("ROLE_STUDENT") ?: new AcRole(authority: "ROLE_STUDENT").save(flush:true)
+		def moderatorRole = AcRole.findByAuthority("ROLE_MODERATOR") ?: new AcRole(authority: "ROLE_MODERATOR").save(flush:true)
+
+		if (Environment.current == Environment.PRODUCTION) {
+			// Production: roles only. Seeding the test users (admin_secret etc.) and
+			// random demo students in prod would create a permanent admin backdoor (TC-007).
+			log.info("Production environment detected — seeded roles only; skipping demo users and data.")
+			return
+		}
+
 		def testAdminUser = new AcUser(username:'admin', password: 'admin_secret').save(flush:true)
 		def testStudentUser = new AcUser(username:'student', password: 'student_secret').save(flush:true)
 		def testModeratorUser = new AcUser(username:'moderator', password: 'moderator_secret').save(flush:true)
@@ -73,6 +83,23 @@ class BootStrap {
 		CommAg other=new CommAg(address:"In America",name:"Other",description:"placeholder for more organizations",contact:"Austin College",contactPhone:"9038132000",contactEmail:"nmorgan@austincollege.edu")
 		other.save(failOnError:true,flush:true)
 		agList.add(other)
+
+		/*
+		 * Deterministic student backing the `student` / student_secret login (TC-005).
+		 * HomeController resolves it by acEmail = username + "@austincollege.edu".
+		 */
+		AcStudent demoStudent=new AcStudent(isModerator:false,firstname:"Sam",lastname:"Student",status:('A' as char),acid:"AC50000",acEmail:"student@austincollege.edu",acBox:"30000",acYear:2024,classification:Classification.JR,phone:"9038132000")
+		demoStudent.save(failOnError:true,flush:true)
+
+		//Hours spanning all three statuses so the student dashboard is populated.
+		[Status.APPROVED,Status.PENDING,Status.REJECTED,Status.APPROVED,Status.APPROVED].each{ st ->
+			int r=random.nextInt(orgList.size())
+			int r2=random.nextInt(eventList.size())
+			int r3=random.nextInt(agList.size())
+			ServiceHour sh=randomSH(orgList[r],eventList[r2],agList[r3])
+			sh.status=st
+			demoStudent.addToServiceHours(sh).save(failOnError:true,flush:true)
+		}
 
 		10.times{
 			//Generate random students
@@ -155,12 +182,14 @@ class BootStrap {
 		def email=first.substring(0,1)+last+"@austincollege.edu"
 
 
-		def year=111+random.nextInt(5)
-		def month=1+random.nextInt(12)
-		def date=1+random.nextInt(28)
-		def hour=8+random.nextInt(10)
-		def min=random.nextInt(60)
-		def starttime=new Date(year,month,date,hour,min,0)
+		//Distribute start times across the last 5 years ending today (TC-004).
+		//The old `new Date(year,...)` added 1900 to the year, dumping everything into 2011-2015.
+		Calendar cal=Calendar.getInstance()
+		cal.add(Calendar.DAY_OF_YEAR,-random.nextInt(5*365))
+		cal.set(Calendar.HOUR_OF_DAY,8+random.nextInt(10))
+		cal.set(Calendar.MINUTE,random.nextInt(60))
+		cal.set(Calendar.SECOND,0)
+		def starttime=cal.getTime()
 		def mod=new Date()
 
 
