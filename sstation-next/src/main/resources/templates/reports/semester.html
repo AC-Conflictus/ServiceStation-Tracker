@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Semester report — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>
+      Semester — <span th:text="${report.semester}">Fall</span>
+      <span th:text="${report.year}">2026</span>
+    </h1>
+
+    <form th:action="@{/reports/semester}" method="get">
+      <label
+        >Year
+        <select name="year">
+          <option
+            th:each="y : ${report.yearOptions}"
+            th:value="${y}"
+            th:text="${y}"
+            th:selected="${y == report.year}">
+            2026
+          </option>
+        </select>
+      </label>
+      <label
+        >Semester
+        <select name="semester">
+          <option
+            th:each="s : ${report.semesterOptions}"
+            th:value="${s}"
+            th:text="${s}"
+            th:selected="${s == report.semester}">
+            Fall
+          </option>
+        </select>
+      </label>
+      <button type="submit">View</button>
+    </form>
+
+    <p>
+      Total hours (<span th:text="${report.semester}">Fall</span>
+      <span th:text="${report.year}">2026</span>):
+      <strong th:text="${report.totalHours}">0</strong>
+    </p>
+
+    <h2>Top community agencies</h2>
+    <table border="1" cellpadding="4">
+      <tr th:each="t : ${report.topAgencies}">
+        <td th:text="${t.name}">Agency</td>
+        <td th:text="${t.total}">0</td>
+      </tr>
+    </table>
+
+    <h2>Top campus organizations</h2>
+    <table border="1" cellpadding="4">
+      <tr th:each="t : ${report.topCampusOrgs}">
+        <td th:text="${t.name}">Org</td>
+        <td th:text="${t.total}">0</td>
+      </tr>
+    </table>
+
+    <h2>Top events</h2>
+    <table border="1" cellpadding="4">
+      <tr th:each="t : ${report.topEvents}">
+        <td th:text="${t.name}">Event</td>
+        <td th:text="${t.total}">0</td>
+      </tr>
+    </table>
+
+    <p><a th:href="@{/reports}">All reports</a></p>
+  </body>
+</html>

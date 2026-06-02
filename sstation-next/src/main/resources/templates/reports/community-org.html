@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Community agency report — Service Station Hours</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>By community agency — total hours</h1>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>Community agency</th>
+          <th>Total hours</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="t : ${totals}">
+          <td th:text="${t.name}">Agency</td>
+          <td th:text="${t.total}">0</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div id="chart" style="width: 720px; height: 380px"></div>
+
+    <p><a th:href="@{/reports}">All reports</a></p>
+
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+      var totals = /*[[${totals}]]*/ [];
+      Highcharts.chart("chart", {
+        chart: { type: "bar" },
+        title: { text: "Total hours by community agency" },
+        xAxis: { categories: totals.map(function (t) { return t.name; }) },
+        yAxis: { title: { text: "Hours" } },
+        series: [{ name: "Hours", data: totals.map(function (t) { return t.total; }) }],
+      });
+      /*]]>*/
+    </script>
+  </body>
+</html>

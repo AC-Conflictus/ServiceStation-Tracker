@@ -18,6 +18,7 @@
     <ul>
       <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin}">Admin dashboard</a></li>
       <li sec:authorize="hasRole('STUDENT')"><a th:href="@{/student}">My dashboard</a></li>
+      <li sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')"><a th:href="@{/reports}">Reports</a></li>
     </ul>
 
     <form th:action="@{/logout}" method="post">

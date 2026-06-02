@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Year report — Service Station Hours</title>
+    <!-- TC-107 will vendor Highcharts; CDN for now. -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>By year — 5-year KPIs</h1>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Approved hours</th>
+          <th>Avg / student</th>
+          <th>Avg / campus org</th>
+          <th>Avg / community agency</th>
+          <th>Avg / event</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="k : ${kpis}">
+          <td th:text="${k.year}">2026</td>
+          <td th:text="${k.total}">0</td>
+          <td th:text="${k.avgByStudent}">0</td>
+          <td th:text="${k.avgByGroup}">0</td>
+          <td th:text="${k.avgByCommOrg}">0</td>
+          <td th:text="${k.avgByEvent}">0</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div id="chart" style="width: 640px; height: 360px"></div>
+
+    <p><a th:href="@{/reports}">All reports</a></p>
+
+    <script th:inline="javascript">
+      /*<![CDATA[*/
+      var kpis = /*[[${kpis}]]*/ [];
+      Highcharts.chart("chart", {
+        chart: { type: "column" },
+        title: { text: "Approved hours by year" },
+        xAxis: { categories: kpis.map(function (k) { return k.year; }) },
+        yAxis: { title: { text: "Hours" } },
+        series: [{ name: "Hours", data: kpis.map(function (k) { return k.total; }) }],
+      });
+      /*]]>*/
+    </script>
+  </body>
+</html>
