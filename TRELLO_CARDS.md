@@ -401,6 +401,13 @@ Not on the critical path to hand-off. Park these.
 We have ~12 weeks of runway before handing the project to AC IT. That's enough for a full rewrite to a modern, maintainable stack — provided we scope tight, keep the Grails app shippable as a fallback throughout, and don't redesign the UX.
 
 **Working assumption — recommended target stack:**
+
+> **TC-100 status (2026-06-02):** Memo sent to AC IT — see [docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md).
+> Stack below is the team's **recommendation, pending AC IT's written confirmation**. Scaffolding work (TC-101+)
+> is proceeding on this working assumption; if AC IT counter-proposes a different house standard, revisit before
+> TC-103 hardens the domain. Open questions still owed by AC IT: deploy target, prod OS, existing Java version,
+> DB standard, SMTP relay, SSO/IdP, and **Highcharts licensing** (non-free for commercial use).
+
 - **Java 21 LTS** + **Spring Boot 3.x** + **Spring Security 6** + **Spring Data JPA** + **Hibernate 6**
 - **Thymeleaf** server-rendered templates (1:1 conceptual port from GSP, low-risk; no SPA)
 - **PostgreSQL** (matches TC-029)
