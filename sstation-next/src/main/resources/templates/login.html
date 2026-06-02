@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sign in — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Service Station Hours</h1>
+    <h2>Sign in</h2>
+
+    <p th:if="${param.error}" style="color: #b00">Invalid username or password.</p>
+    <p th:if="${param.logout}" style="color: #060">You have been signed out.</p>
+
+    <!-- th:action makes Thymeleaf inject the CSRF token automatically (TC-018 fix). -->
+    <form th:action="@{/login}" method="post">
+      <p>
+        <label>Username <input type="text" name="username" autofocus required /></label>
+      </p>
+      <p>
+        <label>Password <input type="password" name="password" required /></label>
+      </p>
+      <p><button type="submit">Sign in</button></p>
+    </form>
+  </body>
+</html>

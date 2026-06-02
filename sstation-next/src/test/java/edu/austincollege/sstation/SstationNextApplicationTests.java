@@ -19,8 +19,9 @@ class SstationNextApplicationTests {
   void contextLoads() {}
 
   @Test
-  void helloWorldPageIsServed() {
-    String body = rest.getForObject("http://localhost:" + port + "/", String.class);
-    assertThat(body).contains("rewrite-in-progress");
+  void loginPageIsServed() {
+    // Since TC-104 the app is locked down; the public login page is the anonymous entry point.
+    String body = rest.getForObject("http://localhost:" + port + "/login", String.class);
+    assertThat(body).contains("Sign in");
   }
 }

@@ -1,14 +1,29 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
   <head>
     <meta charset="UTF-8" />
     <title>Service Station Hours — rewrite</title>
   </head>
   <body>
     <h1 th:text="${appName}">Service Station Hours</h1>
+
     <p>
-      Hello, world. This is the Spring Boot 3 / Java 21 rewrite scaffold (Lane 7, TC-101). The real
-      dashboards land in TC-105.
+      Signed in as <strong sec:authentication="name">user</strong>
+      (<span sec:authentication="authorities">roles</span>).
     </p>
+
+    <ul>
+      <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin}">Admin dashboard</a></li>
+      <li sec:authorize="hasRole('STUDENT')"><a th:href="@{/student}">My dashboard</a></li>
+    </ul>
+
+    <form th:action="@{/logout}" method="post">
+      <button type="submit">Sign out</button>
+    </form>
+
+    <p><em>Rewrite scaffold (Lane 7). Real dashboards land in TC-105.</em></p>
   </body>
 </html>

@@ -52,6 +52,12 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Local `./gradlew bootRun` boots the dev profile so the seeded admin/student/moderator
+// accounts (DevDataSeeder) exist. Prod runs with -Dspring.profiles.active=prod (no seeding).
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    systemProperty("spring.profiles.active", "dev")
+}
+
 spotless {
     java {
         googleJavaFormat("1.23.0")
