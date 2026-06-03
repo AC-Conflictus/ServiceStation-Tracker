@@ -41,7 +41,10 @@
           Avg hours / student:
           <strong th:text="${#numbers.formatDecimal(dashboard.overall.averagePerStudent, 1, 2)}">0</strong>
         </li>
-        <li>Pending requests: <strong th:text="${dashboard.overall.pendingTotal}">0</strong></li>
+        <li>
+          Pending requests:
+          <strong><a th:href="@{/admin/hours/pending}" th:text="${dashboard.overall.pendingTotal}">0</a></strong>
+        </li>
       </ul>
     </section>
 
@@ -55,6 +58,7 @@
     <nav>
       <strong>Manage:</strong>
       <a th:href="@{/admin/students}">Students</a> ·
+      <a th:href="@{/admin/hours}">Service hours</a> ·
       <a th:href="@{/admin/events}">Events</a> ·
       <a th:href="@{/admin/campus-orgs}">Campus orgs</a> ·
       <a th:href="@{/admin/agencies}">Community agencies</a> ·
