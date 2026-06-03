@@ -1,43 +1,50 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Community agency report — Service Station Hours</title>
-    <script src="https://code.highcharts.com/highcharts.js"></script>
   </head>
   <body>
-    <h1>By community agency — total hours</h1>
+    <main>
+      <h1 class="h3 mb-4">By community agency — total hours</h1>
 
-    <table border="1" cellpadding="4">
-      <thead>
-        <tr>
-          <th>Community agency</th>
-          <th>Total hours</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr th:each="t : ${totals}">
-          <td th:text="${t.name}">Agency</td>
-          <td th:text="${t.total}">0</td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="card mb-4">
+        <div class="card-body"><div id="chart" style="height: 380px"></div></div>
+      </div>
 
-    <div id="chart" style="width: 720px; height: 380px"></div>
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Community agency</th>
+              <th>Total hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="t : ${totals}">
+              <td th:text="${t.name}">Agency</td>
+              <td th:text="${t.total}">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <p><a th:href="@{/reports}">All reports</a></p>
+      <p><a th:href="@{/reports}">&larr; All reports</a></p>
 
-    <script th:inline="javascript">
-      /*<![CDATA[*/
-      var totals = /*[[${totals}]]*/ [];
-      Highcharts.chart("chart", {
-        chart: { type: "bar" },
-        title: { text: "Total hours by community agency" },
-        xAxis: { categories: totals.map(function (t) { return t.name; }) },
-        yAxis: { title: { text: "Hours" } },
-        series: [{ name: "Hours", data: totals.map(function (t) { return t.total; }) }],
-      });
-      /*]]>*/
-    </script>
+      <script th:inline="javascript">
+        /*<![CDATA[*/
+        var totals = /*[[${totals}]]*/ [];
+        Highcharts.chart("chart", {
+          chart: { type: "bar" },
+          title: { text: "Total hours by community agency" },
+          xAxis: { categories: totals.map(function (t) { return t.name; }) },
+          yAxis: { title: { text: "Hours" } },
+          series: [{ name: "Hours", data: totals.map(function (t) { return t.total; }) }],
+        });
+        /*]]>*/
+      </script>
+    </main>
   </body>
 </html>
