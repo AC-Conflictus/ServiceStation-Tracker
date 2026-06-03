@@ -2,93 +2,82 @@
 <html
   lang="en"
   xmlns:th="http://www.thymeleaf.org"
-  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title th:text="${title}">Service hours</title>
-    <meta name="_csrf" th:content="${_csrf.token}" />
-    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
   </head>
   <body>
-    <h1 th:text="${title}">Service hours</h1>
-    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+    <main>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0" th:text="${title}">Service hours</h1>
+        <a class="btn btn-primary" th:href="@{/admin/hours/new}">+ New service hour</a>
+      </div>
+      <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
 
-    <p>
-      <a th:href="@{/admin/hours/new}">+ New service hour</a> ·
-      <a th:href="@{/admin/hours}">All</a> · <a th:href="@{/admin/hours/pending}">Pending only</a>
-    </p>
+      <ul class="nav nav-pills mb-3">
+        <li class="nav-item"><a class="nav-link" th:href="@{/admin/hours}" th:classappend="${title == 'All service hours'} ? 'active'">All</a></li>
+        <li class="nav-item"><a class="nav-link" th:href="@{/admin/hours/pending}" th:classappend="${title == 'Pending service hours'} ? 'active'">Pending only</a></li>
+      </ul>
 
-    <table border="1" cellpadding="4">
-      <thead>
-        <tr>
-          <th>Student</th>
-          <th>Date</th>
-          <th>Hours</th>
-          <th>Status</th>
-          <th>Event</th>
-          <th>Campus org</th>
-          <th>Community agency</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr th:each="h : ${hours}" th:id="'hour-' + ${h.id}">
-          <td th:text="${h.student.fullName}">Sam Student</td>
-          <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
-          <td th:text="${h.duration}">0</td>
-          <td th:id="'status-' + ${h.id}" th:text="${h.status}">PENDING</td>
-          <td th:text="${h.event != null ? h.event.name : (h.otherCamOrg != null ? '' : '—')}">—</td>
-          <td th:text="${h.campusOrg != null ? h.campusOrg.name : (h.otherCamOrg != null ? h.otherCamOrg : '—')}">—</td>
-          <td th:text="${h.commAg != null ? h.commAg.name : (h.otherCommAg != null ? h.otherCommAg : '—')}">—</td>
-          <td>
-            <a th:href="@{/admin/hours/{id}/edit(id=${h.id})}">Edit</a>
-            <span sec:authorize="hasRole('ADMIN')">
-              | <button type="button" th:onclick="|setStatus(${h.id}, 'APPROVED')|">Approve</button>
-              <button type="button" th:onclick="|setStatus(${h.id}, 'REJECTED')|">Reject</button>
-              | <a th:href="@{/admin/hours/{id}/audit(id=${h.id})}">Audit</a>
-            </span>
-            <form
-              th:action="@{/admin/hours/{id}/delete(id=${h.id})}"
-              method="post"
-              style="display: inline"
-              onsubmit="return confirm('Delete this service hour?');">
-              <button type="submit">Delete</button>
-            </form>
-          </td>
-        </tr>
-        <tr th:if="${hours.isEmpty()}">
-          <td colspan="8">No service hours.</td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Student</th><th>Date</th><th>Hours</th><th>Status</th>
+              <th>Event</th><th>Campus org</th><th>Community agency</th><th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="h : ${hours}" th:id="'hour-' + ${h.id}">
+              <td th:text="${h.student.fullName}">Sam Student</td>
+              <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
+              <td th:text="${h.duration}">0</td>
+              <td>
+                <span th:id="'status-' + ${h.id}" class="badge"
+                      th:classappend="${h.status.name() == 'APPROVED'} ? 'text-bg-success' : (${h.status.name() == 'REJECTED'} ? 'text-bg-danger' : 'text-bg-warning')"
+                      th:text="${h.status}">PENDING</span>
+              </td>
+              <td th:text="${h.event != null ? h.event.name : '—'}">—</td>
+              <td th:text="${h.campusOrg != null ? h.campusOrg.name : (h.otherCamOrg != null ? h.otherCamOrg : '—')}">—</td>
+              <td th:text="${h.commAg != null ? h.commAg.name : (h.otherCommAg != null ? h.otherCommAg : '—')}">—</td>
+              <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/hours/{id}/edit(id=${h.id})}">Edit</a>
+                <span sec:authorize="hasRole('ADMIN')">
+                  <button type="button" class="btn btn-sm btn-outline-success" th:onclick="|setStatus(${h.id}, 'APPROVED')|">Approve</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" th:onclick="|setStatus(${h.id}, 'REJECTED')|">Reject</button>
+                  <a class="btn btn-sm btn-outline-info" th:href="@{/admin/hours/{id}/audit(id=${h.id})}">Audit</a>
+                </span>
+                <form th:action="@{/admin/hours/{id}/delete(id=${h.id})}" method="post" class="d-inline"
+                      onsubmit="return confirm('Delete this service hour?');">
+                  <button type="submit" class="btn btn-sm btn-outline-dark">Delete</button>
+                </form>
+              </td>
+            </tr>
+            <tr th:if="${hours.isEmpty()}"><td colspan="8" class="text-muted">No service hours.</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-    <p><a th:href="@{/admin}">Admin dashboard</a></p>
+      <script th:inline="javascript">
+        /*<![CDATA[*/
+        var csrfToken = document.querySelector('meta[name="_csrf"]').content;
+        var csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
 
-    <script th:inline="javascript">
-      /*<![CDATA[*/
-      var csrfToken = document.querySelector('meta[name="_csrf"]').content;
-      var csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
-
-      function setStatus(id, status) {
-        var headers = { "Content-Type": "application/x-www-form-urlencoded" };
-        headers[csrfHeader] = csrfToken;
-        fetch("/admin/hours/" + id + "/status", {
-          method: "POST",
-          headers: headers,
-          body: "status=" + status,
-        })
-          .then(function (r) {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.json();
-          })
-          .then(function (data) {
-            document.getElementById("status-" + data.id).textContent = data.status;
-          })
-          .catch(function (e) {
-            alert("Could not update status: " + e.message);
-          });
-      }
-      /*]]>*/
-    </script>
+        function setStatus(id, status) {
+          var headers = { "Content-Type": "application/x-www-form-urlencoded" };
+          headers[csrfHeader] = csrfToken;
+          fetch("/admin/hours/" + id + "/status", { method: "POST", headers: headers, body: "status=" + status })
+            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+            .then(function (data) {
+              var badge = document.getElementById("status-" + data.id);
+              badge.textContent = data.status;
+              badge.className = "badge " + (data.status === "APPROVED" ? "text-bg-success" : (data.status === "REJECTED" ? "text-bg-danger" : "text-bg-warning"));
+            })
+            .catch(function (e) { alert("Could not update status: " + e.message); });
+        }
+        /*]]>*/
+      </script>
+    </main>
   </body>
 </html>

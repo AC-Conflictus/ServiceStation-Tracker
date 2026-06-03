@@ -1,55 +1,61 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Moderators — Service Station Hours</title>
   </head>
   <body>
-    <h1>Moderators</h1>
-    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
-    <p>
-      <em
-        >Toggles the student's moderator flag. (It does not by itself grant the ROLE_MODERATOR login
-        authority.)</em
-      >
-    </p>
+    <main>
+      <h1 class="h3 mb-2">Moderators</h1>
+      <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
+      <p class="text-muted">
+        Toggles the student's moderator flag. (It does not by itself grant the ROLE_MODERATOR login
+        authority.)
+      </p>
 
-    <h2>Current moderators</h2>
-    <table border="1" cellpadding="4">
-      <tbody>
-        <tr th:each="s : ${moderators}">
-          <td th:text="${s.fullName}">Sam Student</td>
-          <td th:text="${s.acid}">AC50000</td>
-          <td>
-            <form th:action="@{/admin/moderators/{id}/demote(id=${s.id})}" method="post">
-              <button type="submit">Demote</button>
-            </form>
-          </td>
-        </tr>
-        <tr th:if="${moderators.isEmpty()}">
-          <td colspan="3">No moderators yet.</td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header">Current moderators</div>
+            <table class="table table-striped mb-0 align-middle">
+              <tbody>
+                <tr th:each="s : ${moderators}">
+                  <td th:text="${s.fullName}">Sam Student</td>
+                  <td class="text-muted" th:text="${s.acid}">AC50000</td>
+                  <td class="text-end">
+                    <form th:action="@{/admin/moderators/{id}/demote(id=${s.id})}" method="post" class="m-0">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Demote</button>
+                    </form>
+                  </td>
+                </tr>
+                <tr th:if="${moderators.isEmpty()}"><td class="text-muted">No moderators yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-    <h2>Promote a student</h2>
-    <table border="1" cellpadding="4">
-      <tbody>
-        <tr th:each="s : ${candidates}">
-          <td th:text="${s.fullName}">Mary Block</td>
-          <td th:text="${s.acid}">AC51234</td>
-          <td>
-            <form th:action="@{/admin/moderators/{id}/promote(id=${s.id})}" method="post">
-              <button type="submit">Promote</button>
-            </form>
-          </td>
-        </tr>
-        <tr th:if="${candidates.isEmpty()}">
-          <td colspan="3">No students to promote.</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p><a th:href="@{/admin/students}">Students</a> · <a th:href="@{/admin}">Admin dashboard</a></p>
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header">Promote a student</div>
+            <table class="table table-striped mb-0 align-middle">
+              <tbody>
+                <tr th:each="s : ${candidates}">
+                  <td th:text="${s.fullName}">Mary Block</td>
+                  <td class="text-muted" th:text="${s.acid}">AC51234</td>
+                  <td class="text-end">
+                    <form th:action="@{/admin/moderators/{id}/promote(id=${s.id})}" method="post" class="m-0">
+                      <button type="submit" class="btn btn-sm btn-outline-success">Promote</button>
+                    </form>
+                  </td>
+                </tr>
+                <tr th:if="${candidates.isEmpty()}"><td class="text-muted">No students to promote.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
   </body>
 </html>

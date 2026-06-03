@@ -1,55 +1,58 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Students — Service Station Hours</title>
   </head>
   <body>
-    <h1>Students</h1>
-    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+    <main>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Students</h1>
+        <div>
+          <a class="btn btn-outline-secondary" th:href="@{/admin/moderators}" sec:authorize="hasRole('ADMIN')">Moderators</a>
+          <a class="btn btn-primary" th:href="@{/admin/students/new}">+ New student</a>
+        </div>
+      </div>
+      <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
 
-    <p><a th:href="@{/admin/students/new}">+ New student</a></p>
+      <div class="table-responsive">
+        <table id="studentsTable" class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr><th>ACID</th><th>Name</th><th>Email</th><th>Class</th><th>Year</th><th>Moderator?</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr th:each="s : ${students}">
+              <td th:text="${s.acid}">AC50000</td>
+              <td th:text="${s.fullName}">Sam Student</td>
+              <td th:text="${s.acEmail}">s@austincollege.edu</td>
+              <td th:text="${s.classification != null ? s.classification.displayName : '—'}">Junior</td>
+              <td th:text="${s.acYear != null ? s.acYear : '—'}">2024</td>
+              <td>
+                <span class="badge" th:classappend="${s.isModerator != null and s.isModerator} ? 'text-bg-success' : 'text-bg-secondary'"
+                      th:text="${s.isModerator != null and s.isModerator ? 'Yes' : 'No'}">No</span>
+              </td>
+              <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/students/{id}/edit(id=${s.id})}">Edit</a>
+                <form
+                  th:action="@{/admin/students/{id}/delete(id=${s.id})}"
+                  method="post"
+                  class="d-inline"
+                  onsubmit="return confirm('Delete this student? Their service hours will be removed.');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <table border="1" cellpadding="4">
-      <thead>
-        <tr>
-          <th>ACID</th>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Class</th>
-          <th>Year</th>
-          <th>Moderator?</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr th:each="s : ${students}">
-          <td th:text="${s.acid}">AC50000</td>
-          <td th:text="${s.fullName}">Sam Student</td>
-          <td th:text="${s.acEmail}">s@austincollege.edu</td>
-          <td th:text="${s.classification != null ? s.classification.displayName : '—'}">Junior</td>
-          <td th:text="${s.acYear != null ? s.acYear : '—'}">2024</td>
-          <td th:text="${s.isModerator != null and s.isModerator ? 'Yes' : 'No'}">No</td>
-          <td>
-            <a th:href="@{/admin/students/{id}/edit(id=${s.id})}">Edit</a>
-            <form
-              th:action="@{/admin/students/{id}/delete(id=${s.id})}"
-              method="post"
-              style="display: inline"
-              onsubmit="return confirm('Delete this student? Their service hours will be removed.');">
-              <button type="submit">Delete</button>
-            </form>
-          </td>
-        </tr>
-        <tr th:if="${students.isEmpty()}">
-          <td colspan="7">No students yet.</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p>
-      <a th:href="@{/admin/moderators}">Manage moderators</a> ·
-      <a th:href="@{/admin}">Admin dashboard</a>
-    </p>
+      <script th:inline="javascript">
+        /*<![CDATA[*/
+        $(function () { $("#studentsTable").DataTable({ pageLength: 25 }); });
+        /*]]>*/
+      </script>
+    </main>
   </body>
 </html>
