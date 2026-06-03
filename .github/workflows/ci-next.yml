@@ -1,0 +1,69 @@
+name: CI (next)
+
+# ----------------------------------------------------------------------------
+# Parallel CI for the Lane 7 rewrite module (sstation-next/), TC-102.
+#
+# This is the modern counterpart to the Grails `ci.yml`. Where that one is
+# pinned to JDK 8 / Grails 2.4.4 and is build-only (Spring Loaded breaks the
+# Spock suite under CI), this one runs the full `./gradlew check` gate —
+# Spotless format verification + JUnit 5 tests — on JDK 21.
+#
+# Path filter: this workflow only fires on changes under sstation-next/ (and to
+# itself), so a Grails-only change doesn't spin up a Gradle build and vice
+# versa. The Grails ci.yml is left unchanged and continues to build the WAR.
+# ----------------------------------------------------------------------------
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths:
+      - "sstation-next/**"
+      - ".github/workflows/ci-next.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sstation-next/**"
+      - ".github/workflows/ci-next.yml"
+
+# Cancel in-progress runs for the same branch when a new push comes in.
+concurrency:
+  group: ci-next-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check (JDK 21 + Gradle)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: sstation-next
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with build cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run check (Spotless + tests)
+        run: ./gradlew check --no-daemon --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sstation-next-test-reports-${{ github.run_id }}
+          path: |
+            sstation-next/build/reports/tests/
+            sstation-next/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,6 +1,15 @@
 # Austin College Service Station Hours Registration Web Application
 
 [![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI (next)](../../actions/workflows/ci-next.yml/badge.svg)](../../actions/workflows/ci-next.yml)
+
+> **Note:** The `CI` badge tracks the legacy Grails 2.4.4 app under [sstation/](sstation/) (build-only WAR pipeline). The `CI (next)` badge tracks the Spring Boot 3 / Java 21 rewrite under [sstation-next/](sstation-next/) (Lane 7 — `./gradlew check`). See [TRELLO_CARDS.md](TRELLO_CARDS.md) Lane 7.
+
+> **This repo contains two apps:**
+> - [sstation/](sstation/) — the original **Grails 2.4.4** app (currently shippable; needs JDK 7/8).
+> - [sstation-next/](sstation-next/) — the in-progress **Spring Boot 3 / Java 21** rewrite (Lane 7). Domain model, auth, and all read-only views are done; CRUD (TC-106) and the modern frontend (TC-107) are next.
+>
+> **To run either locally, see [demo.md](demo.md).** Guidance for contributors/AI assistants is in [CLAUDE.md](CLAUDE.md).
 
 ### Backgrounds
 [Austin College Service Station](https://www.austincollege.edu/campus-life/service-station/) is a student-run office which organizes volunteer and community service events. Every year, Service Station organizes huge volunteer events focusing on diverse purposes, such as *Great Day of Service*, *GreenServe*, and *JanServe* and corporates with student service organizations and local non-profit agencys to hold these events. 

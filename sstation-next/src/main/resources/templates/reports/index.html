@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Reports — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Reports</h1>
+
+    <h2>Standard reports</h2>
+    <ul>
+      <li><a th:href="@{/reports/year}">By year (5-year KPIs)</a></li>
+      <li><a th:href="@{/reports/event}">By event</a></li>
+      <li><a th:href="@{/reports/community-org}">By community agency</a></li>
+      <li><a th:href="@{/reports/campus-org}">By campus organization</a></li>
+    </ul>
+
+    <h2>Summary (by year)</h2>
+    <form th:action="@{/reports/summary}" method="get">
+      <label
+        >Year
+        <select name="year">
+          <option th:each="y : ${yearOptions}" th:value="${y}" th:text="${y}">2026</option>
+        </select>
+      </label>
+      <button type="submit">View summary</button>
+    </form>
+
+    <h2>Semester</h2>
+    <form th:action="@{/reports/semester}" method="get">
+      <label
+        >Year
+        <select name="year">
+          <option th:each="y : ${yearOptions}" th:value="${y}" th:text="${y}">2026</option>
+        </select>
+      </label>
+      <label
+        >Semester
+        <select name="semester">
+          <option th:each="s : ${semesterOptions}" th:value="${s}" th:text="${s}">Fall</option>
+        </select>
+      </label>
+      <button type="submit">View semester</button>
+    </form>
+
+    <p><a th:href="@{/}">Home</a></p>
+  </body>
+</html>

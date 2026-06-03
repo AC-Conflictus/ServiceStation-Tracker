@@ -401,6 +401,13 @@ Not on the critical path to hand-off. Park these.
 We have ~12 weeks of runway before handing the project to AC IT. That's enough for a full rewrite to a modern, maintainable stack — provided we scope tight, keep the Grails app shippable as a fallback throughout, and don't redesign the UX.
 
 **Working assumption — recommended target stack:**
+
+> **TC-100 status (2026-06-02):** Memo sent to AC IT — see [docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md).
+> Stack below is the team's **recommendation, pending AC IT's written confirmation**. Scaffolding work (TC-101+)
+> is proceeding on this working assumption; if AC IT counter-proposes a different house standard, revisit before
+> TC-103 hardens the domain. Open questions still owed by AC IT: deploy target, prod OS, existing Java version,
+> DB standard, SMTP relay, SSO/IdP, and **Highcharts licensing** (non-free for commercial use).
+
 - **Java 21 LTS** + **Spring Boot 3.x** + **Spring Security 6** + **Spring Data JPA** + **Hibernate 6**
 - **Thymeleaf** server-rendered templates (1:1 conceptual port from GSP, low-risk; no SPA)
 - **PostgreSQL** (matches TC-029)
@@ -423,7 +430,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 
 ---
 
-### TC-100 📝 🏫 Lock target stack with AC IT
+### TC-100 📝 🏫 Lock target stack with AC IT ✅ memo sent 2026-06-02 (awaiting AC IT reply)
+- **Status:** Memo written ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)) and recommendation recorded in the Working-assumption block above. Scaffolding (TC-101+) proceeded on the working assumption; AC IT's written confirmation is still outstanding.
 - **Why:** Everything else in this lane depends on the answer. Don't write a single line of Spring Boot code before this is confirmed.
 - **Acceptance criteria:**
   - One-page memo emailed to AC IT contact: recommended stack (Spring Boot 3 / Java 21 / Postgres / Thymeleaf), why, what we're trading off, ask for written confirmation or a counter-proposal.
@@ -433,7 +441,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Estimate:** S (the writing) + however long AC IT takes to respond.
 - **Blocks:** Everything else in Lane 7.
 
-### TC-101 ☁️ Scaffold new repo structure
+### TC-101 ☁️ Scaffold new repo structure ✅ landed 2026-06-02
+- **Status:** Done. `sstation-next/` Spring Boot 3.3.5 / Java 21 / Gradle Kotlin DSL baseline, `./gradlew bootRun` Hello World, Spotless, `README-NEXT.md`. Chose option (a) — parallel dir in-repo.
 - **Why:** Decide where the rewrite lives. Two options: (a) new top-level dir `sstation-next/` in the same repo, parallel to `sstation/`; (b) brand-new repo. Option (a) keeps git history and commit references intact; option (b) is cleaner for handoff. I lean (a) for the rewrite phase, then move it to its own repo for the handoff.
 - **Acceptance criteria:**
   - `sstation-next/` directory with a Spring Initializr-generated baseline: Spring Boot 3.3+, Java 21, Gradle (Kotlin DSL), dependencies: web, security, data-jpa, validation, thymeleaf, postgresql, flyway, actuator.
@@ -442,7 +451,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - `README-NEXT.md` in the new dir with a "this is the rewrite-in-progress" disclaimer.
 - **Estimate:** S.
 
-### TC-102 ☁️ Parallel CI for the new module
+### TC-102 ☁️ Parallel CI for the new module ✅ landed 2026-06-02
+- **Status:** Done. `ci-next.yml` runs `./gradlew check` on JDK 21, path-filtered to `sstation-next/**`; Grails `ci.yml` left unchanged; both badges in the README.
 - **Why:** Lane 5's CI workflow is Grails-specific. The new module needs its own workflow that doesn't fight with the old one.
 - **Acceptance criteria:**
   - `.github/workflows/ci-next.yml` runs `./gradlew check` on JDK 21.
@@ -451,7 +461,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Both badges in the README.
 - **Estimate:** S.
 
-### TC-103 🧹 Port the domain model to JPA entities
+### TC-103 🧹 Port the domain model to JPA entities ✅ landed 2026-06-02
+- **Status:** Done. 9 entities + 2 enums under `edu.austincollege.sstation.domain`, Flyway `V1__initial_schema.sql`, JUnit 5 validation + relationship tests (run against the Flyway schema with `ddl-auto=validate`). **Decision:** `ServiceHour.{campusOrg, commAg, event}` kept **nullable** (matches Grails + the `other*` free-text fields); `student` is required. `Contact` ported as a minimal id+name/phone/email entity (the Grails original was empty/unreferenced).
 - **Why:** The domain model is the spine of the app. Get this right first — everything else (services, controllers, views) depends on the entity shapes.
 - **Acceptance criteria:**
   - JPA `@Entity` classes for: `User`, `Role`, `UserRole`, `Student` (renamed from `AcStudent`), `ServiceHour`, `Event`, `CampusOrg`, `CommunityAgency` (renamed from `CommAg`), `Contact`.
@@ -463,7 +474,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Files:** new `sstation-next/src/main/java/edu/austincollege/sstation/domain/*.java`, `src/main/resources/db/migration/V1__*.sql`.
 - **Estimate:** M.
 
-### TC-104 🔒 Port authentication & authorization
+### TC-104 🔒 Port authentication & authorization ✅ landed 2026-06-02
+- **Status:** Done. Form login/logout, delegating `{bcrypt}` encoder, `@EnableMethodSecurity` + `@PreAuthorize` on controllers, CSRF on, `DevDataSeeder` (`@Profile("dev")`) seeds the three accounts with passwords from `SSTATION_DEV_*_PASSWORD` env vars. SSO/OIDC seam documented in `SecurityConfig`. Verified via an 8-case MockMvc suite + live.
 - **Why:** Spring Security 6 is the modern equivalent of the EOL plugin we're using. Done right, it also gets us CSRF + bcrypt + proper session management for free.
 - **Acceptance criteria:**
   - Form login + logout against the `User` / `Role` tables.
@@ -474,7 +486,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - 🏫 Optional: pluggable SAML/OIDC if AC IT runs an IdP — leave a config seam, document it.
 - **Estimate:** M.
 
-### TC-105 ✨ Port read-only views first (dashboards, lists, reports)
+### TC-105 ✨ Port read-only views first (dashboards, lists, reports) ✅ landed 2026-06-03
+- **Status:** Done, in three slices. (a) Admin dashboard via `StatsService` + `DemoDataSeeder`. (b) Six reports via `ReportService` (`ReportsController` gated `hasAnyRole('ADMIN','MODERATOR')`). (c) Student dashboard + per-student report via `StudentStatsService`, resolving the current student through the real `User→Student` FK. All current-year logic via `LocalDate.now()`, top-N bounds-safe, all FK access null-guarded. Highcharts still via CDN pending TC-107. Verified `./gradlew check` (49 tests) + live click-through.
 - **Why:** Read views are the lowest-risk port and exercise most of the data model. Get these working before touching write paths.
 - **Acceptance criteria:**
   - Admin dashboard with the same KPIs and charts as the Grails app (same Highcharts data shapes — keeps the JS frontend nearly identical).

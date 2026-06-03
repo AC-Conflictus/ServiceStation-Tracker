@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My hours — Service Station Hours</title>
+  </head>
+  <body>
+    <header>
+      <h1>My dashboard</h1>
+      <p>
+        Signed in as <strong sec:authentication="name">student</strong> —
+        <a th:href="@{/logout}" onclick="event.preventDefault();document.getElementById('lf').submit();"
+          >Sign out</a
+        >
+      </p>
+      <form id="lf" th:action="@{/logout}" method="post" hidden></form>
+    </header>
+
+    <div th:unless="${hasProfile}">
+      <p>Your login isn't linked to a student profile yet. Contact the Service Station office.</p>
+    </div>
+
+    <div th:if="${hasProfile}">
+      <h2 th:text="${dashboard.studentName}">Sam Student</h2>
+      <ul>
+        <li>Total hours logged: <strong th:text="${dashboard.grandTotal}">0</strong></li>
+        <li>Approved: <strong th:text="${dashboard.approvedTotal}">0</strong></li>
+        <li>Pending: <strong th:text="${dashboard.pendingTotal}">0</strong></li>
+        <li>Rejected: <strong th:text="${dashboard.rejectedTotal}">0</strong></li>
+      </ul>
+
+      <p><a th:href="@{/student/report}">My report (by semester &amp; organization)</a></p>
+
+      <h3>My service hours</h3>
+      <table border="1" cellpadding="4">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Hours</th>
+            <th>Status</th>
+            <th>Event</th>
+            <th>Campus org</th>
+            <th>Community agency</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="h : ${dashboard.hours}">
+            <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
+            <td th:text="${h.duration}">0</td>
+            <td th:text="${h.status}">PENDING</td>
+            <td th:text="${h.eventName}">—</td>
+            <td th:text="${h.campusOrgName}">—</td>
+            <td th:text="${h.communityAgencyName}">—</td>
+          </tr>
+          <tr th:if="${dashboard.hours.isEmpty()}">
+            <td colspan="6">No service hours logged yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><a th:href="@{/}">Home</a></p>
+  </body>
+</html>
