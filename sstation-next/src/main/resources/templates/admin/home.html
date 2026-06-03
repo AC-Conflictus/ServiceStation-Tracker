@@ -54,9 +54,11 @@
 
     <nav>
       <strong>Manage:</strong>
+      <a th:href="@{/admin/students}">Students</a> ·
       <a th:href="@{/admin/events}">Events</a> ·
       <a th:href="@{/admin/campus-orgs}">Campus orgs</a> ·
-      <a th:href="@{/admin/agencies}">Community agencies</a>
+      <a th:href="@{/admin/agencies}">Community agencies</a> ·
+      <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/moderators}">Moderators</a>
     </nav>
     <p><a th:href="@{/reports}">Reports</a> · <a th:href="@{/}">Home</a></p>
 

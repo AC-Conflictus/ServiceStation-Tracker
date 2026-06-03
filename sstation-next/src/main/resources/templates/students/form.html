@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title th:text="${heading}">Student</title>
+  </head>
+  <body>
+    <h1 th:text="${heading}">Student</h1>
+
+    <form
+      th:object="${student}"
+      th:action="${student.id == null} ? @{/admin/students} : @{/admin/students/{id}(id=${student.id})}"
+      method="post">
+      <p>
+        <label>First name<br /><input type="text" th:field="*{firstname}" /></label>
+        <span th:if="${#fields.hasErrors('firstname')}" th:errors="*{firstname}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Last name<br /><input type="text" th:field="*{lastname}" /></label>
+        <span th:if="${#fields.hasErrors('lastname')}" th:errors="*{lastname}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>ACID<br /><input type="text" th:field="*{acid}" /></label>
+        <span th:if="${#fields.hasErrors('acid')}" th:errors="*{acid}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>AC email<br /><input type="text" th:field="*{acEmail}" /></label>
+        <span th:if="${#fields.hasErrors('acEmail')}" th:errors="*{acEmail}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>AC box<br /><input type="text" th:field="*{acBox}" /></label>
+      </p>
+      <p>
+        <label>Phone<br /><input type="text" th:field="*{phone}" /></label>
+      </p>
+      <p>
+        <label>Class year<br /><input type="number" th:field="*{acYear}" /></label>
+      </p>
+      <p>
+        <label>Status (single char, e.g. A)<br /><input type="text" maxlength="1" th:field="*{status}" /></label>
+        <span th:if="${#fields.hasErrors('status')}" th:errors="*{status}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label
+          >Classification<br />
+          <select th:field="*{classification}">
+            <option value="">— none —</option>
+            <option
+              th:each="c : ${classifications}"
+              th:value="${c}"
+              th:text="${c.displayName}">
+              Junior
+            </option>
+          </select>
+        </label>
+      </p>
+      <p>
+        <label><input type="checkbox" th:field="*{isModerator}" /> Moderator</label>
+      </p>
+      <p><button type="submit">Save</button> <a th:href="@{/admin/students}">Cancel</a></p>
+    </form>
+  </body>
+</html>
