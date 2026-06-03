@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title th:text="${heading}">Community agency</title>
+  </head>
+  <body>
+    <h1 th:text="${heading}">Community agency</h1>
+
+    <form
+      th:object="${agency}"
+      th:action="${agency.id == null} ? @{/admin/agencies} : @{/admin/agencies/{id}(id=${agency.id})}"
+      method="post">
+      <p>
+        <label>Name<br /><input type="text" th:field="*{name}" /></label>
+        <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Address<br /><input type="text" th:field="*{address}" /></label>
+        <span th:if="${#fields.hasErrors('address')}" th:errors="*{address}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Description<br /><textarea th:field="*{description}" rows="3" cols="50"></textarea></label>
+        <span th:if="${#fields.hasErrors('description')}" th:errors="*{description}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Contact<br /><input type="text" th:field="*{contact}" /></label>
+        <span th:if="${#fields.hasErrors('contact')}" th:errors="*{contact}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Contact phone<br /><input type="text" th:field="*{contactPhone}" /></label>
+        <span th:if="${#fields.hasErrors('contactPhone')}" th:errors="*{contactPhone}" style="color: #b00"></span>
+      </p>
+      <p>
+        <label>Contact email<br /><input type="text" th:field="*{contactEmail}" /></label>
+        <span th:if="${#fields.hasErrors('contactEmail')}" th:errors="*{contactEmail}" style="color: #b00"></span>
+      </p>
+      <p><button type="submit">Save</button> <a th:href="@{/admin/agencies}">Cancel</a></p>
+    </form>
+  </body>
+</html>

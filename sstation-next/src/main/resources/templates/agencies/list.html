@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Community agencies — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Community agencies</h1>
+    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+
+    <p><a th:href="@{/admin/agencies/new}">+ New community agency</a></p>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Address</th>
+          <th>Contact</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="a : ${agencies}">
+          <td th:text="${a.name}">Agency</td>
+          <td th:text="${a.address}">Address</td>
+          <td th:text="${a.contact}">Contact</td>
+          <td th:text="${a.contactPhone}">Phone</td>
+          <td th:text="${a.contactEmail}">Email</td>
+          <td>
+            <a th:href="@{/admin/agencies/{id}/edit(id=${a.id})}">Edit</a>
+            <form
+              th:action="@{/admin/agencies/{id}/delete(id=${a.id})}"
+              method="post"
+              style="display: inline"
+              onsubmit="return confirm('Delete this agency? Service hours are kept.');">
+              <button type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${agencies.isEmpty()}">
+          <td colspan="6">No community agencies yet.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><a th:href="@{/admin}">Admin dashboard</a></p>
+  </body>
+</html>

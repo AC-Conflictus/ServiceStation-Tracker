@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Campus organizations — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Campus organizations</h1>
+    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+
+    <p><a th:href="@{/admin/campus-orgs/new}">+ New campus organization</a></p>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="o : ${orgs}">
+          <td th:text="${o.name}">Org</td>
+          <td th:text="${o.contact}">Contact</td>
+          <td th:text="${o.contactPhone}">Phone</td>
+          <td th:text="${o.contactEmail}">Email</td>
+          <td>
+            <a th:href="@{/admin/campus-orgs/{id}/edit(id=${o.id})}">Edit</a>
+            <form
+              th:action="@{/admin/campus-orgs/{id}/delete(id=${o.id})}"
+              method="post"
+              style="display: inline"
+              onsubmit="return confirm('Delete this organization? Service hours are kept.');">
+              <button type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${orgs.isEmpty()}">
+          <td colspan="5">No campus organizations yet.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><a th:href="@{/admin}">Admin dashboard</a></p>
+  </body>
+</html>
