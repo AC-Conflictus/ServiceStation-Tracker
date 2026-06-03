@@ -8,6 +8,8 @@ The **Austin College Service Station Hours Registration Web App** — a Grails 2
 
 It is a class project from around 2015–2016. The codebase is **frozen on a very old stack**: Grails 2.4.4, Spring Security Core 2.0‑RC5, Hibernate 4.3, jQuery 1.11, Bootstrap 3.3, Highcharts, H2 database. There is no Gradle build — Grails 2.x uses its own CLI/wrapper. JDK 7/8 era code (`source.level = 1.6` in [BuildConfig.groovy](sstation/grails-app/conf/BuildConfig.groovy)).
 
+> **⚠️ There are now TWO apps in this repo.** The legacy Grails app lives in [sstation/](sstation/) and remains the shippable application. A **Spring Boot 3 / Java 21 rewrite** (Lane 7) is underway in [sstation-next/](sstation-next/) and already has the full domain model, authentication, and all read-only views working. See **[The Lane 7 rewrite module](#the-lane-7-rewrite-module-sstation-next--spring-boot-3--java-21)** below, and **[demo.md](demo.md)** to run either app locally. The Grails app stays the source of truth until the rewrite reaches parity (TC-111) and is decommissioned (TC-112).
+
 ## How to run it right now
 
 There is **no Gradle/Maven setup** — this is a Grails 2.4.4 app. To bring it up locally:
@@ -39,7 +41,54 @@ Login redirects through Spring Security's auth controller. All three logins work
 ### Selenium tests
 [selinium_tests/](selinium_tests/) (note the typo) holds Selenium IDE `.html`/folder exports — they require Selenium IDE (legacy Firefox) and a running app. They are not wired into `grails test-app`.
 
-## High-level architecture
+## The Lane 7 rewrite module (`sstation-next/`) — Spring Boot 3 / Java 21
+
+The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet a replacement** for the Grails app — but as of **2026-06-03** the foundation and all read paths are done. See [demo.md](demo.md) for a click-through guide and [sstation-next/README-NEXT.md](sstation-next/README-NEXT.md) for the module's own readme.
+
+### Stack
+- **Java 21 LTS** + **Spring Boot 3.3.5** + **Spring Security 6** + **Spring Data JPA / Hibernate 6**.
+- **Thymeleaf** server-rendered templates (1:1 port from GSP). **Flyway** migrations.
+- **PostgreSQL** in prod; **H2 in PostgreSQL-compatibility mode** for local dev/test (no DB to install).
+- **Gradle (Kotlin DSL)** wrapper build; **Spotless** (Google Java Format) wired into `check`.
+- **JUnit 5 + Spring Test + spring-security-test + Testcontainers** for tests.
+- Package root: `edu.austincollege.sstation`. Domain renames vs. Grails: `AcUser`→`User`, `AcStudent`→`Student`, `CommAg`→`CommunityAgency`; `Event`/`CampusOrg`/`Contact`/`ServiceHour` keep their names.
+
+### How to run it (from [sstation-next/](sstation-next/))
+- Needs **JDK 21** (e.g. `sdk install java 21.0.5-tem`). The Gradle wrapper handles Gradle.
+- `./gradlew bootRun` — dev server on `http://localhost:8080` (the **`dev` profile is auto-activated**, so the seeded `admin` / `student` / `moderator` accounts and demo data exist). Same passwords as the Grails table above.
+- `./gradlew check` — Spotless format check + all JUnit 5 tests. This is the CI gate ([.github/workflows/ci-next.yml](.github/workflows/ci-next.yml)).
+- `./gradlew spotlessApply` — auto-format. `./gradlew bootJar` — build the executable JAR.
+
+### Layout
+- `src/main/java/edu/austincollege/sstation/`
+  - `domain/` — 9 JPA entities + `Status`/`Classification` enums.
+  - `repository/` — Spring Data repositories.
+  - `service/` — `StatsService` (admin dashboard), `ReportService` (six reports), `StudentStatsService` (student dashboard/report) + their `*Data` record DTOs.
+  - `security/` — `SecurityConfig`, `CustomUserDetailsService`.
+  - `config/` — `DevDataSeeder` (roles + 3 users from env vars) and `DemoDataSeeder` (orgs/events/agencies + random students/hours); **both `@Profile("dev")`**.
+  - `web/` — `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`.
+- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf), `db/migration/V1__initial_schema.sql`.
+
+### What's ported (Lane 7 progress, all verified `./gradlew check` green + live)
+- **TC-100** — AC IT stack memo ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)); recommendation pending AC IT confirmation.
+- **TC-101 / TC-102** — scaffold + parallel CI (`ci-next.yml`, path-filtered to `sstation-next/**`; the Grails `ci.yml` is untouched).
+- **TC-103** — domain model. **Real `@ManyToOne` `User → Student` FK** (fixes the email-string hack at the source — TC-009). `User` no longer self-encodes its password (kills the TC-008 plaintext fallback at the source). `ServiceHour.{campusOrg, commAg, event}` kept **nullable** by decision; the owning `student` is required. Flyway `V1` is the schema source of truth (Hibernate runs `ddl-auto=validate`).
+- **TC-104** — Spring Security 6: form login + logout, **BCrypt** (delegating `{bcrypt}` encoder), **CSRF on**, `@EnableMethodSecurity` + `@PreAuthorize` on controllers, dev-only seeded users with passwords from `SSTATION_DEV_*_PASSWORD` env vars.
+- **TC-105** — all read-only views: admin dashboard (`StatsService`), the six reports (`ReportService`: summary, semester, year, event, community-org, campus-org), and the student dashboard + per-student report (`StudentStatsService`). **All "current year" logic uses `LocalDate.now()`** (TC-001/TC-002 at source), **top-N is bounds-safe** (`min(5, …)`, TC-003), **every nullable FK access is null-guarded** (TC-006/TC-010).
+
+### Still to do in the rewrite
+- **TC-106** — CRUD (students, hours, events, orgs, agencies), bean-validation, quick approve/reject AJAX, moderator promote/demote, audit trail. *(Write paths — not started.)*
+- **TC-107** — Thymeleaf layout fragments + **vendored** Bootstrap 5 / jQuery / DataTables / Highcharts (Highcharts is still loaded from **CDN** with a `TODO(TC-107)` note in the chart templates).
+- **TC-108 → TC-112** — Lane 4 features in the new stack, AWS demo, DEPLOY rewrite, parity tests, decommission the Grails app.
+
+### Rewrite gotchas to internalize
+- **`bootRun` auto-activates the `dev` profile** (set in `build.gradle.kts`); prod runs with `-Dspring.profiles.active=prod` and **never seeds**. Prod needs `SSTATION_DB_URL` / `SSTATION_DB_USER` / `SSTATION_DB_PASSWORD`.
+- The dev H2 mem-DB name is **randomized per application context** (`jdbc:h2:mem:sstation-${random.uuid}`) so a committing `@SpringBootTest` can't leak seed data into `@DataJpaTest` contexts. Don't "simplify" it back to a fixed name.
+- Flyway `V1` is written in the **Postgres/H2-PG common subset**; keep new migrations in that subset so they run on both. Entities must stay in sync with the SQL because `ddl-auto=validate`.
+- `@DataJpaTest`s use `@AutoConfigureTestDatabase(replace = NONE)` so they run against the real Flyway schema — a green run also proves entities ↔ migration agree.
+- The current student is resolved via `UserRepository.findStudentByUsername` (a fetch query), **not** by touching the LAZY `User.student` proxy — doing the latter throws `LazyInitializationException`.
+
+## High-level architecture (the Grails app)
 
 ### Tech stack at a glance
 - **Framework:** Grails 2.4.4 on Spring MVC (Groovy on Grails — the older, pre-Spring-Boot incarnation).
@@ -141,9 +190,14 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-007 BootStrap.init runs in production ✅
 - TC-008 Plaintext password fallback in AcUser ✅
 
-**Lane 2 — Next up:** TC-009 (AcUser↔AcStudent FK), TC-010 (refactor report services), TC-033 (Dockerize).
+**Lane 2 — Next up (Grails app):** TC-009 (AcUser↔AcStudent FK), TC-010 (refactor report services), TC-033 (Dockerize). Note: TC-009/TC-010 are also being fixed **at the source** in the rewrite.
 **Lane 5 — CI:** TC-034 build-only WAR pipeline ✅ (2026-05-26).
-**Lane 7 — Rewrite:** Spring Boot 3 / Java 21 / Thymeleaf / Postgres (TC-100–TC-112, Summer 2026).
+
+**Lane 7 — Rewrite** (Spring Boot 3 / Java 21 / Thymeleaf / Postgres, in [sstation-next/](sstation-next/)):
+- TC-100 stack memo ✅ · TC-101 scaffold ✅ · TC-102 parallel CI ✅ — landed 2026-06-02
+- TC-103 JPA domain model ✅ · TC-104 Spring Security 6 auth ✅ — landed 2026-06-02
+- TC-105 read-only views (admin dashboard + 6 reports + student dashboard/report) ✅ — landed 2026-06-03
+- **Next:** TC-106 (CRUD + audit trail), TC-107 (Thymeleaf layout + vendored assets), then TC-108→TC-112.
 
 ## Pointers for working in this repo
 
