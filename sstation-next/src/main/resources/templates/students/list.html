@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Students — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Students</h1>
+    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+
+    <p><a th:href="@{/admin/students/new}">+ New student</a></p>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>ACID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Class</th>
+          <th>Year</th>
+          <th>Moderator?</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="s : ${students}">
+          <td th:text="${s.acid}">AC50000</td>
+          <td th:text="${s.fullName}">Sam Student</td>
+          <td th:text="${s.acEmail}">s@austincollege.edu</td>
+          <td th:text="${s.classification != null ? s.classification.displayName : '—'}">Junior</td>
+          <td th:text="${s.acYear != null ? s.acYear : '—'}">2024</td>
+          <td th:text="${s.isModerator != null and s.isModerator ? 'Yes' : 'No'}">No</td>
+          <td>
+            <a th:href="@{/admin/students/{id}/edit(id=${s.id})}">Edit</a>
+            <form
+              th:action="@{/admin/students/{id}/delete(id=${s.id})}"
+              method="post"
+              style="display: inline"
+              onsubmit="return confirm('Delete this student? Their service hours will be removed.');">
+              <button type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${students.isEmpty()}">
+          <td colspan="7">No students yet.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      <a th:href="@{/admin/moderators}">Manage moderators</a> ·
+      <a th:href="@{/admin}">Admin dashboard</a>
+    </p>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Moderators — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Moderators</h1>
+    <p th:if="${message}" th:text="${message}" style="color: #060"></p>
+    <p>
+      <em
+        >Toggles the student's moderator flag. (It does not by itself grant the ROLE_MODERATOR login
+        authority.)</em
+      >
+    </p>
+
+    <h2>Current moderators</h2>
+    <table border="1" cellpadding="4">
+      <tbody>
+        <tr th:each="s : ${moderators}">
+          <td th:text="${s.fullName}">Sam Student</td>
+          <td th:text="${s.acid}">AC50000</td>
+          <td>
+            <form th:action="@{/admin/moderators/{id}/demote(id=${s.id})}" method="post">
+              <button type="submit">Demote</button>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${moderators.isEmpty()}">
+          <td colspan="3">No moderators yet.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Promote a student</h2>
+    <table border="1" cellpadding="4">
+      <tbody>
+        <tr th:each="s : ${candidates}">
+          <td th:text="${s.fullName}">Mary Block</td>
+          <td th:text="${s.acid}">AC51234</td>
+          <td>
+            <form th:action="@{/admin/moderators/{id}/promote(id=${s.id})}" method="post">
+              <button type="submit">Promote</button>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${candidates.isEmpty()}">
+          <td colspan="3">No students to promote.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><a th:href="@{/admin/students}">Students</a> · <a th:href="@{/admin}">Admin dashboard</a></p>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Audit trail — Service Station Hours</title>
+  </head>
+  <body>
+    <h1>Audit trail</h1>
+    <p>
+      Service hour #<span th:text="${hour.id}">1</span> —
+      <strong th:text="${hour.student.fullName}">Sam Student</strong>,
+      <span th:text="${hour.duration}">0</span> hours, current status
+      <strong th:text="${hour.status}">PENDING</strong>.
+    </p>
+
+    <table border="1" cellpadding="4">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Actor</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="e : ${entries}">
+          <td th:text="${#temporals.format(e.timestamp, 'yyyy-MM-dd HH:mm:ss')}">2026-01-01 10:00:00</td>
+          <td th:text="${e.actor != null ? e.actor.username : 'system'}">admin</td>
+          <td th:text="${e.fromStatus != null ? e.fromStatus : '—'}">—</td>
+          <td th:text="${e.toStatus}">APPROVED</td>
+          <td th:text="${e.note}">note</td>
+        </tr>
+        <tr th:if="${entries.isEmpty()}">
+          <td colspan="5">No audit entries.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><a th:href="@{/admin/hours}">Back to service hours</a></p>
+  </body>
+</html>
