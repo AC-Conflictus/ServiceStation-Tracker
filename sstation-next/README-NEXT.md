@@ -46,8 +46,8 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-103 — JPA domain model + Flyway `V1` (real `User→Student` FK; nullable `ServiceHour` org FKs)
 - [x] TC-104 — Spring Security 6 auth (form login, BCrypt, `@PreAuthorize`, CSRF, dev-only env-var seed)
 - [x] TC-105 — read-only views: admin dashboard, six reports, student dashboard + per-student report
-- [ ] TC-106 — CRUD (students, hours, events, orgs, agencies) + audit trail *(next)*
-- [ ] TC-107 — frontend (Thymeleaf layout fragments + vendored Bootstrap 5 / jQuery / Highcharts)
+- [x] TC-106 — CRUD + quick approve/reject REST + moderator promote/demote + audit trail
+- [ ] TC-107 — frontend (Thymeleaf layout fragments + vendored Bootstrap 5 / jQuery / Highcharts) *(in progress)*
 - [ ] TC-108 → TC-112 — features, deploy, parity, decommission
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.
