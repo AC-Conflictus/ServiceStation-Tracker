@@ -35,6 +35,11 @@ cd sstation-next
 
 When you see `Started SstationNextApplication`, open **<http://localhost:8080>**.
 
+> **The Gradle progress bar will sit at `<====---> 80% EXECUTING ... > :bootRun` and never finish —
+> that is normal.** `bootRun` is a long-running task; it stays at ~80% for the whole time the server
+> is up. The app is ready the moment you see `Started SstationNextApplication` / `Tomcat started on
+> port 8080`. It is *not* stuck.
+>
 > First run downloads Gradle + dependencies and may take a couple of minutes. Stop the server with
 > `Ctrl+C`. Each restart is a **fresh** in-memory DB (data does not persist).
 
@@ -93,6 +98,7 @@ java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=p
 | Port 8080 already in use | Stop the other process, or run `./gradlew bootRun --args='--server.port=8081'`. |
 | Login page loops / 403 on POST | CSRF is on; use the real login form (the seeded creds above), not a raw POST. |
 | Dashboard is empty | You're not on the `dev` profile. `bootRun` sets it automatically; a plain `java -jar` does not. |
+| Gradle stuck at `80% EXECUTING > :bootRun` | Not stuck — that's how a running server looks. The app is up once you see `Started SstationNextApplication`. `Ctrl+C` to stop. |
 
 ---
 
