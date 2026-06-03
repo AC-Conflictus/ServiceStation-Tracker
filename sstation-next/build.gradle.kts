@@ -36,6 +36,13 @@ dependencies {
     // Ops
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
+    // Vendored frontend assets (TC-107) — served from the app jar at /webjars/**, no CDN.
+    // Highcharts is non-free for commercial/government use; AC IT must confirm licensing (🏫).
+    implementation("org.webjars:bootstrap:5.3.3")
+    implementation("org.webjars:jquery:3.7.1")
+    implementation("org.webjars:datatables:2.1.8")
+    implementation("org.webjars:highcharts:11.2.0")
+
     // Drivers: H2 for local dev/test (PostgreSQL compatibility mode), Postgres for prod.
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
