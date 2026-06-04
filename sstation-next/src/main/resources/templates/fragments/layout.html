@@ -76,6 +76,9 @@
               <a class="nav-link" th:href="@{/student}">My dashboard</a>
             </li>
             <li class="nav-item" sec:authorize="hasRole('STUDENT')">
+              <a class="nav-link" th:href="@{/student/events}">Events</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasRole('STUDENT')">
               <a class="nav-link" th:href="@{/student/report}">My report</a>
             </li>
           </ul>
