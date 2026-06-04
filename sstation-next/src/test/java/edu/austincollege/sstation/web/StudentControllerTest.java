@@ -1,7 +1,9 @@
 package edu.austincollege.sstation.web;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,18 @@ class StudentControllerTest {
       roles = {"STUDENT"})
   void seededStudentSeesOwnReport() throws Exception {
     mvc.perform(get("/student/report")).andExpect(status().isOk());
+  }
+
+  @Test
+  @WithMockUser(
+      username = "student",
+      roles = {"STUDENT"})
+  void seededStudentCanDownloadReportCsv() throws Exception {
+    mvc.perform(get("/student/report.csv"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith("text/csv"))
+        .andExpect(
+            header().string("Content-Disposition", containsString("student_AC50000_hours.csv")));
   }
 
   @Test

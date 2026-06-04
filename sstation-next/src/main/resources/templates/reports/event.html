@@ -8,7 +8,10 @@
   </head>
   <body>
     <main>
-      <h1 class="h3 mb-4">By event — approved hours</h1>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">By event — approved hours</h1>
+        <a class="btn btn-outline-secondary btn-sm" th:href="@{/reports/event.csv}">Download CSV</a>
+      </div>
 
       <div class="card mb-4">
         <div class="card-body"><div id="chart" style="height: 380px"></div></div>
