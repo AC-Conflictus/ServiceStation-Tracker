@@ -11,6 +11,7 @@ import edu.austincollege.sstation.service.AuditService;
 import edu.austincollege.sstation.service.NotificationService;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.http.ResponseEntity;
@@ -189,6 +190,37 @@ public class HourController {
       notifications.notifyStatusChange(hour, status);
     }
     return ResponseEntity.ok(Map.of("id", id, "status", status.name()));
+  }
+
+  /**
+   * Bulk approve/reject from the pending queue (TC-022 / TC-108b). ADMIN-only, CSRF-protected.
+   * Applies {@code status} to every selected id, auditing and notifying each changed hour
+   * individually — our audit log is keyed per ServiceHour (TC-027), so a batch produces one audit
+   * row per hour with a "Bulk status change" note rather than a single batch row. Returns JSON with
+   * the count actually changed.
+   */
+  @PostMapping("/bulk-status")
+  @PreAuthorize("hasRole('ADMIN')")
+  @ResponseBody
+  public ResponseEntity<Map<String, Object>> bulkStatus(
+      @RequestParam("ids") List<Long> ids, @RequestParam Status status, Authentication auth) {
+    int updated = 0;
+    for (Long id : ids) {
+      ServiceHour hour = serviceHours.findByIdWithStudent(id).orElse(null);
+      if (hour == null) {
+        continue;
+      }
+      Status from = hour.getStatus();
+      if (from != status) {
+        hour.setStatus(status);
+        hour.setLastModified(LocalDateTime.now());
+        serviceHours.save(hour);
+        audit.record(hour, from, status, auth.getName(), "Bulk status change");
+        notifications.notifyStatusChange(hour, status);
+        updated++;
+      }
+    }
+    return ResponseEntity.ok(Map.of("updated", updated, "status", status.name()));
   }
 
   /** Per-hour audit trail — ADMIN-only (TC-027). */
