@@ -9,10 +9,11 @@ This repo has **two** apps. This guide focuses on the **Spring Boot rewrite** in
 ## A. The rewrite (`sstation-next/`) — Spring Boot 3 / Java 21 ⭐
 
 As of **2026-06-03** this runs end-to-end for the read flows (login, admin dashboard, six reports,
-student dashboard/report) **and the write paths** (TC-106): CRUD for students/hours/events/campus
-orgs/community agencies, quick approve/reject of pending hours, moderator promote/demote, and a
-per-hour audit trail. The UI is still bare HTML — styling (Bootstrap 5, vendored assets) is **TC-107,
-in progress**.
+student dashboard/report), the write paths (TC-106: CRUD for students/hours/events/campus
+orgs/community agencies, quick approve/reject of pending hours, moderator promote/demote, per-hour
+audit trail), **and a styled UI** (TC-107): a Bootstrap 5 layout with a role-aware navbar, served
+from **vendored assets** (`/webjars/**`, no CDN). The only thing left for the frontend is AC IT
+confirming Highcharts licensing (🏫).
 
 ### 1. Prerequisites
 

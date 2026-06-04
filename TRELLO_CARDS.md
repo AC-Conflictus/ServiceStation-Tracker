@@ -510,7 +510,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Audit trail (matches [TC-027](#tc-027-)) — write entries on every status change.
 - **Estimate:** L.
 
-### TC-107 ✨ Port + modernize the frontend layer
+### TC-107 ✨ Port + modernize the frontend layer ✅ landed 2026-06-03
+- **Status:** Done. Shared `fragments/layout.html` (Bootstrap 5 navbar/container/footer) decorated by every page; all templates restyled with Bootstrap 5. Assets **vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, Highcharts 11.2.0. Chart data shapes unchanged; DataTables on the students list; mobile-friendly. 🏫 **Highcharts licensing still needs AC IT confirmation.**
 - **Why:** Thymeleaf templates instead of GSP. Same page structure, modern asset versions, vendored not CDN.
 - **Acceptance criteria:**
   - Thymeleaf templates mirror the existing GSP layout (`main.gsp` → `fragments/layout.html`, etc.).
