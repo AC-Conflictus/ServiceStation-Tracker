@@ -37,43 +37,75 @@ public class StatsService {
     this.students = students;
   }
 
+  /** All-time dashboard (no date filter) — the default landing view. */
   @Transactional(readOnly = true)
   public AdminDashboardData adminDashboard() {
-    int currentYear = LocalDate.now().getYear();
+    return adminDashboard(null, null);
+  }
 
-    List<ServiceHour> approved = serviceHours.findByStatus(Status.APPROVED);
-    List<ServiceHour> all = serviceHours.findAll();
+  /**
+   * Dashboard scoped to an optional inclusive date range (TC-025 / TC-108e). A null bound is open,
+   * so {@code (null, null)} reproduces the all-time view exactly — every KPI, the year/month
+   * trends, and both pies are computed over the in-range hours.
+   */
+  @Transactional(readOnly = true)
+  public AdminDashboardData adminDashboard(LocalDate from, LocalDate to) {
+    int currentYear = LocalDate.now().getYear();
+    boolean ranged = from != null || to != null;
+
+    List<ServiceHour> approved = inRange(serviceHours.findByStatus(Status.APPROVED), from, to);
+    List<ServiceHour> all = inRange(serviceHours.findAll(), from, to);
 
     double approvedTotal = sumDuration(approved);
     double allTotal = sumDuration(all);
 
     return new AdminDashboardData(
-        overallStat(approved, approvedTotal, currentYear),
-        fiveYearTrend(approved, approvedTotal, currentYear),
-        monthlyTrend(approved, currentYear),
+        overallStat(approved, approvedTotal, all, ranged, currentYear),
+        yearTrend(approved, approvedTotal, from, to, currentYear),
+        monthlyTrend(approved, ranged, currentYear),
         classificationSlices(all, allTotal),
         statusSlices(all, allTotal));
   }
 
   private AdminDashboardData.OverallStat overallStat(
-      List<ServiceHour> approved, double approvedTotal, int currentYear) {
+      List<ServiceHour> approved,
+      double approvedTotal,
+      List<ServiceHour> all,
+      boolean ranged,
+      int currentYear) {
     long totalStudents = students.count();
-    double totalThisYear =
-        approved.stream()
-            .filter(h -> yearOf(h) == currentYear)
-            .mapToDouble(ServiceHour::getDuration)
-            .sum();
     double averagePerStudent = totalStudents == 0 ? 0 : approvedTotal / totalStudents;
-    long pending = serviceHours.countByStatus(Status.PENDING);
+    // With a range active this headline reflects the selected period; otherwise the current year.
+    double periodOrYear =
+        ranged
+            ? approvedTotal
+            : approved.stream()
+                .filter(h -> yearOf(h) == currentYear)
+                .mapToDouble(ServiceHour::getDuration)
+                .sum();
+    long pending = all.stream().filter(h -> h.getStatus() == Status.PENDING).count();
     return new AdminDashboardData.OverallStat(
-        totalStudents, approvedTotal, averagePerStudent, totalThisYear, pending);
+        totalStudents, approvedTotal, averagePerStudent, periodOrYear, pending);
   }
 
-  private AdminDashboardData.FiveYearTrend fiveYearTrend(
-      List<ServiceHour> approved, double approvedTotal, int currentYear) {
+  /**
+   * Approved hours per year. With no range this is the current year and the previous four
+   * (preserving the original 5-year chart); with a range it spans the range's years.
+   */
+  private AdminDashboardData.FiveYearTrend yearTrend(
+      List<ServiceHour> approved,
+      double approvedTotal,
+      LocalDate from,
+      LocalDate to,
+      int currentYear) {
+    int endYear = to != null ? to.getYear() : currentYear;
+    int startYear = from != null ? from.getYear() : endYear - 4;
+    if (startYear > endYear) {
+      startYear = endYear; // guard inverted ranges
+    }
     List<Integer> years = new ArrayList<>();
     List<Double> totals = new ArrayList<>();
-    for (int y = currentYear - 4; y <= currentYear; y++) {
+    for (int y = startYear; y <= endYear; y++) {
       final int year = y;
       years.add(year);
       totals.add(
@@ -82,23 +114,45 @@ public class StatsService {
               .mapToDouble(ServiceHour::getDuration)
               .sum());
     }
-    return new AdminDashboardData.FiveYearTrend(years, totals, approvedTotal / 5);
+    double average = years.isEmpty() ? 0 : approvedTotal / years.size();
+    return new AdminDashboardData.FiveYearTrend(years, totals, average);
   }
 
+  /**
+   * Approved hours by calendar month. With no range this is the current year (preserving the
+   * original chart); with a range it sums the in-range hours by month.
+   */
   private AdminDashboardData.MonthlyTrend monthlyTrend(
-      List<ServiceHour> approved, int currentYear) {
-    List<ServiceHour> thisYear = approved.stream().filter(h -> yearOf(h) == currentYear).toList();
+      List<ServiceHour> approved, boolean ranged, int currentYear) {
+    List<ServiceHour> scope =
+        ranged ? approved : approved.stream().filter(h -> yearOf(h) == currentYear).toList();
     List<Double> monthly = new ArrayList<>();
     for (int m = 1; m <= 12; m++) {
       final int month = m;
       monthly.add(
-          thisYear.stream()
+          scope.stream()
               .filter(h -> h.getStartTime().getMonthValue() == month)
               .mapToDouble(ServiceHour::getDuration)
               .sum());
     }
-    double average = thisYear.isEmpty() ? 0 : sumDuration(thisYear) / 12;
+    double average = scope.isEmpty() ? 0 : sumDuration(scope) / 12;
     return new AdminDashboardData.MonthlyTrend(monthly, average);
+  }
+
+  /**
+   * Filters to hours whose date falls within the inclusive [from, to] range (null = open bound).
+   */
+  private static List<ServiceHour> inRange(List<ServiceHour> hours, LocalDate from, LocalDate to) {
+    if (from == null && to == null) {
+      return hours;
+    }
+    return hours.stream()
+        .filter(
+            h -> {
+              LocalDate d = h.getStartTime().toLocalDate();
+              return (from == null || !d.isBefore(from)) && (to == null || !d.isAfter(to));
+            })
+        .toList();
   }
 
   private List<AdminDashboardData.Slice> classificationSlices(

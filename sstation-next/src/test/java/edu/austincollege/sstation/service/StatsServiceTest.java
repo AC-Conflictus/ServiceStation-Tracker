@@ -96,6 +96,29 @@ class StatsServiceTest {
   }
 
   @Test
+  void dateRangeScopesKpisYearsAndPies() {
+    Student sam = students.save(student("AC5", Classification.JR));
+    // In range: Mar + Apr of two years ago. Out of range: this year.
+    LocalDateTime base = LocalDateTime.now().minusYears(2);
+    serviceHours.save(hour(sam, Status.APPROVED, 2.0, base.withMonth(3).withDayOfMonth(10)));
+    serviceHours.save(hour(sam, Status.APPROVED, 3.0, base.withMonth(4).withDayOfMonth(10)));
+    serviceHours.save(hour(sam, Status.PENDING, 1.0, base.withMonth(4).withDayOfMonth(11)));
+    serviceHours.save(hour(sam, Status.APPROVED, 9.0, LocalDateTime.now())); // out of range
+
+    LocalDate from = base.withMonth(1).withDayOfMonth(1).toLocalDate();
+    LocalDate to = base.withMonth(12).withDayOfMonth(31).toLocalDate();
+    AdminDashboardData d = stats.adminDashboard(from, to);
+
+    assertThat(d.overall().totalHours()).isEqualTo(5.0); // only the two in-range approved hours
+    assertThat(d.overall().totalThisYear()).isEqualTo(5.0); // ranged => period total
+    assertThat(d.overall().pendingTotal()).isEqualTo(1); // in-range pending only
+    assertThat(d.fiveYear().years()).containsExactly(base.getYear()); // single-year range
+    assertThat(d.fiveYear().totals()).containsExactly(5.0);
+    assertThat(d.monthly().monthly().get(2)).isEqualTo(2.0); // March
+    assertThat(d.monthly().monthly().get(3)).isEqualTo(3.0); // April
+  }
+
+  @Test
   void emptyDatabaseProducesZerosNotErrors() {
     AdminDashboardData d = stats.adminDashboard();
     assertThat(d.overall().totalStudents()).isZero();
