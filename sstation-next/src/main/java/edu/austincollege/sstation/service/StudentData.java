@@ -1,6 +1,7 @@
 package edu.austincollege.sstation.service;
 
 import edu.austincollege.sstation.domain.Status;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,4 +33,22 @@ public final class StudentData {
 
   /** Per-student report: approved hours bucketed by semester and by campus org. */
   public record Report(String studentName, List<Bucket> bySemester, List<Bucket> byCampusOrg) {}
+
+  /** One approved-hour line in the printable PDF report (TC-024). */
+  public record HourLine(LocalDate date, double duration, String eventName, String campusOrgName) {}
+
+  /** A semester section of the PDF report: its lines plus a subtotal. */
+  public record SemesterGroup(String label, List<HourLine> hours, double subtotal) {}
+
+  /**
+   * The printable per-student PDF report (TC-024): identity header + approved hours grouped by
+   * semester with per-semester subtotals and a grand total.
+   */
+  public record PdfReport(
+      String studentName,
+      String acid,
+      String classification,
+      Integer acYear,
+      List<SemesterGroup> semesters,
+      double grandTotal) {}
 }

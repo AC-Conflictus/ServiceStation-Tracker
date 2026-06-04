@@ -8,12 +8,17 @@ import edu.austincollege.sstation.repository.CampusOrgRepository;
 import edu.austincollege.sstation.repository.ServiceHourRepository;
 import edu.austincollege.sstation.service.StudentData.Bucket;
 import edu.austincollege.sstation.service.StudentData.Dashboard;
+import edu.austincollege.sstation.service.StudentData.HourLine;
 import edu.austincollege.sstation.service.StudentData.HourRow;
+import edu.austincollege.sstation.service.StudentData.PdfReport;
 import edu.austincollege.sstation.service.StudentData.Report;
+import edu.austincollege.sstation.service.StudentData.SemesterGroup;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,6 +77,50 @@ public class StudentStatsService {
             .toList();
 
     return new Report(student.getFullName(), bySemester(approved), byCampusOrg(approved));
+  }
+
+  /**
+   * Builds the printable PDF model (TC-024): identity header plus every approved hour grouped by
+   * semester (most recent first) with per-semester subtotals and a grand total. Unlike the
+   * on-screen report this is not limited to a 5-year window — a transcript-style record should show
+   * all approved service.
+   */
+  public PdfReport pdfReport(Student student) {
+    List<ServiceHour> approved =
+        serviceHours.findByStudent(student).stream()
+            .filter(h -> h.getStatus() == Status.APPROVED)
+            .sorted(Comparator.comparing(ServiceHour::getStartTime).reversed())
+            .toList();
+
+    Map<String, List<ServiceHour>> grouped = new LinkedHashMap<>();
+    for (ServiceHour h : approved) {
+      String label = h.getStartTime().getYear() + " " + semesterCode(h);
+      grouped.computeIfAbsent(label, k -> new ArrayList<>()).add(h);
+    }
+
+    List<SemesterGroup> semesters = new ArrayList<>();
+    for (Map.Entry<String, List<ServiceHour>> e : grouped.entrySet()) {
+      List<HourLine> lines = new ArrayList<>();
+      for (ServiceHour h : e.getValue()) {
+        lines.add(
+            new HourLine(
+                h.getStartTime().toLocalDate(),
+                h.getDuration(),
+                h.getEvent() != null ? h.getEvent().getName() : "—",
+                campusOrgName(h)));
+      }
+      semesters.add(new SemesterGroup(e.getKey(), lines, round2(sum(e.getValue()))));
+    }
+
+    String classification =
+        student.getClassification() != null ? student.getClassification().name() : "—";
+    return new PdfReport(
+        student.getFullName(),
+        student.getAcid(),
+        classification,
+        student.getAcYear(),
+        semesters,
+        round2(sum(approved)));
   }
 
   // ----- semester bucketing (current year and the previous four) -----

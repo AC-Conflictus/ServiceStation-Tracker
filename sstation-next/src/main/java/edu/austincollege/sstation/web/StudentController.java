@@ -3,8 +3,10 @@ package edu.austincollege.sstation.web;
 import edu.austincollege.sstation.domain.Student;
 import edu.austincollege.sstation.repository.UserRepository;
 import edu.austincollege.sstation.service.ReportCsvService;
+import edu.austincollege.sstation.service.StudentReportPdfService;
 import edu.austincollege.sstation.service.StudentStatsService;
 import java.util.Optional;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -22,12 +24,17 @@ public class StudentController {
   private final UserRepository users;
   private final StudentStatsService studentStats;
   private final ReportCsvService csv;
+  private final StudentReportPdfService pdf;
 
   public StudentController(
-      UserRepository users, StudentStatsService studentStats, ReportCsvService csv) {
+      UserRepository users,
+      StudentStatsService studentStats,
+      ReportCsvService csv,
+      StudentReportPdfService pdf) {
     this.users = users;
     this.studentStats = studentStats;
     this.csv = csv;
+    this.pdf = pdf;
   }
 
   @GetMapping("/student")
@@ -58,6 +65,22 @@ public class StudentController {
                 CsvDownloads.attachment(
                     "student_" + s.getAcid() + "_hours.csv",
                     csv.studentReport(studentStats.report(s))))
+        .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  /** PDF download of the per-student report (TC-024 / TC-108d). 404 when no student profile. */
+  @GetMapping("/student/report.pdf")
+  @PreAuthorize("hasRole('STUDENT')")
+  public ResponseEntity<byte[]> studentReportPdf(Authentication authentication) {
+    return currentStudent(authentication)
+        .map(
+            s ->
+                ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"student_" + s.getAcid() + "_hours.pdf\"")
+                    .body(pdf.render(studentStats.pdfReport(s))))
         .orElseGet(() -> ResponseEntity.notFound().build());
   }
 
