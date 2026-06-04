@@ -27,6 +27,10 @@ dependencies {
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // Mail — approve/reject notifications (TC-021 / TC-108a). JavaMailSender is only
+    // auto-configured when spring.mail.host is set (prod), so dev stays a no-op.
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // Persistence
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")

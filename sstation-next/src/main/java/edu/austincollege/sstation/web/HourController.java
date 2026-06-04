@@ -8,6 +8,7 @@ import edu.austincollege.sstation.repository.EventRepository;
 import edu.austincollege.sstation.repository.ServiceHourRepository;
 import edu.austincollege.sstation.repository.StudentRepository;
 import edu.austincollege.sstation.service.AuditService;
+import edu.austincollege.sstation.service.NotificationService;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class HourController {
   private final CampusOrgRepository campusOrgs;
   private final CommunityAgencyRepository agencies;
   private final AuditService audit;
+  private final NotificationService notifications;
 
   public HourController(
       ServiceHourRepository serviceHours,
@@ -55,13 +57,15 @@ public class HourController {
       EventRepository events,
       CampusOrgRepository campusOrgs,
       CommunityAgencyRepository agencies,
-      AuditService audit) {
+      AuditService audit,
+      NotificationService notifications) {
     this.serviceHours = serviceHours;
     this.students = students;
     this.events = events;
     this.campusOrgs = campusOrgs;
     this.agencies = agencies;
     this.audit = audit;
+    this.notifications = notifications;
   }
 
   @InitBinder
@@ -149,6 +153,7 @@ public class HourController {
     serviceHours.save(hour);
     if (oldStatus != hour.getStatus()) {
       audit.record(hour, oldStatus, hour.getStatus(), auth.getName(), "Status changed via edit");
+      notifications.notifyStatusChange(hour, hour.getStatus());
     }
     flash.addFlashAttribute("message", "Service hour updated.");
     return "redirect:/admin/hours";
@@ -170,7 +175,8 @@ public class HourController {
   @ResponseBody
   public ResponseEntity<Map<String, Object>> updateStatus(
       @PathVariable Long id, @RequestParam Status status, Authentication auth) {
-    ServiceHour hour = serviceHours.findById(id).orElse(null);
+    // Fetch the student up front (open-in-view is off) so the notification can read its email.
+    ServiceHour hour = serviceHours.findByIdWithStudent(id).orElse(null);
     if (hour == null) {
       return ResponseEntity.notFound().build();
     }
@@ -180,6 +186,7 @@ public class HourController {
       hour.setLastModified(LocalDateTime.now());
       serviceHours.save(hour);
       audit.record(hour, from, status, auth.getName(), "Quick status change");
+      notifications.notifyStatusChange(hour, status);
     }
     return ResponseEntity.ok(Map.of("id", id, "status", status.name()));
   }
