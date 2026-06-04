@@ -1,0 +1,37 @@
+# TC-113: local smoke test — app (prod profile) + Postgres. Schema via Flyway; no users until TC-114.
+# Usage: docker compose up --build
+# Seeded logins: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sstation
+      POSTGRES_USER: sstation
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sstation_dev_only}
+    volumes:
+      - sstation_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sstation -d sstation"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SSTATION_DB_URL: jdbc:postgresql://db:5432/sstation
+      SSTATION_DB_USER: sstation
+      SSTATION_DB_PASSWORD: ${POSTGRES_PASSWORD:-sstation_dev_only}
+      # Empty host keeps JavaMailSender off (notifications log-only until SMTP is configured).
+      SSTATION_MAIL_HOST: ""
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  sstation_pg:

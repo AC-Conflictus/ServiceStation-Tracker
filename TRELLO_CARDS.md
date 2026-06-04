@@ -149,7 +149,8 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 - **Acceptance criteria:** Plugin upgraded, all three logins still work, `grails test-app` passes.
 - **Estimate:** S.
 
-### TC-033 ☁️ Containerize the app (Dockerfile + docker-compose)
+### TC-033 ☁️ Containerize the app (Dockerfile + docker-compose) — **Grails only**
+- **Status:** ⏸️ **Parked** on Lane 7 path — use [TC-113](#tc-113-) for `sstation-next/`. Only pursue this card if AC IT forces a Grails handoff (Phase 1B).
 - **Why:** Even though AC IT will probably deploy to a VM, a working `docker compose up` is the fastest "does this run?" smoke test for any reviewer, and the same image can drive the AWS demo if we move off Beanstalk later (ECS Fargate, AppRunner, etc.).
 - **Acceptance criteria:**
   - `Dockerfile` based on `tomcat:8-jre8` (or Corretto 8 base), `COPY target/sstation-*.war /usr/local/tomcat/webapps/sstation.war`.
@@ -157,6 +158,7 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
   - One-command demo: `docker compose up` → `http://localhost:8080/sstation`.
   - Documented in a new `DEPLOY.md`.
 - **Depends on:** TC-029 (Postgres migration) for a fully wired compose stack; can ship a minimal H2-only compose file first as a dev convenience.
+- **Superseded by:** [TC-113](#tc-113-) (Spring Boot rewrite).
 - **Estimate:** M.
 
 ---
@@ -520,6 +522,97 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Mobile-friendly (Bootstrap 5 gives us this almost for free).
 - **Estimate:** M.
 
+### Build readiness — Docker + EC2 (review before TC-113 → TC-117)
+
+**Verdict (2026-06-04):** You are **good to build** containerization and a **public demo** on AWS. Lane 7 foundation through **TC-107** is landed (`./gradlew check` green, app runnable locally with JDK 21). Docker/AWS work does **not** require TC-108 (Lane 4 features) or TC-111 (parity tests) first.
+
+**Prerequisites already satisfied in `sstation-next/`:**
+- Flyway schema (`V1`, `V2`) + `prod` profile with `SSTATION_DB_*` env vars ([application.yml](sstation-next/src/main/resources/application.yml)).
+- Executable JAR via `./gradlew bootJar`.
+- Actuator health endpoint for container health checks.
+- Dev-only seeders (`DevDataSeeder`, `DemoDataSeeder`) — **not** active in `prod`.
+
+**Blockers / gaps you must plan for (easy to miss):**
+| Issue | Why it matters |
+|-------|----------------|
+| **Empty DB on `prod` boot** | `SPRING_PROFILES_ACTIVE=prod` runs Flyway but **no users or demo data**. A public URL without **TC-114** is a login screen with nobody to sign in as. |
+| **TC-033 / TC-109 wording is Grails-era** | [TC-033](#tc-033-) targets Tomcat 8 + WAR; [TC-109](#tc-109-) targets App Runner. Today's work is **`sstation-next`** + **EC2 t3.micro** — use **TC-113** and **TC-116** instead. |
+| **Do not ship `admin_secret` on the internet** | Dev defaults are fine locally; AWS demo needs strong passwords via env vars (**TC-114**, extends TC-017). |
+| **t3.micro = 1 GiB RAM** | Running Spring Boot **and** Postgres on one instance often OOMs. **TC-116** recommends **EC2 + RDS**; all-in-one compose on EC2 is documented as demo-only fallback. |
+| **HTTPS is your problem on EC2** | Unlike App Runner (TC-109), EC2 needs Caddy/nginx + Let's Encrypt or an ALB (~$16/mo extra). Budget for TLS in **TC-116**. |
+| **Highcharts licensing** | Vendored in TC-107; AC IT must confirm commercial use (🏫) before calling the demo "production-ready." |
+| **TC-100 AC IT reply still open** | Does **not** block a student-project AWS demo; **does** block calling the rewrite "handoff-ready." |
+
+**Grails cards to skip on the Lane 7 path:** TC-029, TC-030, TC-031, TC-032, TC-035 (Grails DEPLOY), and the original TC-033 acceptance criteria — unless the rewrite slips and you need a fallback WAR demo.
+
+**Suggested build order today:** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → README live-demo link (TC-037 partial).
+
+---
+
+### TC-113 ☁️ Containerize `sstation-next` (Dockerfile + docker-compose)
+- **Status:** ✅ **Landed 2026-06-04** — `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.ec2.yml`, `.dockerignore`, `.env.example`, [DEPLOY.md](DEPLOY.md). Prod compose boots schema only (users: **TC-114**). Verify: `docker compose -f docker-compose.dev.yml up --build`.
+- **Supersedes the *rewrite* path for [TC-033](#tc-033-);** Grails Tomcat image remains out of scope unless maintaining `sstation/`.
+- **Why:** One-command `docker compose up` is the fastest "does this run?" smoke test for reviewers and matches the executable-JAR deploy story in Lane 7. Same image feeds EC2 (**TC-116**) and optional GHCR (**TC-115**).
+- **Acceptance criteria:**
+  - Multi-stage `Dockerfile` in [sstation-next/](sstation-next/): `eclipse-temurin:21-jdk` build stage (`./gradlew bootJar -x test`), `eclipse-temurin:21-jre-alpine` run stage, non-root user, port 8080, container-aware JVM flags (`-XX:MaxRAMPercentage=75.0` or equivalent).
+  - [sstation-next/.dockerignore](sstation-next/.dockerignore) excludes `build/`, `.gradle`, etc.
+  - [sstation-next/docker-compose.yml](sstation-next/docker-compose.yml): services `app` + `db` (`postgres:16-alpine`), `SPRING_PROFILES_ACTIVE=prod`, JDBC `jdbc:postgresql://db:5432/sstation`, Flyway runs on boot.
+  - [sstation-next/.env.example](sstation-next/.env.example) documents compose variables; no real secrets committed.
+  - Optional [sstation-next/docker-compose.dev.yml](sstation-next/docker-compose.dev.yml) override: `SPRING_PROFILES_ACTIVE=dev` for seeded logins without local JDK 21.
+  - `docker compose up --build` from `sstation-next/` → **http://localhost:8080**; `GET /actuator/health` returns UP.
+  - Documented in [DEPLOY.md](DEPLOY.md) (see **TC-110**).
+- **Depends on:** TC-107 ✅. Meaningful login smoke test depends on **TC-114** (or manual seed).
+- **Estimate:** M.
+
+### TC-114 🔒 Demo profile seeder for container / AWS deploy
+- **Status:** 🔲 **Next** — required before a useful public demo URL.
+- **Why:** `DevDataSeeder` and `DemoDataSeeder` are `@Profile("dev")` only. A `prod` Docker/EC2 boot creates schema via Flyway but **no users** — reviewers cannot click through. Extends [TC-017](#tc-017-) for anything internet-facing.
+- **Acceptance criteria:**
+  - New Spring profile `demo` (or equivalent) with an idempotent seeder: roles, `admin` / `student` / `moderator` users, Sam Student + reference data + sample hours (parity with dev demo intent).
+  - All demo passwords read from env vars (e.g. `SSTATION_DEMO_ADMIN_PASSWORD`) — **no** `admin_secret` defaults when `demo` profile is active.
+  - Startup log line when demo profile is on: warns that demo credentials must be rotated and profile must never be used for AC production.
+  - `docker compose` and **TC-116** document: `SPRING_PROFILES_ACTIVE=demo` (or `prod,demo` if split) for showcase only.
+  - Manual verify: sign in as all three roles against a compose stack with demo profile.
+- **Files:** new `DemoProfileSeeder` (or extend config package), [application.yml](sstation-next/src/main/resources/application.yml) profile block, [DEPLOY.md](DEPLOY.md).
+- **Depends on:** TC-104 ✅, TC-105 ✅ (demo data shapes).
+- **Estimate:** S–M.
+
+### TC-115 ☁️ CI — build and verify Docker image
+- **Status:** 🔲 **Next** — optional GHCR push can land in same card or a follow-up.
+- **Why:** Proves the Dockerfile stays valid on every PR; EC2 can `docker pull` a pre-built image instead of compiling on a 1 GiB instance.
+- **Acceptance criteria:**
+  - [.github/workflows/ci-next.yml](.github/workflows/ci-next.yml) adds a job (or step): `docker build -f sstation-next/Dockerfile sstation-next` on PR/push to `sstation-next/**`.
+  - Job runs after `./gradlew check` passes (or as a dependent job).
+  - Optional: push to `ghcr.io/<org>/sstation-next:<sha>` on `main` tags; document pull command in **TC-110**.
+- **Depends on:** TC-113, TC-102 ✅.
+- **Estimate:** S.
+
+### TC-116 ☁️ AWS public demo — EC2 t3.micro + RDS Postgres
+- **Status:** 🔲 **Next** — **team choice:** EC2 t3.micro (this card) instead of App Runner in [TC-109](#tc-109-). TC-109 remains a documented **alternate** if ops preference changes.
+- **Why:** Click-through demo for AC reviewers without a local JDK 21 / Grails install. EC2 t3.micro is free-tier-friendly; pairing with RDS avoids OOM on 1 GiB RAM when running Postgres + Spring Boot on one box.
+- **Acceptance criteria:**
+  - **Recommended topology:** `t3.micro` EC2 (Amazon Linux 2023) runs Docker app container only; `db.t4g.micro` RDS Postgres 16 in same VPC; RDS SG allows 5432 **only** from EC2 SG; EC2 SG allows 443 (and 22 from operator IP only).
+  - App container: image from **TC-113** / **TC-115**, `SPRING_PROFILES_ACTIVE` includes demo seed per **TC-114**, `SSTATION_DB_*` points at RDS, `server.forward-headers-strategy=framework` if behind reverse proxy.
+  - HTTPS: Caddy or nginx on EC2 terminating TLS (Let's Encrypt) **or** ALB + ACM (document cost tradeoff; ALB may exceed $25/mo budget alone).
+  - DNS: `sstation-demo.<our-domain>` (🏫) or raw EC2 public DNS documented in README for interim.
+  - Cost note in DEPLOY.md: target **< $25/mo** (EC2 + RDS, no ALB) where free tier applies.
+  - Smoke test: admin dashboard KPIs non-zero, student login lands on populated dashboard, one report page renders.
+  - README "Live demo" link updated.
+  - **Appendix documented:** single-EC2 `docker compose` (app + Postgres) with memory limits — **demo-only**, OOM risk called out.
+- **Does not replace:** AC IT production deploy (🏫 SMTP, real admin provisioning, hardening) — showcase only, same spirit as [TC-032](#tc-032-).
+- **Depends on:** TC-113, TC-114, TC-110 (draft OK in parallel).
+- **Estimate:** L.
+
+### TC-117 📝 README + Trello hygiene after Docker/EC2
+- **Status:** 🔲 **After TC-116**.
+- **Why:** [README-NEXT.md](sstation-next/README-NEXT.md) still says "incomplete"; [TC-037](#tc-037-) and super prompt still center Grails in places. Reduces confusion after the demo ships.
+- **Acceptance criteria:**
+  - [README.md](README.md) points to [demo.md](demo.md), [DEPLOY.md](DEPLOY.md), Docker quick start, and live demo URL.
+  - [sstation-next/README-NEXT.md](sstation-next/README-NEXT.md) status updated to match TC-105–TC-107 (+ Docker).
+  - [CLAUDE.md](CLAUDE.md) Lane 7 "Next" line references TC-113–TC-117 sequence.
+  - This file: TC-109 marked **alternate (App Runner)**; TC-033 marked **Grails-only / superseded by TC-113 for rewrite**.
+- **Estimate:** S.
+
 ### TC-108 ✨ Port + implement the Lane 4 features in the new stack
 - **Why:** Several Lane 4 cards (email notifications, CSV export, PDF export, bulk approve, date-range filter, signup flow, audit log, password reset) are easier to implement in Spring Boot than to port from Grails 2.4 and then re-port. If we're rewriting anyway, build these in the new stack from the start.
 - **Acceptance criteria:**
@@ -533,26 +626,33 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Password reset (TC-028).
 - **Estimate:** L. Roughly halves the Lane 4 work since we're not doing it twice.
 
-### TC-109 ☁️ Migrate the AWS demo to the new stack
+### TC-109 ☁️ Migrate the AWS demo to the new stack — **App Runner alternate**
+- **Status:** ⏸️ **Alternate deploy target** — primary demo path is [TC-116](#tc-116-) (EC2 t3.micro + RDS). Dockerfile work lives in **TC-113** either way.
 - **Why:** Beanstalk Tomcat 8 (TC-032) is end-of-life-on-borrowed-time. Spring Boot 3 fat JAR runs natively on AWS App Runner, ECS Fargate, or even Lambda — all modern, all supported.
 - **Acceptance criteria:**
-  - Dockerfile based on `eclipse-temurin:21-jre-alpine`, multi-stage build.
+  - Dockerfile based on `eclipse-temurin:21-jre-alpine`, multi-stage build. *(Shared with TC-113.)*
   - AWS App Runner service deployed from the image. RDS Postgres `db.t4g.micro` retained.
   - HTTPS via App Runner's built-in cert.
   - DNS: same `sstation-demo.<our-domain>` as the original demo (🏫 — AC will substitute their own).
   - Cost target: still **< $25/mo**.
   - Old Beanstalk environment torn down once new demo is verified.
+- **Superseded for current sprint by:** [TC-116](#tc-116-) unless team prefers managed TLS via App Runner.
 - **Estimate:** M.
 
 ### TC-110 📝 Update DEPLOY.md to target the new stack
+- **Status:** 🔲 **In progress with Docker/EC2 sprint** — land alongside TC-113–TC-116.
 - **Why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needs a full rewrite of its own.
 - **Acceptance criteria:**
   - Prerequisites: JDK 21 (or just "the Dockerfile, if you do Docker"), PostgreSQL 13+, SMTP relay.
-  - Build: `./gradlew bootJar` or pull pre-built image from GHCR.
+  - Build: `./gradlew bootJar` or pull pre-built image from GHCR (**TC-115**).
+  - **Docker:** `docker compose up` local smoke test (**TC-113**).
+  - **AWS:** EC2 t3.micro + RDS topology, security groups, Caddy TLS, env vars, cost estimate (**TC-116**); appendix for single-box compose OOM warning.
   - Same env var names as the Grails version where possible (`SSTATION_DB_URL`, `SSTATION_MAIL_HOST`, etc.) so AC IT's secrets manager doesn't need rework.
   - Migration story: Flyway auto-runs on boot.
+  - Demo profile / passwords (**TC-114**); never use dev defaults on a public host.
   - 🏫 same placeholder set as TC-035.
   - Old `DEPLOY.md` retained as `DEPLOY-legacy.md` for one release, then removed.
+- **Depends on:** TC-113 (draft sections can start in parallel).
 - **Estimate:** M.
 
 ### TC-111 🧹 Parity test the new app against the old
@@ -587,10 +687,12 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 3. **Ask AC IT** (TC-100). Send the target-stack memo *now* — their response gates Lane 7.
 
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
-4. **Lane 7 in sequence:** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 → TC-108 → TC-109 → TC-110 → TC-111 → TC-112.
-5. **Skip most of Lane 4** in the Grails app — those features get built directly in the new stack as TC-108.
-6. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-109 and TC-110 supersede them.
-7. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.
+4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
+5. **Docker + AWS demo (current sprint):** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → TC-117. See **Build readiness** above.
+6. **Then:** TC-108 (Lane 4 features in new stack) → TC-111 (parity) → TC-112 (decommission Grails). TC-109 (App Runner) only if EC2 path (**TC-116**) is abandoned.
+7. **Skip most of Lane 4** in the Grails app — those features get built directly in the new stack as TC-108.
+8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.
+9. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.
 
 ### Phase 1B — If AC IT says "stay on Grails" (original plan)
 4. **Lane 2 fixes** in any order, in PRs of 1–3 cards each.

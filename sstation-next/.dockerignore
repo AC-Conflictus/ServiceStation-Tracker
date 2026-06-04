@@ -1,0 +1,15 @@
+# Build outputs and caches
+build/
+.gradle/
+out/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local env (never bake secrets into the image)
+.env
+.env.local
