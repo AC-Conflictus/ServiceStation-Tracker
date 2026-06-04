@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html
+  th:fragment="page(pageTitle, pageContent)"
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title th:replace="${pageTitle}">Service Station Hours</title>
+
+    <!-- CSRF tokens for JS (e.g. the quick approve/reject fetch on the hours page). -->
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}" />
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}" />
+
+    <!--
+      Vendored assets (TC-107) — served locally from /webjars/**, no CDN (closes TC-038).
+      NOTE: Highcharts is non-free for commercial/government use; AC IT must confirm licensing (🏫).
+      Loaded in <head> so inline page scripts (charts, DataTables) can rely on them being present.
+    -->
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}" />
+    <link rel="stylesheet" th:href="@{/webjars/datatables/2.1.8/css/dataTables.dataTables.min.css}" />
+    <script th:src="@{/webjars/jquery/3.7.1/jquery.min.js}"></script>
+    <script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/webjars/highcharts/11.2.0/code/highcharts.js}"></script>
+    <script th:src="@{/webjars/datatables/2.1.8/js/dataTables.min.js}"></script>
+  </head>
+  <body class="bg-body-tertiary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" th:href="@{/}">Service Station Hours</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#nav"
+          aria-controls="nav"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+              <a class="nav-link" th:href="@{/admin}">Dashboard</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+              <a class="nav-link" th:href="@{/reports}">Reports</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+              <a class="nav-link" th:href="@{/admin/students}">Students</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+              <a class="nav-link" th:href="@{/admin/hours}">Hours</a>
+            </li>
+            <li class="nav-item dropdown" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                >Reference</a
+              >
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" th:href="@{/admin/events}">Events</a></li>
+                <li><a class="dropdown-item" th:href="@{/admin/campus-orgs}">Campus orgs</a></li>
+                <li><a class="dropdown-item" th:href="@{/admin/agencies}">Community agencies</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><hr class="dropdown-divider" /></li>
+                <li sec:authorize="hasRole('ADMIN')">
+                  <a class="dropdown-item" th:href="@{/admin/moderators}">Moderators</a>
+                </li>
+              </ul>
+            </li>
+            <li class="nav-item" sec:authorize="hasRole('STUDENT')">
+              <a class="nav-link" th:href="@{/student}">My dashboard</a>
+            </li>
+            <li class="nav-item" sec:authorize="hasRole('STUDENT')">
+              <a class="nav-link" th:href="@{/student/report}">My report</a>
+            </li>
+          </ul>
+          <div class="d-flex align-items-center" sec:authorize="isAuthenticated()">
+            <span class="navbar-text text-white-50 me-3"
+              >Signed in as <span sec:authentication="name">user</span></span
+            >
+            <form th:action="@{/logout}" method="post" class="m-0">
+              <button class="btn btn-outline-light btn-sm" type="submit">Sign out</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container my-4">
+      <th:block th:replace="${pageContent}">Page content goes here.</th:block>
+    </main>
+
+    <footer class="container text-muted py-4 border-top">
+      <small
+        >Service Station Hours — Spring Boot rewrite (Lane 7). Charts by Highcharts (licensing
+        pending AC IT confirmation).</small
+      >
+    </footer>
+  </body>
+</html>

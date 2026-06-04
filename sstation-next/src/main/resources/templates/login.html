@@ -1,25 +1,41 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Sign in — Service Station Hours</title>
   </head>
   <body>
-    <h1>Service Station Hours</h1>
-    <h2>Sign in</h2>
+    <main>
+      <div class="row justify-content-center">
+        <div class="col-md-5">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h1 class="h4 card-title mb-3">Sign in</h1>
 
-    <p th:if="${param.error}" style="color: #b00">Invalid username or password.</p>
-    <p th:if="${param.logout}" style="color: #060">You have been signed out.</p>
+              <div th:if="${param.error}" class="alert alert-danger py-2">
+                Invalid username or password.
+              </div>
+              <div th:if="${param.logout}" class="alert alert-success py-2">
+                You have been signed out.
+              </div>
 
-    <!-- th:action makes Thymeleaf inject the CSRF token automatically (TC-018 fix). -->
-    <form th:action="@{/login}" method="post">
-      <p>
-        <label>Username <input type="text" name="username" autofocus required /></label>
-      </p>
-      <p>
-        <label>Password <input type="password" name="password" required /></label>
-      </p>
-      <p><button type="submit">Sign in</button></p>
-    </form>
+              <form th:action="@{/login}" method="post">
+                <div class="mb-3">
+                  <label class="form-label">Username</label>
+                  <input type="text" name="username" class="form-control" autofocus required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Password</label>
+                  <input type="password" name="password" class="form-control" required />
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Sign in</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
   </body>
 </html>

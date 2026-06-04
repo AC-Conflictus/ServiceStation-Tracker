@@ -2,118 +2,108 @@
 <html
   lang="en"
   xmlns:th="http://www.thymeleaf.org"
-  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Admin dashboard — Service Station Hours</title>
-    <!--
-      TC-107 will vendor Highcharts locally and replace this CDN tag (closes TC-038 for the new
-      module). The chart *data shapes* below match the Grails HourService output so the configs
-      carry over unchanged.
-    -->
-    <script src="https://code.highcharts.com/highcharts.js"></script>
   </head>
   <body>
-    <header>
-      <h1>Admin dashboard</h1>
-      <p>
-        Signed in as <strong sec:authentication="name">admin</strong> —
-        <a th:href="@{/logout}" onclick="event.preventDefault();document.getElementById('lf').submit();"
-          >Sign out</a
-        >
-      </p>
-      <form id="lf" th:action="@{/logout}" method="post" hidden></form>
-    </header>
+    <main>
+      <h1 class="h3 mb-4">Admin dashboard</h1>
 
-    <section>
-      <h2>This year &amp; overall</h2>
-      <ul>
-        <li>Students: <strong th:text="${dashboard.overall.totalStudents}">0</strong></li>
-        <li>
-          Approved hours (all time):
-          <strong th:text="${#numbers.formatDecimal(dashboard.overall.totalHours, 1, 1)}">0</strong>
-        </li>
-        <li>
-          Approved hours this year:
-          <strong th:text="${#numbers.formatDecimal(dashboard.overall.totalThisYear, 1, 1)}">0</strong>
-        </li>
-        <li>
-          Avg hours / student:
-          <strong th:text="${#numbers.formatDecimal(dashboard.overall.averagePerStudent, 1, 2)}">0</strong>
-        </li>
-        <li>
-          Pending requests:
-          <strong><a th:href="@{/admin/hours/pending}" th:text="${dashboard.overall.pendingTotal}">0</a></strong>
-        </li>
-      </ul>
-    </section>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md">
+          <div class="card text-center h-100">
+            <div class="card-body">
+              <div class="text-muted small">Students</div>
+              <div class="fs-4 fw-bold" th:text="${dashboard.overall.totalStudents}">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="card text-center h-100">
+            <div class="card-body">
+              <div class="text-muted small">Approved hours (all time)</div>
+              <div class="fs-4 fw-bold" th:text="${#numbers.formatDecimal(dashboard.overall.totalHours, 1, 1)}">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="card text-center h-100">
+            <div class="card-body">
+              <div class="text-muted small">Approved this year</div>
+              <div class="fs-4 fw-bold" th:text="${#numbers.formatDecimal(dashboard.overall.totalThisYear, 1, 1)}">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="card text-center h-100">
+            <div class="card-body">
+              <div class="text-muted small">Avg / student</div>
+              <div class="fs-4 fw-bold" th:text="${#numbers.formatDecimal(dashboard.overall.averagePerStudent, 1, 2)}">0</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md">
+          <a th:href="@{/admin/hours/pending}" class="text-decoration-none">
+            <div class="card text-center h-100 border-warning">
+              <div class="card-body">
+                <div class="text-muted small">Pending requests</div>
+                <div class="fs-4 fw-bold text-warning-emphasis" th:text="${dashboard.overall.pendingTotal}">0</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
 
-    <section style="display: flex; flex-wrap: wrap; gap: 1rem">
-      <div id="chart-5year" style="width: 480px; height: 320px"></div>
-      <div id="chart-monthly" style="width: 480px; height: 320px"></div>
-      <div id="chart-classification" style="width: 480px; height: 320px"></div>
-      <div id="chart-status" style="width: 480px; height: 320px"></div>
-    </section>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card"><div class="card-body"><div id="chart-5year" style="height: 320px"></div></div></div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card"><div class="card-body"><div id="chart-monthly" style="height: 320px"></div></div></div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card"><div class="card-body"><div id="chart-classification" style="height: 320px"></div></div></div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card"><div class="card-body"><div id="chart-status" style="height: 320px"></div></div></div>
+        </div>
+      </div>
 
-    <nav>
-      <strong>Manage:</strong>
-      <a th:href="@{/admin/students}">Students</a> ·
-      <a th:href="@{/admin/hours}">Service hours</a> ·
-      <a th:href="@{/admin/events}">Events</a> ·
-      <a th:href="@{/admin/campus-orgs}">Campus orgs</a> ·
-      <a th:href="@{/admin/agencies}">Community agencies</a> ·
-      <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/moderators}">Moderators</a>
-    </nav>
-    <p><a th:href="@{/reports}">Reports</a> · <a th:href="@{/}">Home</a></p>
+      <script th:inline="javascript">
+        /*<![CDATA[*/
+        var dashboard = /*[[${dashboard}]]*/ {};
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-    <script th:inline="javascript">
-      /*<![CDATA[*/
-      var dashboard = /*[[${dashboard}]]*/ {};
+        Highcharts.chart("chart-5year", {
+          chart: { type: "column" },
+          title: { text: "Approved hours — last 5 years" },
+          xAxis: { categories: dashboard.fiveYear.years },
+          yAxis: { title: { text: "Hours" } },
+          series: [{ name: "Hours", data: dashboard.fiveYear.totals }],
+        });
 
-      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        Highcharts.chart("chart-monthly", {
+          chart: { type: "line" },
+          title: { text: "Approved hours by month (this year)" },
+          xAxis: { categories: months },
+          yAxis: { title: { text: "Hours" } },
+          series: [{ name: "Hours", data: dashboard.monthly.monthly }],
+        });
 
-      Highcharts.chart("chart-5year", {
-        chart: { type: "column" },
-        title: { text: "Approved hours — last 5 years" },
-        xAxis: { categories: dashboard.fiveYear.years },
-        yAxis: { title: { text: "Hours" } },
-        series: [{ name: "Hours", data: dashboard.fiveYear.totals }],
-      });
+        Highcharts.chart("chart-classification", {
+          chart: { type: "pie" },
+          title: { text: "Hours by classification" },
+          series: [{ name: "Share", data: dashboard.byClassification.map(function (s) { return { name: s.label, y: s.fraction }; }) }],
+        });
 
-      Highcharts.chart("chart-monthly", {
-        chart: { type: "line" },
-        title: { text: "Approved hours by month (this year)" },
-        xAxis: { categories: months },
-        yAxis: { title: { text: "Hours" } },
-        series: [{ name: "Hours", data: dashboard.monthly.monthly }],
-      });
-
-      Highcharts.chart("chart-classification", {
-        chart: { type: "pie" },
-        title: { text: "Hours by classification" },
-        series: [
-          {
-            name: "Share",
-            data: dashboard.byClassification.map(function (s) {
-              return { name: s.label, y: s.fraction };
-            }),
-          },
-        ],
-      });
-
-      Highcharts.chart("chart-status", {
-        chart: { type: "pie" },
-        title: { text: "Hours by status" },
-        series: [
-          {
-            name: "Share",
-            data: dashboard.byStatus.map(function (s) {
-              return { name: s.label, y: s.fraction };
-            }),
-          },
-        ],
-      });
-      /*]]>*/
-    </script>
+        Highcharts.chart("chart-status", {
+          chart: { type: "pie" },
+          title: { text: "Hours by status" },
+          series: [{ name: "Share", data: dashboard.byStatus.map(function (s) { return { name: s.label, y: s.fraction }; }) }],
+        });
+        /*]]>*/
+      </script>
+    </main>
   </body>
 </html>

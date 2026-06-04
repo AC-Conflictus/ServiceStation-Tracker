@@ -63,11 +63,12 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - `src/main/java/edu/austincollege/sstation/`
   - `domain/` — 9 JPA entities + `Status`/`Classification` enums.
   - `repository/` — Spring Data repositories.
-  - `service/` — `StatsService` (admin dashboard), `ReportService` (six reports), `StudentStatsService` (student dashboard/report) + their `*Data` record DTOs.
+  - `domain/` — 10 JPA entities (incl. `ServiceHourAuditLog`) + `Status`/`Classification` enums.
+  - `service/` — read: `StatsService`, `ReportService`, `StudentStatsService` (+ their `*Data` record DTOs); write: `ReferenceCrudService` (detach-on-delete), `StudentCrudService`, `AuditService`.
   - `security/` — `SecurityConfig`, `CustomUserDetailsService`.
   - `config/` — `DevDataSeeder` (roles + 3 users from env vars) and `DemoDataSeeder` (orgs/events/agencies + random students/hours); **both `@Profile("dev")`**.
-  - `web/` — `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`.
-- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf), `db/migration/V1__initial_schema.sql`.
+  - `web/` — read: `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`. CRUD: `EventController`, `CampusOrgController`, `CommunityAgencyController`, `StudentAdminController`, `ModeratorController`, `HourController` (+ `ServiceHourForm`).
+- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf; all pages decorate `templates/fragments/layout.html`), `db/migration/V1__initial_schema.sql` + `V2__service_hour_audit_log.sql`. Frontend assets are vendored via WebJars (no `static/` blobs), served at `/webjars/**`.
 
 ### What's ported (Lane 7 progress, all verified `./gradlew check` green + live)
 - **TC-100** — AC IT stack memo ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)); recommendation pending AC IT confirmation.
@@ -75,10 +76,10 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - **TC-103** — domain model. **Real `@ManyToOne` `User → Student` FK** (fixes the email-string hack at the source — TC-009). `User` no longer self-encodes its password (kills the TC-008 plaintext fallback at the source). `ServiceHour.{campusOrg, commAg, event}` kept **nullable** by decision; the owning `student` is required. Flyway `V1` is the schema source of truth (Hibernate runs `ddl-auto=validate`).
 - **TC-104** — Spring Security 6: form login + logout, **BCrypt** (delegating `{bcrypt}` encoder), **CSRF on**, `@EnableMethodSecurity` + `@PreAuthorize` on controllers, dev-only seeded users with passwords from `SSTATION_DEV_*_PASSWORD` env vars.
 - **TC-105** — all read-only views: admin dashboard (`StatsService`), the six reports (`ReportService`: summary, semester, year, event, community-org, campus-org), and the student dashboard + per-student report (`StudentStatsService`). **All "current year" logic uses `LocalDate.now()`** (TC-001/TC-002 at source), **top-N is bounds-safe** (`min(5, …)`, TC-003), **every nullable FK access is null-guarded** (TC-006/TC-010).
+- **TC-106** — all write paths: CRUD for the five entity types (`/admin/{students,hours,events,campus-orgs,agencies}`), `@Valid` bean-validation re-rendering forms with field errors, the **quick approve/reject REST endpoint** `POST /admin/hours/{id}/status` (CSRF, ADMIN-only, returns JSON — replaces the Grails `ajaxUpdateStatus`), moderator promote/demote (`/admin/moderators`, ADMIN-only), and the **audit trail** (`ServiceHourAuditLog` + Flyway `V2`, written on every status change; admin-only per-hour view). Deleting a reference entity **detaches** it from its hours (nulls the FK) rather than cascade-deleting; deleting a student clears any linked `User.student` FK then cascade-removes their hours.
+- **TC-107** — frontend: shared Thymeleaf layout ([templates/fragments/layout.html](sstation-next/src/main/resources/templates/fragments/layout.html)) decorated via `~{fragments/layout :: page(~{::title}, ~{::main})}`, **all** templates restyled with Bootstrap 5. **Assets are vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, Highcharts 11.2.0. Charts keep the same data shapes; DataTables powers the students list. **Highcharts is non-free for commercial/government use — AC IT must confirm licensing (🏫).**
 
 ### Still to do in the rewrite
-- **TC-106** — CRUD (students, hours, events, orgs, agencies), bean-validation, quick approve/reject AJAX, moderator promote/demote, audit trail. *(Write paths — not started.)*
-- **TC-107** — Thymeleaf layout fragments + **vendored** Bootstrap 5 / jQuery / DataTables / Highcharts (Highcharts is still loaded from **CDN** with a `TODO(TC-107)` note in the chart templates).
 - **TC-108 → TC-112** — Lane 4 features in the new stack, AWS demo, DEPLOY rewrite, parity tests, decommission the Grails app.
 
 ### Rewrite gotchas to internalize
@@ -87,6 +88,10 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - Flyway `V1` is written in the **Postgres/H2-PG common subset**; keep new migrations in that subset so they run on both. Entities must stay in sync with the SQL because `ddl-auto=validate`.
 - `@DataJpaTest`s use `@AutoConfigureTestDatabase(replace = NONE)` so they run against the real Flyway schema — a green run also proves entities ↔ migration agree.
 - The current student is resolved via `UserRepository.findStudentByUsername` (a fetch query), **not** by touching the LAZY `User.student` proxy — doing the latter throws `LazyInitializationException`.
+- **`open-in-view` is off.** Any view that walks a LAZY association (e.g. the hour list showing `student`/`event`/`org` names) must use a **fetch-join** repository query (`ServiceHourRepository.findAllWithRefs`, `…WithStudent`, audit `…WithActor`) — returning bare entities and dereferencing them in Thymeleaf throws `LazyInitializationException`.
+- **Status changes are ADMIN-only and always audited.** Route every status mutation through `AuditService.record(...)`. The audit FK uses `ON DELETE CASCADE`, so deleting a hour (or its student) cleans up the audit rows without app code.
+- CRUD forms bind to **form DTOs** where the entity shape doesn't fit a web form: `ServiceHourForm` (FK selects as ids + `datetime-local` → `LocalDateTime`). Controllers with optional text/number fields register a `StringTrimmerEditor(true)` via `@InitBinder` so empty inputs bind to `null`.
+- **Every page decorates `fragments/layout.html`** via `th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}"` — put the page's `<title>` in `<head>` and its content in `<main>`. The layout loads the **vendored** Bootstrap/jQuery/Highcharts/DataTables from `/webjars/**` (no CDN — TC-038/TC-107) and exposes the CSRF token as `<meta name="_csrf">` for JS (the hours quick-approve fetch reads it). Add new assets as **WebJar dependencies**, not `static/` files; confirm the exact in-jar path (`/webjars/<name>/<version>/…`) since it varies (e.g. Highcharts lives under `…/code/highcharts.js`).
 
 ## High-level architecture (the Grails app)
 
@@ -197,7 +202,9 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-100 stack memo ✅ · TC-101 scaffold ✅ · TC-102 parallel CI ✅ — landed 2026-06-02
 - TC-103 JPA domain model ✅ · TC-104 Spring Security 6 auth ✅ — landed 2026-06-02
 - TC-105 read-only views (admin dashboard + 6 reports + student dashboard/report) ✅ — landed 2026-06-03
-- **Next:** TC-106 (CRUD + audit trail), TC-107 (Thymeleaf layout + vendored assets), then TC-108→TC-112.
+- TC-106 CRUD + quick approve/reject REST + moderator promote/demote + audit trail ✅ — landed 2026-06-03
+- TC-107 Thymeleaf layout + Bootstrap 5 + vendored WebJars (no CDN) ✅ — landed 2026-06-03
+- **Next:** TC-108 (Lane 4 features), then TC-109→TC-112.
 
 ## Pointers for working in this repo
 

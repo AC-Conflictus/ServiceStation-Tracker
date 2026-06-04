@@ -499,7 +499,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - **All FK accesses are null-safe** (fixes TC-006 at the source).
 - **Estimate:** L (the reports alone are ~3 days; six of them).
 
-### TC-106 ✨ Port CRUD: students, hours, events, orgs, agencies
+### TC-106 ✨ Port CRUD: students, hours, events, orgs, agencies ✅ landed 2026-06-03
+- **Status:** Done, in three slices. (a) Reference CRUD (Event/CampusOrg/CommunityAgency) with delete-detaches-hours. (b) Student CRUD + ADMIN-only moderator promote/demote. (c) ServiceHour CRUD + the quick approve/reject REST endpoint (`POST /admin/hours/{id}/status`, CSRF, ADMIN-only, JSON) + audit trail (`ServiceHourAuditLog` + Flyway `V2`, written on every status change, admin-only per-hour view). `@Valid` bean-validation throughout. `./gradlew check` green (78 tests) + verified live.
 - **Why:** The write-path features. Largest single chunk of porting work.
 - **Acceptance criteria:**
   - CRUD pages for each of the five entity types, with the same fields as the Grails forms.
@@ -509,7 +510,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Audit trail (matches [TC-027](#tc-027-)) — write entries on every status change.
 - **Estimate:** L.
 
-### TC-107 ✨ Port + modernize the frontend layer
+### TC-107 ✨ Port + modernize the frontend layer ✅ landed 2026-06-03
+- **Status:** Done. Shared `fragments/layout.html` (Bootstrap 5 navbar/container/footer) decorated by every page; all templates restyled with Bootstrap 5. Assets **vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, Highcharts 11.2.0. Chart data shapes unchanged; DataTables on the students list; mobile-friendly. 🏫 **Highcharts licensing still needs AC IT confirmation.**
 - **Why:** Thymeleaf templates instead of GSP. Same page structure, modern asset versions, vendored not CDN.
 - **Acceptance criteria:**
   - Thymeleaf templates mirror the existing GSP layout (`main.gsp` → `fragments/layout.html`, etc.).

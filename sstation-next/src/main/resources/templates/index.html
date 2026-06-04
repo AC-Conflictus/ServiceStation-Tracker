@@ -2,29 +2,35 @@
 <html
   lang="en"
   xmlns:th="http://www.thymeleaf.org"
-  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
-    <title>Service Station Hours — rewrite</title>
+    <title>Service Station Hours</title>
   </head>
   <body>
-    <h1 th:text="${appName}">Service Station Hours</h1>
+    <main>
+      <div class="p-4 mb-4 bg-white rounded-3 shadow-sm">
+        <h1 class="h3" th:text="${appName}">Service Station Hours</h1>
+        <p class="text-muted mb-0">
+          Signed in as <strong sec:authentication="name">user</strong>
+          (<span sec:authentication="authorities">roles</span>).
+        </p>
+      </div>
 
-    <p>
-      Signed in as <strong sec:authentication="name">user</strong>
-      (<span sec:authentication="authorities">roles</span>).
-    </p>
-
-    <ul>
-      <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin}">Admin dashboard</a></li>
-      <li sec:authorize="hasRole('STUDENT')"><a th:href="@{/student}">My dashboard</a></li>
-      <li sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')"><a th:href="@{/reports}">Reports</a></li>
-    </ul>
-
-    <form th:action="@{/logout}" method="post">
-      <button type="submit">Sign out</button>
-    </form>
-
-    <p><em>Rewrite scaffold (Lane 7). Real dashboards land in TC-105.</em></p>
+      <div class="row g-3">
+        <div class="col-md-4" sec:authorize="hasRole('ADMIN')">
+          <a class="btn btn-primary w-100 py-3" th:href="@{/admin}">Admin dashboard</a>
+        </div>
+        <div class="col-md-4" sec:authorize="hasRole('STUDENT')">
+          <a class="btn btn-primary w-100 py-3" th:href="@{/student}">My dashboard</a>
+        </div>
+        <div class="col-md-4" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+          <a class="btn btn-outline-primary w-100 py-3" th:href="@{/reports}">Reports</a>
+        </div>
+        <div class="col-md-4" sec:authorize="hasAnyRole('ADMIN', 'MODERATOR')">
+          <a class="btn btn-outline-primary w-100 py-3" th:href="@{/admin/hours}">Service hours</a>
+        </div>
+      </div>
+    </main>
   </body>
 </html>

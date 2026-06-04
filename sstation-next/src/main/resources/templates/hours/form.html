@@ -1,86 +1,105 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title th:text="${heading}">Service hour</title>
   </head>
   <body>
-    <h1 th:text="${heading}">Service hour</h1>
-
-    <form
-      th:object="${form}"
-      th:action="${hourId == null} ? @{/admin/hours} : @{/admin/hours/{id}(id=${hourId})}"
-      method="post">
-      <p>
-        <label
-          >Student<br />
-          <select th:field="*{studentId}">
+    <main>
+      <h1 class="h3 mb-3" th:text="${heading}">Service hour</h1>
+      <form
+        th:object="${form}"
+        th:action="${hourId == null} ? @{/admin/hours} : @{/admin/hours/{id}(id=${hourId})}"
+        method="post"
+        class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Student</label>
+          <select class="form-select" th:field="*{studentId}"
+                  th:classappend="${#fields.hasErrors('studentId')} ? 'is-invalid'">
             <option value="">— select —</option>
             <option th:each="s : ${students}" th:value="${s.id}" th:text="${s.fullName}">Sam</option>
           </select>
-        </label>
-        <span th:if="${#fields.hasErrors('studentId')}" th:errors="*{studentId}" style="color: #b00"></span>
-      </p>
-      <p>
-        <label>Description<br /><textarea th:field="*{description}" rows="2" cols="50"></textarea></label>
-        <span th:if="${#fields.hasErrors('description')}" th:errors="*{description}" style="color: #b00"></span>
-      </p>
-      <p>
-        <label>Duration (hours)<br /><input type="number" step="0.25" th:field="*{duration}" /></label>
-        <span th:if="${#fields.hasErrors('duration')}" th:errors="*{duration}" style="color: #b00"></span>
-      </p>
-      <p>
-        <label>Start time<br /><input type="datetime-local" th:field="*{startTime}" /></label>
-        <span th:if="${#fields.hasErrors('startTime')}" th:errors="*{startTime}" style="color: #b00"></span>
-      </p>
-      <p>
-        <label
-          >Status<br />
-          <select th:field="*{status}">
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('studentId')}" th:errors="*{studentId}"></div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Duration (hours)</label>
+          <input type="number" step="0.25" class="form-control" th:field="*{duration}"
+                 th:classappend="${#fields.hasErrors('duration')} ? 'is-invalid'" />
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('duration')}" th:errors="*{duration}"></div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" th:field="*{status}"
+                  th:classappend="${#fields.hasErrors('status')} ? 'is-invalid'">
             <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}">PENDING</option>
           </select>
-        </label>
-        <span th:if="${#fields.hasErrors('status')}" th:errors="*{status}" style="color: #b00"></span>
-      </p>
-      <p>
-        <label
-          >Event<br />
-          <select th:field="*{eventId}">
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('status')}" th:errors="*{status}"></div>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" rows="2" th:field="*{description}"
+                    th:classappend="${#fields.hasErrors('description')} ? 'is-invalid'"></textarea>
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Start time</label>
+          <input type="datetime-local" class="form-control" th:field="*{startTime}"
+                 th:classappend="${#fields.hasErrors('startTime')} ? 'is-invalid'" />
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('startTime')}" th:errors="*{startTime}"></div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Event</label>
+          <select class="form-select" th:field="*{eventId}">
             <option value="">— none —</option>
             <option th:each="e : ${events}" th:value="${e.id}" th:text="${e.name}">Event</option>
           </select>
-        </label>
-      </p>
-      <p>
-        <label
-          >Campus organization<br />
-          <select th:field="*{campusOrgId}">
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+          <label class="form-label">Campus organization</label>
+          <select class="form-select" th:field="*{campusOrgId}">
             <option value="">— none —</option>
             <option th:each="o : ${campusOrgs}" th:value="${o.id}" th:text="${o.name}">Org</option>
           </select>
-        </label>
-        <label> or other: <input type="text" th:field="*{otherCamOrg}" /></label>
-      </p>
-      <p>
-        <label
-          >Community agency<br />
-          <select th:field="*{commAgId}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">…or other campus org</label>
+          <input type="text" class="form-control" th:field="*{otherCamOrg}" />
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+          <label class="form-label">Community agency</label>
+          <select class="form-select" th:field="*{commAgId}">
             <option value="">— none —</option>
             <option th:each="a : ${agencies}" th:value="${a.id}" th:text="${a.name}">Agency</option>
           </select>
-        </label>
-        <label> or other: <input type="text" th:field="*{otherCommAg}" /></label>
-      </p>
-      <fieldset>
-        <legend>Event contact (optional)</legend>
-        <p><label>Name <input type="text" th:field="*{eventContactName}" /></label></p>
-        <p><label>Phone <input type="text" th:field="*{eventContactPhone}" /></label></p>
-        <p>
-          <label>Email <input type="text" th:field="*{eventContactEmail}" /></label>
-          <span th:if="${#fields.hasErrors('eventContactEmail')}" th:errors="*{eventContactEmail}" style="color: #b00"></span>
-        </p>
-      </fieldset>
-      <p><button type="submit">Save</button> <a th:href="@{/admin/hours}">Cancel</a></p>
-    </form>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">…or other agency</label>
+          <input type="text" class="form-control" th:field="*{otherCommAg}" />
+        </div>
+        <div class="col-12"><hr /><h2 class="h6 text-muted">Event contact (optional)</h2></div>
+        <div class="col-md-4">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-control" th:field="*{eventContactName}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-control" th:field="*{eventContactPhone}" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Email</label>
+          <input type="text" class="form-control" th:field="*{eventContactEmail}"
+                 th:classappend="${#fields.hasErrors('eventContactEmail')} ? 'is-invalid'" />
+          <div class="invalid-feedback" th:if="${#fields.hasErrors('eventContactEmail')}" th:errors="*{eventContactEmail}"></div>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <a class="btn btn-outline-secondary" th:href="@{/admin/hours}">Cancel</a>
+        </div>
+      </form>
+    </main>
   </body>
 </html>

@@ -1,57 +1,71 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>Summary report — Service Station Hours</title>
   </head>
   <body>
-    <h1>Summary — <span th:text="${report.year}">2026</span></h1>
+    <main>
+      <h1 class="h3 mb-3">Summary — <span th:text="${report.year}">2026</span></h1>
 
-    <form th:action="@{/reports/summary}" method="get">
-      <label
-        >Year
-        <select name="year">
-          <option
-            th:each="y : ${report.yearOptions}"
-            th:value="${y}"
-            th:text="${y}"
-            th:selected="${y == report.year}">
-            2026
-          </option>
-        </select>
-      </label>
-      <button type="submit">View</button>
-    </form>
+      <form th:action="@{/reports/summary}" method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+          <label class="form-label">Year</label>
+          <select name="year" class="form-select">
+            <option
+              th:each="y : ${report.yearOptions}"
+              th:value="${y}"
+              th:text="${y}"
+              th:selected="${y == report.year}">2026</option>
+          </select>
+        </div>
+        <div class="col-auto"><button type="submit" class="btn btn-primary">View</button></div>
+      </form>
 
-    <p>
-      Total hours in <span th:text="${report.year}">2026</span>:
-      <strong th:text="${report.totalHours}">0</strong>
-    </p>
+      <p class="lead">
+        Total hours in <span th:text="${report.year}">2026</span>:
+        <span class="badge text-bg-primary" th:text="${report.totalHours}">0</span>
+      </p>
 
-    <h2>Top community agencies</h2>
-    <table border="1" cellpadding="4">
-      <tr th:each="t : ${report.topAgencies}">
-        <td th:text="${t.name}">Agency</td>
-        <td th:text="${t.total}">0</td>
-      </tr>
-    </table>
+      <div class="row g-3">
+        <div class="col-md-4" th:with="rows=${report.topAgencies}, title='Top community agencies'">
+          <div class="card h-100">
+            <div class="card-header" th:text="${title}">Top</div>
+            <table class="table table-sm mb-0">
+              <tr th:each="t : ${rows}">
+                <td th:text="${t.name}">Name</td>
+                <td class="text-end" th:text="${t.total}">0</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-header">Top campus organizations</div>
+            <table class="table table-sm mb-0">
+              <tr th:each="t : ${report.topCampusOrgs}">
+                <td th:text="${t.name}">Name</td>
+                <td class="text-end" th:text="${t.total}">0</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-header">Top events</div>
+            <table class="table table-sm mb-0">
+              <tr th:each="t : ${report.topEvents}">
+                <td th:text="${t.name}">Name</td>
+                <td class="text-end" th:text="${t.total}">0</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
 
-    <h2>Top campus organizations</h2>
-    <table border="1" cellpadding="4">
-      <tr th:each="t : ${report.topCampusOrgs}">
-        <td th:text="${t.name}">Org</td>
-        <td th:text="${t.total}">0</td>
-      </tr>
-    </table>
-
-    <h2>Top events</h2>
-    <table border="1" cellpadding="4">
-      <tr th:each="t : ${report.topEvents}">
-        <td th:text="${t.name}">Event</td>
-        <td th:text="${t.total}">0</td>
-      </tr>
-    </table>
-
-    <p><a th:href="@{/reports}">All reports</a></p>
+      <p class="mt-3"><a th:href="@{/reports}">&larr; All reports</a></p>
+    </main>
   </body>
 </html>

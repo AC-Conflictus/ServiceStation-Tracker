@@ -2,66 +2,84 @@
 <html
   lang="en"
   xmlns:th="http://www.thymeleaf.org"
-  xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
   <head>
-    <meta charset="UTF-8" />
     <title>My hours — Service Station Hours</title>
   </head>
   <body>
-    <header>
-      <h1>My dashboard</h1>
-      <p>
-        Signed in as <strong sec:authentication="name">student</strong> —
-        <a th:href="@{/logout}" onclick="event.preventDefault();document.getElementById('lf').submit();"
-          >Sign out</a
-        >
-      </p>
-      <form id="lf" th:action="@{/logout}" method="post" hidden></form>
-    </header>
+    <main>
+      <h1 class="h3 mb-3">My dashboard</h1>
 
-    <div th:unless="${hasProfile}">
-      <p>Your login isn't linked to a student profile yet. Contact the Service Station office.</p>
-    </div>
+      <div th:unless="${hasProfile}" class="alert alert-warning">
+        Your login isn't linked to a student profile yet. Contact the Service Station office.
+      </div>
 
-    <div th:if="${hasProfile}">
-      <h2 th:text="${dashboard.studentName}">Sam Student</h2>
-      <ul>
-        <li>Total hours logged: <strong th:text="${dashboard.grandTotal}">0</strong></li>
-        <li>Approved: <strong th:text="${dashboard.approvedTotal}">0</strong></li>
-        <li>Pending: <strong th:text="${dashboard.pendingTotal}">0</strong></li>
-        <li>Rejected: <strong th:text="${dashboard.rejectedTotal}">0</strong></li>
-      </ul>
+      <div th:if="${hasProfile}">
+        <h2 class="h5 text-muted" th:text="${dashboard.studentName}">Sam Student</h2>
 
-      <p><a th:href="@{/student/report}">My report (by semester &amp; organization)</a></p>
+        <div class="row g-3 my-2">
+          <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body">
+              <div class="text-muted small">Total</div>
+              <div class="fs-5 fw-bold" th:text="${dashboard.grandTotal}">0</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center border-success"><div class="card-body">
+              <div class="text-muted small">Approved</div>
+              <div class="fs-5 fw-bold text-success" th:text="${dashboard.approvedTotal}">0</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center border-warning"><div class="card-body">
+              <div class="text-muted small">Pending</div>
+              <div class="fs-5 fw-bold text-warning-emphasis" th:text="${dashboard.pendingTotal}">0</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card text-center border-danger"><div class="card-body">
+              <div class="text-muted small">Rejected</div>
+              <div class="fs-5 fw-bold text-danger" th:text="${dashboard.rejectedTotal}">0</div>
+            </div></div>
+          </div>
+        </div>
 
-      <h3>My service hours</h3>
-      <table border="1" cellpadding="4">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Hours</th>
-            <th>Status</th>
-            <th>Event</th>
-            <th>Campus org</th>
-            <th>Community agency</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr th:each="h : ${dashboard.hours}">
-            <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
-            <td th:text="${h.duration}">0</td>
-            <td th:text="${h.status}">PENDING</td>
-            <td th:text="${h.eventName}">—</td>
-            <td th:text="${h.campusOrgName}">—</td>
-            <td th:text="${h.communityAgencyName}">—</td>
-          </tr>
-          <tr th:if="${dashboard.hours.isEmpty()}">
-            <td colspan="6">No service hours logged yet.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        <p><a class="btn btn-outline-primary btn-sm" th:href="@{/student/report}">My report (by semester &amp; organization)</a></p>
 
-    <p><a th:href="@{/}">Home</a></p>
+        <h3 class="h5 mt-4">My service hours</h3>
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Hours</th>
+                <th>Status</th>
+                <th>Event</th>
+                <th>Campus org</th>
+                <th>Community agency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="h : ${dashboard.hours}">
+                <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
+                <td th:text="${h.duration}">0</td>
+                <td>
+                  <span
+                    class="badge"
+                    th:classappend="${h.status.name() == 'APPROVED'} ? 'text-bg-success' : (${h.status.name() == 'REJECTED'} ? 'text-bg-danger' : 'text-bg-warning')"
+                    th:text="${h.status}">PENDING</span>
+                </td>
+                <td th:text="${h.eventName}">—</td>
+                <td th:text="${h.campusOrgName}">—</td>
+                <td th:text="${h.communityAgencyName}">—</td>
+              </tr>
+              <tr th:if="${dashboard.hours.isEmpty()}">
+                <td colspan="6" class="text-muted">No service hours logged yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </body>
 </html>

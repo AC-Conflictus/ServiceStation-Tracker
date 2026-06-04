@@ -8,8 +8,12 @@ This repo has **two** apps. This guide focuses on the **Spring Boot rewrite** in
 
 ## A. The rewrite (`sstation-next/`) — Spring Boot 3 / Java 21 ⭐
 
-As of **2026-06-03** this runs end-to-end for all **read-only** flows: login, the admin dashboard,
-the six reports, and the student dashboard/report. Write paths (CRUD) are TC-106, not done yet.
+As of **2026-06-03** this runs end-to-end for the read flows (login, admin dashboard, six reports,
+student dashboard/report), the write paths (TC-106: CRUD for students/hours/events/campus
+orgs/community agencies, quick approve/reject of pending hours, moderator promote/demote, per-hour
+audit trail), **and a styled UI** (TC-107): a Bootstrap 5 layout with a role-aware navbar, served
+from **vendored assets** (`/webjars/**`, no CDN). The only thing left for the frontend is AC IT
+confirming Highcharts licensing (🏫).
 
 ### 1. Prerequisites
 
@@ -66,8 +70,12 @@ local convenience. Override them by exporting e.g. `SSTATION_DEV_ADMIN_PASSWORD=
 - **Sign out, sign in as `student`** → **`/student`**:
   - Sam Student's totals (approved / pending / rejected) and a table of their service hours.
   - **My report** (`/student/report`) — approved hours bucketed by semester and by campus org.
+- **Admin management (TC-106):** from the dashboard's *Manage* bar — create/edit/delete students,
+  service hours, events, campus orgs, community agencies (with validation). On the **Service hours**
+  page, an admin can **Approve/Reject** a row inline (writes an audit entry) and view its **Audit**
+  trail; **Moderators** can be promoted/demoted (admin-only).
 - **Role gating** is real: a student visiting `/admin` or `/reports` gets **403**; a moderator can
-  reach `/reports`.
+  reach `/reports` and entity CRUD but not status changes or moderator management.
 
 ### 5. Run the tests / format
 
