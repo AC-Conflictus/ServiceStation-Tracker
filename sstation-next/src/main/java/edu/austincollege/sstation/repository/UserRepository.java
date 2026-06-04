@@ -23,6 +23,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
   Optional<Student> findStudentByUsername(@Param("username") String username);
 
   /**
+   * The student-linked user owning the given AC email — for self-service password reset (TC-028).
+   */
+  @Query("select u from User u where u.student.acEmail = :email")
+  Optional<User> findByStudentAcEmail(@Param("email") String email);
+
+  /**
    * Clears the student FK on any user linked to the given student, before the student is deleted.
    */
   @Modifying(clearAutomatically = true, flushAutomatically = true)

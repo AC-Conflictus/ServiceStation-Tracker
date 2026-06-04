@@ -89,4 +89,32 @@ public class NotificationService {
           e.getMessage());
     }
   }
+
+  /**
+   * Sends a password-reset link (TC-028 / TC-108g). When no SMTP sender is configured (dev) the
+   * reset URL is logged so the flow is still testable locally.
+   */
+  public void sendPasswordReset(String toEmail, String resetUrl) {
+    JavaMailSender sender = mailSender.getIfAvailable();
+    if (sender == null) {
+      log.info("[mail disabled] password reset link for {}: {}", toEmail, resetUrl);
+      return;
+    }
+    try {
+      Context ctx = new Context();
+      ctx.setVariable("resetUrl", resetUrl);
+      String body = templateEngine.process("email/password-reset", ctx);
+
+      MimeMessage message = sender.createMimeMessage();
+      MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+      helper.setFrom(fromAddress);
+      helper.setTo(toEmail);
+      helper.setSubject("Reset your Service Station password");
+      helper.setText(body, true);
+      sender.send(message);
+      log.info("Sent password reset email to {}", toEmail);
+    } catch (MessagingException | RuntimeException e) {
+      log.error("Failed to send password reset email to {}: {}", toEmail, e.getMessage());
+    }
+  }
 }

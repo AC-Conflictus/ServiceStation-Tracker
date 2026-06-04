@@ -40,7 +40,12 @@ public class SecurityConfig {
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     http.authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/login", "/error", "/actuator/health")
+                auth.requestMatchers(
+                        "/login",
+                        "/forgot-password",
+                        "/reset-password",
+                        "/error",
+                        "/actuator/health")
                     .permitAll()
                     .requestMatchers("/css/**", "/js/**", "/webjars/**", "/favicon.ico")
                     .permitAll()
