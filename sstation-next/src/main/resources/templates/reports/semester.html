@@ -8,10 +8,14 @@
   </head>
   <body>
     <main>
-      <h1 class="h3 mb-3">
-        Semester — <span th:text="${report.semester}">Fall</span>
-        <span th:text="${report.year}">2026</span>
-      </h1>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">
+          Semester — <span th:text="${report.semester}">Fall</span>
+          <span th:text="${report.year}">2026</span>
+        </h1>
+        <a class="btn btn-outline-secondary btn-sm"
+           th:href="@{/reports/semester.csv(year=${report.year},semester=${report.semester})}">Download CSV</a>
+      </div>
 
       <form th:action="@{/reports/semester}" method="get" class="row g-2 align-items-end mb-3">
         <div class="col-auto">

@@ -26,6 +26,13 @@ spring:
 server:
   port: 8080
 
+# Approve/reject notification emails (TC-021 / TC-108a). The from-address is shared across
+# profiles; the SMTP server itself (spring.mail.*) is only wired in prod (below), so local dev
+# has no JavaMailSender and notifications fall back to a log line.
+sstation:
+  mail:
+    from: ${SSTATION_MAIL_FROM:no-reply@austincollege.edu}
+
 management:
   endpoints:
     web:
@@ -47,3 +54,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  # SMTP for approve/reject notifications (TC-021). 🏫 AC IT supplies host/credentials via the
+  # SSTATION_MAIL_* env vars. Defining spring.mail.host here is what activates the JavaMailSender
+  # bean (absent in dev → notifications are logged, not sent).
+  mail:
+    host: ${SSTATION_MAIL_HOST}
+    port: ${SSTATION_MAIL_PORT:587}
+    username: ${SSTATION_MAIL_USER:}
+    password: ${SSTATION_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true

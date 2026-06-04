@@ -27,6 +27,10 @@ dependencies {
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // Mail — approve/reject notifications (TC-021 / TC-108a). JavaMailSender is only
+    // auto-configured when spring.mail.host is set (prod), so dev stays a no-op.
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // Persistence
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -35,6 +39,15 @@ dependencies {
 
     // Ops
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // CSV export on the report pages (TC-023 / TC-108c). OpenCSV handles RFC-4180 escaping so
+    // org/event names containing commas or quotes can't corrupt the output.
+    implementation("com.opencsv:opencsv:5.9")
+
+    // PDF export of the per-student report (TC-024 / TC-108d). openhtmltopdf renders a Thymeleaf
+    // XHTML template; jsoup cleans the rendered HTML into the well-formed DOM it requires.
+    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
+    implementation("org.jsoup:jsoup:1.17.2")
 
     // Vendored frontend assets (TC-107) — served from the app jar at /webjars/**, no CDN.
     // Highcharts is non-free for commercial/government use; AC IT must confirm licensing (🏫).

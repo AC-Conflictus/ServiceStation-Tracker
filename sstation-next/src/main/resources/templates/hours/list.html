@@ -20,16 +20,28 @@
         <li class="nav-item"><a class="nav-link" th:href="@{/admin/hours/pending}" th:classappend="${title == 'Pending service hours'} ? 'active'">Pending only</a></li>
       </ul>
 
+      <div sec:authorize="hasRole('ADMIN')" class="d-flex gap-2 align-items-center mb-2">
+        <button type="button" class="btn btn-sm btn-success" onclick="bulkSetStatus('APPROVED')">Approve selected</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="bulkSetStatus('REJECTED')">Reject selected</button>
+        <span class="text-muted small" id="bulk-count">0 selected</span>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-striped table-bordered align-middle">
           <thead class="table-light">
             <tr>
+              <th sec:authorize="hasRole('ADMIN')" style="width:1%">
+                <input type="checkbox" id="select-all" onclick="toggleAll(this)" aria-label="Select all"/>
+              </th>
               <th>Student</th><th>Date</th><th>Hours</th><th>Status</th>
               <th>Event</th><th>Campus org</th><th>Community agency</th><th class="text-end">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr th:each="h : ${hours}" th:id="'hour-' + ${h.id}">
+              <td sec:authorize="hasRole('ADMIN')">
+                <input type="checkbox" class="row-check" th:value="${h.id}" aria-label="Select row"/>
+              </td>
               <td th:text="${h.student.fullName}">Sam Student</td>
               <td th:text="${#temporals.format(h.startTime, 'yyyy-MM-dd')}">2026-01-01</td>
               <td th:text="${h.duration}">0</td>
@@ -54,7 +66,7 @@
                 </form>
               </td>
             </tr>
-            <tr th:if="${hours.isEmpty()}"><td colspan="8" class="text-muted">No service hours.</td></tr>
+            <tr th:if="${hours.isEmpty()}"><td colspan="9" class="text-muted">No service hours.</td></tr>
           </tbody>
         </table>
       </div>
@@ -63,6 +75,37 @@
         /*<![CDATA[*/
         var csrfToken = document.querySelector('meta[name="_csrf"]').content;
         var csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+        function selectedIds() {
+          return Array.prototype.slice
+            .call(document.querySelectorAll(".row-check:checked"))
+            .map(function (c) { return c.value; });
+        }
+        function updateCount() {
+          var el = document.getElementById("bulk-count");
+          if (el) el.textContent = selectedIds().length + " selected";
+        }
+        function toggleAll(src) {
+          var boxes = document.querySelectorAll(".row-check");
+          for (var i = 0; i < boxes.length; i++) boxes[i].checked = src.checked;
+          updateCount();
+        }
+        document.addEventListener("change", function (e) {
+          if (e.target && e.target.classList && e.target.classList.contains("row-check")) updateCount();
+        });
+
+        function bulkSetStatus(status) {
+          var ids = selectedIds();
+          if (ids.length === 0) { alert("No rows selected."); return; }
+          if (!confirm("Set " + ids.length + " hour(s) to " + status + "?")) return;
+          var headers = { "Content-Type": "application/x-www-form-urlencoded" };
+          headers[csrfHeader] = csrfToken;
+          var body = ids.map(function (id) { return "ids=" + id; }).join("&") + "&status=" + status;
+          fetch("/admin/hours/bulk-status", { method: "POST", headers: headers, body: body })
+            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+            .then(function () { window.location.reload(); })
+            .catch(function (e) { alert("Bulk update failed: " + e.message); });
+        }
 
         function setStatus(id, status) {
           var headers = { "Content-Type": "application/x-www-form-urlencoded" };

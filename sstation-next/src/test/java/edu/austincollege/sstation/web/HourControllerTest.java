@@ -101,6 +101,43 @@ class HourControllerTest {
   }
 
   @Test
+  @WithMockUser(
+      username = "admin",
+      roles = {"ADMIN"})
+  void adminBulkStatusUpdatesAllSelectedAndAudits() throws Exception {
+    ServiceHour a = serviceHours.save(pendingHour());
+    ServiceHour b = serviceHours.save(pendingHour());
+    long auditBefore = auditLogs.count();
+
+    mvc.perform(
+            post("/admin/hours/bulk-status")
+                .with(csrf())
+                .param("ids", a.getId().toString(), b.getId().toString())
+                .param("status", "APPROVED"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.updated").value(2))
+        .andExpect(jsonPath("$.status").value("APPROVED"));
+
+    assertThat(serviceHours.findById(a.getId()).orElseThrow().getStatus())
+        .isEqualTo(Status.APPROVED);
+    assertThat(serviceHours.findById(b.getId()).orElseThrow().getStatus())
+        .isEqualTo(Status.APPROVED);
+    assertThat(auditLogs.count()).isEqualTo(auditBefore + 2); // one audit row per hour
+  }
+
+  @Test
+  @WithMockUser(roles = "MODERATOR")
+  void moderatorCannotBulkChangeStatus() throws Exception {
+    ServiceHour hour = serviceHours.save(pendingHour());
+    mvc.perform(
+            post("/admin/hours/bulk-status")
+                .with(csrf())
+                .param("ids", hour.getId().toString())
+                .param("status", "APPROVED"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   @WithMockUser(roles = "MODERATOR")
   void moderatorCanViewHoursButNotChangeStatus() throws Exception {
     ServiceHour hour = serviceHours.save(pendingHour());

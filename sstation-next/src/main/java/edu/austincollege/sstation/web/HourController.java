@@ -8,8 +8,10 @@ import edu.austincollege.sstation.repository.EventRepository;
 import edu.austincollege.sstation.repository.ServiceHourRepository;
 import edu.austincollege.sstation.repository.StudentRepository;
 import edu.austincollege.sstation.service.AuditService;
+import edu.austincollege.sstation.service.NotificationService;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +50,7 @@ public class HourController {
   private final CampusOrgRepository campusOrgs;
   private final CommunityAgencyRepository agencies;
   private final AuditService audit;
+  private final NotificationService notifications;
 
   public HourController(
       ServiceHourRepository serviceHours,
@@ -55,13 +58,15 @@ public class HourController {
       EventRepository events,
       CampusOrgRepository campusOrgs,
       CommunityAgencyRepository agencies,
-      AuditService audit) {
+      AuditService audit,
+      NotificationService notifications) {
     this.serviceHours = serviceHours;
     this.students = students;
     this.events = events;
     this.campusOrgs = campusOrgs;
     this.agencies = agencies;
     this.audit = audit;
+    this.notifications = notifications;
   }
 
   @InitBinder
@@ -149,6 +154,7 @@ public class HourController {
     serviceHours.save(hour);
     if (oldStatus != hour.getStatus()) {
       audit.record(hour, oldStatus, hour.getStatus(), auth.getName(), "Status changed via edit");
+      notifications.notifyStatusChange(hour, hour.getStatus());
     }
     flash.addFlashAttribute("message", "Service hour updated.");
     return "redirect:/admin/hours";
@@ -170,7 +176,8 @@ public class HourController {
   @ResponseBody
   public ResponseEntity<Map<String, Object>> updateStatus(
       @PathVariable Long id, @RequestParam Status status, Authentication auth) {
-    ServiceHour hour = serviceHours.findById(id).orElse(null);
+    // Fetch the student up front (open-in-view is off) so the notification can read its email.
+    ServiceHour hour = serviceHours.findByIdWithStudent(id).orElse(null);
     if (hour == null) {
       return ResponseEntity.notFound().build();
     }
@@ -180,8 +187,40 @@ public class HourController {
       hour.setLastModified(LocalDateTime.now());
       serviceHours.save(hour);
       audit.record(hour, from, status, auth.getName(), "Quick status change");
+      notifications.notifyStatusChange(hour, status);
     }
     return ResponseEntity.ok(Map.of("id", id, "status", status.name()));
+  }
+
+  /**
+   * Bulk approve/reject from the pending queue (TC-022 / TC-108b). ADMIN-only, CSRF-protected.
+   * Applies {@code status} to every selected id, auditing and notifying each changed hour
+   * individually — our audit log is keyed per ServiceHour (TC-027), so a batch produces one audit
+   * row per hour with a "Bulk status change" note rather than a single batch row. Returns JSON with
+   * the count actually changed.
+   */
+  @PostMapping("/bulk-status")
+  @PreAuthorize("hasRole('ADMIN')")
+  @ResponseBody
+  public ResponseEntity<Map<String, Object>> bulkStatus(
+      @RequestParam("ids") List<Long> ids, @RequestParam Status status, Authentication auth) {
+    int updated = 0;
+    for (Long id : ids) {
+      ServiceHour hour = serviceHours.findByIdWithStudent(id).orElse(null);
+      if (hour == null) {
+        continue;
+      }
+      Status from = hour.getStatus();
+      if (from != status) {
+        hour.setStatus(status);
+        hour.setLastModified(LocalDateTime.now());
+        serviceHours.save(hour);
+        audit.record(hour, from, status, auth.getName(), "Bulk status change");
+        notifications.notifyStatusChange(hour, status);
+        updated++;
+      }
+    }
+    return ResponseEntity.ok(Map.of("updated", updated, "status", status.name()));
   }
 
   /** Per-hour audit trail — ADMIN-only (TC-027). */

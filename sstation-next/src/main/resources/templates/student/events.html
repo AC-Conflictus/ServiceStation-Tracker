@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Events — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <h1 class="h3 mb-3">Events</h1>
+      <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
+      <div th:unless="${hasProfile}" class="alert alert-warning">
+        Your login isn't linked to a student profile yet, so you can't sign up.
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr><th>Event</th><th>Description</th><th class="text-end">Sign-up</th></tr>
+          </thead>
+          <tbody>
+            <tr th:each="e : ${events}">
+              <td th:text="${e.name}">Event</td>
+              <td th:text="${e.description}">Description</td>
+              <td class="text-end text-nowrap">
+                <span th:if="${mine.containsKey(e.id)}" class="badge text-bg-secondary"
+                      th:text="${mine.get(e.id).displayName}">Signed up</span>
+                <form th:unless="${mine.containsKey(e.id)}"
+                      th:action="@{/student/events/{id}/signup(id=${e.id})}" method="post" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-primary" th:disabled="${!hasProfile}">Sign up</button>
+                </form>
+              </td>
+            </tr>
+            <tr th:if="${events.isEmpty()}"><td colspan="3" class="text-muted">No events yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </body>
+</html>
