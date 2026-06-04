@@ -66,3 +66,11 @@ spring:
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
+
+---
+# Demo profile (TC-114): showcase seeders only — always pair with prod + Postgres for Docker/AWS.
+# Example: SPRING_PROFILES_ACTIVE=prod,demo and SSTATION_DEMO_*_PASSWORD env vars set.
+spring:
+  config:
+    activate:
+      on-profile: demo

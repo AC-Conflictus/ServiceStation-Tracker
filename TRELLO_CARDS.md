@@ -565,7 +565,7 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Estimate:** M.
 
 ### TC-114 🔒 Demo profile seeder for container / AWS deploy
-- **Status:** 🔲 **Next** — required before a useful public demo URL.
+- **Status:** ✅ **Landed 2026-06-04** — `DemoAccountSeeder` (`@Profile("demo")`, required `SSTATION_DEMO_*_PASSWORD`), `DemoDataSeeder` also on `demo`, `docker compose` uses `prod,demo`, tests + [DEPLOY.md](DEPLOY.md) updated.
 - **Why:** `DevDataSeeder` and `DemoDataSeeder` are `@Profile("dev")` only. A `prod` Docker/EC2 boot creates schema via Flyway but **no users** — reviewers cannot click through. Extends [TC-017](#tc-017-) for anything internet-facing.
 - **Acceptance criteria:**
   - New Spring profile `demo` (or equivalent) with an idempotent seeder: roles, `admin` / `student` / `moderator` users, Sam Student + reference data + sample hours (parity with dev demo intent).

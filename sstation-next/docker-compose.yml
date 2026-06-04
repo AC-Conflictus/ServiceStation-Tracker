@@ -1,6 +1,6 @@
-# TC-113: local smoke test — app (prod profile) + Postgres. Schema via Flyway; no users until TC-114.
+# TC-113/114: Postgres + prod + demo seeders. Copy .env.example → .env for demo passwords.
 # Usage: docker compose up --build
-# Seeded logins: docker compose -f docker-compose.dev.yml up --build
+# H2 + dev defaults: docker compose -f docker-compose.dev.yml up --build
 
 services:
   db:
@@ -23,10 +23,13 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: prod,demo
       SSTATION_DB_URL: jdbc:postgresql://db:5432/sstation
       SSTATION_DB_USER: sstation
       SSTATION_DB_PASSWORD: ${POSTGRES_PASSWORD:-sstation_dev_only}
+      SSTATION_DEMO_ADMIN_PASSWORD: ${SSTATION_DEMO_ADMIN_PASSWORD:-changeme-demo-admin}
+      SSTATION_DEMO_STUDENT_PASSWORD: ${SSTATION_DEMO_STUDENT_PASSWORD:-changeme-demo-student}
+      SSTATION_DEMO_MODERATOR_PASSWORD: ${SSTATION_DEMO_MODERATOR_PASSWORD:-changeme-demo-moderator}
       # Empty host keeps JavaMailSender off (notifications log-only until SMTP is configured).
       SSTATION_MAIL_HOST: ""
     depends_on:

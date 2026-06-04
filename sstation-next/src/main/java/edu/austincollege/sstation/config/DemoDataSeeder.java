@@ -29,13 +29,14 @@ import org.springframework.transaction.annotation.Transactional;
  * have something to show in dev (TC-105). The Spring port of the bulk of the Grails {@code
  * BootStrap}.
  *
- * <p>Dev-only ({@code @Profile("dev")}) and idempotent (skips if hours already exist). Start times
- * are spread across the last five years ending today, via {@link LocalDateTime} — no repeat of the
- * Grails legacy-{@code Date} bug that dumped everything into 2011–2015 (TC-004). Sam Student
- * (AC50000) gets five hours across all three statuses (TC-005).
+ * <p>Runs under {@code dev} (local H2) and {@code demo} (Postgres showcase with {@link
+ * DemoAccountSeeder}, TC-114). Idempotent (skips if hours already exist). Start times are spread
+ * across the last five years ending today, via {@link LocalDateTime} — no repeat of the Grails
+ * legacy-{@code Date} bug that dumped everything into 2011–2015 (TC-004). Sam Student (AC50000)
+ * gets five hours across all three statuses (TC-005).
  */
 @Component
-@Profile("dev")
+@Profile({"dev", "demo"})
 @Order(2)
 public class DemoDataSeeder implements CommandLineRunner {
 
@@ -74,7 +75,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     if (serviceHours.count() > 0) {
       return; // already seeded
     }
-    log.info("[dev] seeding demo reference data, students and service hours");
+    log.info("seeding demo reference data, students and service hours");
 
     List<CampusOrg> orgs = seedCampusOrgs();
     List<Event> evs = seedEvents();

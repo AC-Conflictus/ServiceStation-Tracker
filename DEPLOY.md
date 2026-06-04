@@ -15,19 +15,24 @@ docker compose -f docker-compose.dev.yml up --build
 
 Open **http://localhost:8080** — `admin` / `admin_secret`, `student` / `student_secret`, `moderator` / `moderator_secret`.
 
-### Option B — Production-shaped stack (Postgres + Flyway, no seed users)
+### Option B — Production-shaped stack (Postgres + demo seeders, TC-114)
 
 ```bash
 cd sstation-next
+copy .env.example .env    # Windows; use cp on Linux/Mac
 docker compose up --build
 ```
 
-- Postgres 16 on port 5432 (internal network only).
-- App on **http://localhost:8080** with `SPRING_PROFILES_ACTIVE=prod`.
-- Flyway creates schema; **no login accounts** until [TC-114](TRELLO_CARDS.md) demo profile lands.
+- Postgres 16 + `SPRING_PROFILES_ACTIVE=prod,demo`.
+- Default demo logins (override in `.env` before any public deploy):
+  - `admin` / `changeme-demo-admin`
+  - `student` / `changeme-demo-student`
+  - `moderator` / `changeme-demo-moderator`
 - Health: **http://localhost:8080/actuator/health**
 
-Optional: copy [.env.example](sstation-next/.env.example) to `sstation-next/.env` and adjust `POSTGRES_PASSWORD`.
+**AWS / internet:** set strong `SSTATION_DEMO_*_PASSWORD` values — the Java app has **no** `admin_secret` fallback when `demo` is active.
+
+Optional: adjust `POSTGRES_PASSWORD` in `.env` as well.
 
 Stop: `Ctrl+C`, then `docker compose down` (add `-v` to drop the Postgres volume).
 
@@ -43,7 +48,8 @@ docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 
 | Variable | Used when | Purpose |
 |----------|-----------|---------|
-| `SPRING_PROFILES_ACTIVE` | Always | `dev` (H2 + seed), `prod` (Postgres, no seed). `demo` — TC-114. |
+| `SPRING_PROFILES_ACTIVE` | Always | `dev` (H2 + dev seed), `prod` (Postgres), `prod,demo` (Postgres + showcase seed, TC-114) |
+| `SSTATION_DEMO_*_PASSWORD` | `demo` | **Required** when `demo` profile is on (no defaults in code) |
 | `SSTATION_DB_URL` | `prod` | JDBC URL, e.g. `jdbc:postgresql://host:5432/sstation` |
 | `SSTATION_DB_USER` | `prod` | DB user |
 | `SSTATION_DB_PASSWORD` | `prod` | DB password |
@@ -63,7 +69,7 @@ Never commit real production secrets. Use a vault or AWS SSM on EC2.
 2. On EC2 (Amazon Linux 2023): install Docker, clone/pull image, set `SSTATION_DB_*` in `.env`.
 3. Run: `docker compose -f docker-compose.ec2.yml up -d` (see [sstation-next/docker-compose.ec2.yml](sstation-next/docker-compose.ec2.yml)).
 4. Terminate TLS with Caddy or nginx on the host (`443` → `127.0.0.1:8080`).
-5. Activate **TC-114** `demo` profile for showcase logins; do not expose `admin_secret` on the public internet.
+5. Set `SPRING_PROFILES_ACTIVE=prod,demo` and strong `SSTATION_DEMO_*_PASSWORD` env vars (see `.env.example`).
 
 **Budget fallback (demo only):** run `docker-compose.yml` on a single t3.micro — high OOM risk on 1 GiB RAM.
 
