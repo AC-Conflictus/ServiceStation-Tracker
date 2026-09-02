@@ -27,6 +27,7 @@ Package root: `edu.austincollege.sstation`.
 | Command | What it does |
 |---------|--------------|
 | `./gradlew bootRun` | Start the dev server on <http://localhost:8080> (H2 in-memory). |
+| `docker compose -f docker-compose.dev.yml up --build` | Same seeded logins, no JDK — see [../DEPLOY.md](../DEPLOY.md). |
 | `./gradlew check` | Run Spotless format check + all tests. CI gate (TC-102). |
 | `./gradlew spotlessApply` | Auto-format the code to Google Java Format. |
 | `./gradlew bootJar` | Build the executable JAR under `build/libs/`. |

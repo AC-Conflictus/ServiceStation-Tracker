@@ -17,14 +17,18 @@ confirming Highcharts licensing (🏫).
 
 ### 1. Prerequisites
 
-- **JDK 21** — the only thing you must install. Easiest via [SDKMAN](https://sdkman.io/):
+Pick one path:
+
+- **JDK 21** (for `gradlew bootRun`) — easiest via [SDKMAN](https://sdkman.io/):
   ```bash
   sdk install java 21.0.5-tem
   sdk use java 21.0.5-tem      # for this shell; `sdk default` to make it permanent
   java -version                # should report 21.x
   ```
-- **No Gradle install needed** — the project ships a Gradle wrapper (`./gradlew`).
-- **No database to install** — dev mode uses an in-memory H2 database (PostgreSQL-compat mode).
+- **Docker only** (no JDK) — see [DEPLOY.md](DEPLOY.md): from `sstation-next/`, run `docker compose -f docker-compose.dev.yml up --build`.
+
+- **No Gradle install needed** (JDK path) — the project ships a Gradle wrapper (`./gradlew`).
+- **No database to install** (JDK path) — dev mode uses an in-memory H2 database (PostgreSQL-compat mode).
 
 ### 2. Run it
 

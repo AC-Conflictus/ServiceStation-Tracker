@@ -58,10 +58,19 @@ spring:
   # SSTATION_MAIL_* env vars. Defining spring.mail.host here is what activates the JavaMailSender
   # bean (absent in dev → notifications are logged, not sent).
   mail:
-    host: ${SSTATION_MAIL_HOST}
+    # Default empty so Docker/RDS boots without SMTP; JavaMailSender stays off until host is set.
+    host: ${SSTATION_MAIL_HOST:}
     port: ${SSTATION_MAIL_PORT:587}
     username: ${SSTATION_MAIL_USER:}
     password: ${SSTATION_MAIL_PASSWORD:}
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
+
+---
+# Demo profile (TC-114): showcase seeders only — always pair with prod + Postgres for Docker/AWS.
+# Example: SPRING_PROFILES_ACTIVE=prod,demo and SSTATION_DEMO_*_PASSWORD env vars set.
+spring:
+  config:
+    activate:
+      on-profile: demo

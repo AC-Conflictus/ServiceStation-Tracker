@@ -1,0 +1,19 @@
+# TC-116 prep: app container only — point SSTATION_DB_* at RDS (no local db service).
+# Usage on EC2: copy .env with RDS credentials, then:
+#   docker compose -f docker-compose.ec2.yml up -d --build
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,demo}
+      SSTATION_DB_URL: ${SSTATION_DB_URL}
+      SSTATION_DB_USER: ${SSTATION_DB_USER}
+      SSTATION_DB_PASSWORD: ${SSTATION_DB_PASSWORD}
+      SSTATION_DEMO_ADMIN_PASSWORD: ${SSTATION_DEMO_ADMIN_PASSWORD}
+      SSTATION_DEMO_STUDENT_PASSWORD: ${SSTATION_DEMO_STUDENT_PASSWORD}
+      SSTATION_DEMO_MODERATOR_PASSWORD: ${SSTATION_DEMO_MODERATOR_PASSWORD}
+      SSTATION_MAIL_HOST: ${SSTATION_MAIL_HOST:-}

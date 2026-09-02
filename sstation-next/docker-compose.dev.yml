@@ -1,0 +1,10 @@
+# TC-113: H2 in-memory + dev seeders (admin / student / moderator). No Postgres service.
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
