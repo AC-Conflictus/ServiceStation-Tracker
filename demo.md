@@ -8,12 +8,16 @@ This repo has **two** apps. This guide focuses on the **Spring Boot rewrite** in
 
 ## A. The rewrite (`sstation-next/`) — Spring Boot 3 / Java 21 ⭐
 
-As of **2026-06-03** this runs end-to-end for the read flows (login, admin dashboard, six reports,
-student dashboard/report), the write paths (TC-106: CRUD for students/hours/events/campus
-orgs/community agencies, quick approve/reject of pending hours, moderator promote/demote, per-hour
-audit trail), **and a styled UI** (TC-107): a Bootstrap 5 layout with a role-aware navbar, served
-from **vendored assets** (`/webjars/**`, no CDN). The only thing left for the frontend is AC IT
-confirming Highcharts licensing (🏫).
+As of **2026-09-02** this is **feature-complete** and runs end-to-end: the read flows (login, admin
+dashboard, six reports, student dashboard/report), the write paths (TC-106: CRUD for
+students/hours/events/campus orgs/community agencies, quick approve/reject, moderator
+promote/demote, per-hour audit trail), a styled UI (TC-107: Bootstrap 5, role-aware navbar,
+**vendored assets** at `/webjars/**`, no CDN), **all eight Lane 4 features** (TC-108: email
+notifications, bulk approve/reject, CSV export, PDF export, date-range filter, event sign-up,
+password reset), and **Docker packaging** (TC-113/TC-114).
+
+What's left is deployment and handoff — plus one open item: AC IT confirming **Highcharts
+licensing** (🏫 TC-119).
 
 ### 1. Prerequisites
 
@@ -81,6 +85,26 @@ local convenience. Override them by exporting e.g. `SSTATION_DEV_ADMIN_PASSWORD=
 - **Role gating** is real: a student visiting `/admin` or `/reports` gets **403**; a moderator can
   reach `/reports` and entity CRUD but not status changes or moderator management.
 
+#### The TC-108 features (added 2026-06-03)
+
+- **Bulk approve/reject** — on the Service hours page, tick several pending rows and approve or
+  reject the lot in one POST. Each row still gets its own audit entry.
+- **CSV export** — every one of the six reports has a download link, as does the student's own
+  report. Escaping is RFC-4180, so an agency named `Habitat, Inc. "North"` won't corrupt the file.
+- **PDF export** — from **`/student/report`**, *Download PDF* renders the per-semester report
+  through a dedicated print template. This is the artifact a student attaches to an application.
+- **Date-range filter** — the admin dashboard takes a from/to range and recomputes every KPI and
+  chart against it, instead of only ever showing "this year."
+- **Event sign-up** — as `student`, visit **`/student/events`** to sign up for an upcoming event.
+  As an admin, open an event's **Roster** to see who signed up.
+- **Password reset** — *Forgot password?* on the login page. Tokens are single-use, hashed with
+  SHA-256 before storage, and expire in an hour. The confirmation message is identical whether or
+  not the account exists, so it can't be used to enumerate users.
+- **Email notifications** — approve or reject an hour and the student is emailed. ⚠️ **In local dev
+  no mail is actually sent**: `spring.mail.host` is empty, so `JavaMailSender` is never configured
+  and `NotificationService` writes the message to the log instead. Watch the console. Nothing is
+  broken; there's just no SMTP relay until AC IT supplies one.
+
 ### 5. Run the tests / format
 
 ```bash
@@ -110,6 +134,9 @@ java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=p
 | Port 8080 already in use | Stop the other process, or run `./gradlew bootRun --args='--server.port=8081'`. |
 | Login page loops / 403 on POST | CSRF is on; use the real login form (the seeded creds above), not a raw POST. |
 | Dashboard is empty | You're not on the `dev` profile. `bootRun` sets it automatically; a plain `java -jar` does not. |
+| Approve/reject sends no email | Expected in dev — `spring.mail.host` is empty, so notifications are written to the log instead of sent. Set `SSTATION_MAIL_HOST` to use a real relay. |
+| `docker compose` app exits complaining about a password | The `demo` profile has **no** password fallback by design. Set `SSTATION_DEMO_ADMIN_PASSWORD` / `_STUDENT_` / `_MODERATOR_` (copy `.env.example` → `.env`). |
+| `./gradlew check` green but Postgres test showed `SKIPPED` | Known: Testcontainers can't reach Docker 29.x, so the one real-Postgres test opts out silently. CI runs it properly. See TC-118. |
 | Gradle stuck at `80% EXECUTING > :bootRun` | Not stuck — that's how a running server looks. The app is up once you see `Started SstationNextApplication`. `Ctrl+C` to stop. |
 
 ---

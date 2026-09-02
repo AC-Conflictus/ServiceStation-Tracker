@@ -3,9 +3,11 @@
 This directory is the **Summer 2026 rewrite** of the Austin College Service Station Hours app,
 moving off the end-of-life Grails 2.4.4 stack (`../sstation/`) to a modern, supported one.
 
-> **Status: incomplete.** This is not yet a working replacement for the Grails app. The Grails app
-> in `../sstation/` remains the shippable application until the rewrite reaches parity (TC-111) and
-> is decommissioned (TC-112). Do not deploy this module to production yet.
+> **Status: feature-complete, not yet deployed.** Every user-facing flow from the Grails app is
+> ported, plus eight features it never had (TC-108) and container packaging (TC-113/TC-114). The
+> Grails app in `../sstation/` remains the nominally shippable one until the E2E suite and
+> stakeholder sign-off land (TC-111) and it is decommissioned (TC-112). Before any **public** URL,
+> resolve Highcharts licensing (🏫 TC-119).
 
 ## Target stack (Lane 7 — pending AC IT confirmation, TC-100)
 
@@ -49,6 +51,11 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-105 — read-only views: admin dashboard, six reports, student dashboard + per-student report
 - [x] TC-106 — CRUD + quick approve/reject REST + moderator promote/demote + audit trail
 - [x] TC-107 — frontend: shared layout + Bootstrap 5, vendored WebJars (Bootstrap/jQuery/DataTables/Highcharts, no CDN)
-- [ ] TC-108 → TC-112 — features, deploy, parity, decommission
+- [x] TC-108 — all eight Lane 4 features (a–g): email notifications, bulk approve/reject, CSV export, PDF export, date-range filter, event sign-up, password reset
+- [x] TC-113 / TC-114 — Dockerfile + compose + `demo` profile seeder (see [../DEPLOY.md](../DEPLOY.md))
+- [ ] TC-118 — the Testcontainers Postgres test skips silently on Docker 29.x (CI runs it; local `check` does not)
+- [ ] TC-119 — 🏫 Highcharts licensing, before any public URL
+- [ ] TC-115 / TC-116 — CI image build; AWS demo on EC2 + RDS
+- [ ] TC-110 / TC-111 / TC-112 — DEPLOY.md for AWS, E2E suite + sign-off, decommission Grails
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.
