@@ -690,16 +690,6 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Depends on:** TC-113 ✅, TC-118 (Postgres tests must actually run first).
 - **Estimate:** M–L.
 
-### TC-119 🏫 ⚠️ Resolve Highcharts licensing before any public URL
-- **Status:** 🔲 **Blocks TC-116 (public AWS demo), not local dev.** Split out of TC-100 on 2026-09-02 so it stops hiding inside a card everyone treats as "waiting on email."
-- **Why:** Highcharts is **not free for commercial or government/institutional use** — it is free only for personal/non-profit/school-project use, and "a college's administrative office runs it in production" is exactly the boundary case that needs a real answer. TC-107 **vendored `org.webjars:highcharts:11.2.0` into the application jar**, so we are now redistributing it. This is a legal exposure, not a technical preference, and unlike the rest of TC-100 it is **not** resolved by AC IT being relaxed about the stack.
-- **Acceptance criteria:** *(pick one and record the outcome here)*
-  - **(a)** Confirm Austin College holds a Highcharts license covering this use, and record the license/serial in [DEPLOY.md](DEPLOY.md); **or**
-  - **(b)** Confirm the deployment qualifies for Highcharts' non-commercial terms in writing; **or**
-  - **(c)** **Swap to a freely-licensed library** — Chart.js (MIT) or ApexCharts (MIT). Scope if we go this route: four charts on `admin/home.html` plus the six report pages. The data shapes were deliberately kept chart-agnostic in TC-105, so this is a template-and-JS swap, not a service-layer change. Replace the WebJar dependency in [build.gradle.kts](build.gradle.kts) and the `/webjars/**` script tag in [layout.html](sstation-next/src/main/resources/templates/fragments/layout.html).
-- **Notes:** If in doubt, just do **(c)**. It is an afternoon of work and it permanently removes the question — cheaper than the email thread, and it de-risks the handoff.
-- **Estimate:** S if (a)/(b); M if (c).
-
 ### TC-118 ⚠️ The Postgres integration test silently skips — `check` is green on a no-op
 - **Status:** 🔲 **Next — do this before TC-116 (AWS).** Found 2026-09-02 while merging `Dev/Docker`. **Severity revised down the same day:** a CI run on the merge commit ([run 33644576602](https://github.com/AC-Conflictus/ServiceStation-Tracker/actions/runs/33644576602)) reports `DemoProfileIntegrationTest` as **`tests=2 skipped=0`** — so the Postgres path *is* genuinely exercised on the GH runner, and 119/119 tests really run there. The defect is therefore **local-only, but it is still a real trap**: on a modern dev box the test vanishes from the run and nothing tells you.
 - **Why:** `DemoProfileIntegrationTest` (TC-114) is the **only** test that touches real PostgreSQL — it Testcontainers a `postgres:16-alpine`, runs Flyway, seeds, and logs in. It is annotated `@Testcontainers(disabledWithoutDocker = true)`, and on a Docker **29.x** host the Testcontainers 1.20.3 docker-java client gets `HTTP 400` back from `/info` during strategy detection (Docker Engine 29 dropped the older API versions docker-java negotiates). Result: **both tests report SKIPPED while `./gradlew check` still says BUILD SUCCESSFUL.** Bumping to Testcontainers 1.21.3 was tried and does **not** fix it.
@@ -711,6 +701,16 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Add a second Postgres-backed test that boots plain `prod` (no `demo`) and asserts Flyway migrates a virgin database cleanly — that is the literal AC IT day-one path.
 - **Notes / files to touch:** [DemoProfileIntegrationTest.java](sstation-next/src/test/java/edu/austincollege/sstation/config/DemoProfileIntegrationTest.java), [build.gradle.kts](sstation-next/build.gradle.kts), [ci-next.yml](.github/workflows/ci-next.yml).
 - **Estimate:** S–M.
+
+### TC-119 🏫 ⚠️ Resolve Highcharts licensing before any public URL
+- **Status:** 🔲 **Blocks TC-116 (public AWS demo), not local dev.** Split out of TC-100 on 2026-09-02 so it stops hiding inside a card everyone treats as "waiting on email."
+- **Why:** Highcharts is **not free for commercial or government/institutional use** — it is free only for personal/non-profit/school-project use, and "a college's administrative office runs it in production" is exactly the boundary case that needs a real answer. TC-107 **vendored `org.webjars:highcharts:11.2.0` into the application jar**, so we are now redistributing it. This is a legal exposure, not a technical preference, and unlike the rest of TC-100 it is **not** resolved by AC IT being relaxed about the stack.
+- **Acceptance criteria:** *(pick one and record the outcome here)*
+  - **(a)** Confirm Austin College holds a Highcharts license covering this use, and record the license/serial in [DEPLOY.md](DEPLOY.md); **or**
+  - **(b)** Confirm the deployment qualifies for Highcharts' non-commercial terms in writing; **or**
+  - **(c)** **Swap to a freely-licensed library** — Chart.js (MIT) or ApexCharts (MIT). Scope if we go this route: four charts on `admin/home.html` plus the six report pages. The data shapes were deliberately kept chart-agnostic in TC-105, so this is a template-and-JS swap, not a service-layer change. Replace the WebJar dependency in [build.gradle.kts](build.gradle.kts) and the `/webjars/**` script tag in [layout.html](sstation-next/src/main/resources/templates/fragments/layout.html).
+- **Notes:** If in doubt, just do **(c)**. It is an afternoon of work and it permanently removes the question — cheaper than the email thread, and it de-risks the handoff.
+- **Estimate:** S if (a)/(b); M if (c).
 
 ### TC-112 🧹 Decommission the Grails app
 - **Why:** Once TC-111 signs off, the old app is dead weight in the repo and a source of confusion.
