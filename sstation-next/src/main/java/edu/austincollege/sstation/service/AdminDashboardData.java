@@ -4,8 +4,9 @@ import java.util.List;
 
 /**
  * Aggregated KPIs and chart series for the admin dashboard (TC-105). Mirrors the data shapes the
- * Grails {@code HourService.hourCall()} produced, so the Highcharts configs port over nearly
- * unchanged.
+ * Grails {@code HourService.hourCall()} produced. Deliberately chart-library-agnostic — plain
+ * label/value lists — which is what made the TC-119 swap from Highcharts to Chart.js a
+ * template-only change.
  */
 public record AdminDashboardData(
     OverallStat overall,
