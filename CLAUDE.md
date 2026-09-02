@@ -8,7 +8,7 @@ The **Austin College Service Station Hours Registration Web App** — a Grails 2
 
 It is a class project from around 2015–2016. The codebase is **frozen on a very old stack**: Grails 2.4.4, Spring Security Core 2.0‑RC5, Hibernate 4.3, jQuery 1.11, Bootstrap 3.3, Highcharts, H2 database. There is no Gradle build — Grails 2.x uses its own CLI/wrapper. JDK 7/8 era code (`source.level = 1.6` in [BuildConfig.groovy](sstation/grails-app/conf/BuildConfig.groovy)).
 
-> **⚠️ There are now TWO apps in this repo.** The legacy Grails app lives in [sstation/](sstation/) and remains the shippable application. A **Spring Boot 3 / Java 21 rewrite** (Lane 7) is underway in [sstation-next/](sstation-next/) and already has the full domain model, authentication, and all read-only views working. See **[The Lane 7 rewrite module](#the-lane-7-rewrite-module-sstation-next--spring-boot-3--java-21)** below, and **[demo.md](demo.md)** to run either app locally. The Grails app stays the source of truth until the rewrite reaches parity (TC-111) and is decommissioned (TC-112).
+> **⚠️ There are now TWO apps in this repo.** The legacy Grails app lives in [sstation/](sstation/) and remains the shippable application. A **Spring Boot 3 / Java 21 rewrite** (Lane 7) is underway in [sstation-next/](sstation-next/) and is now **feature-complete**: full domain model, authentication, every read-only view, all CRUD, the Bootstrap 5 frontend, all eight Lane 4 features (TC-108), and container packaging (TC-113/TC-114). What remains is deployment, verification, and handoff — not features. See **[The Lane 7 rewrite module](#the-lane-7-rewrite-module-sstation-next--spring-boot-3--java-21)** below, and **[demo.md](demo.md)** to run either app locally. The Grails app stays the source of truth until the rewrite reaches parity (TC-111) and is decommissioned (TC-112).
 
 ## How to run it right now
 
@@ -61,17 +61,17 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 
 ### Layout
 - `src/main/java/edu/austincollege/sstation/`
-  - `domain/` — 9 JPA entities + `Status`/`Classification` enums.
+  - `domain/` — **12 JPA entities** (`User`, `Role`, `UserRole`, `Student`, `ServiceHour`, `ServiceHourAuditLog`, `Event`, `EventSignup`, `CampusOrg`, `CommunityAgency`, `Contact`, `PasswordResetToken`) + 3 enums (`Status`, `Classification`, `SignupStatus`).
   - `repository/` — Spring Data repositories.
-  - `domain/` — 10 JPA entities (incl. `ServiceHourAuditLog`) + `Status`/`Classification` enums.
-  - `service/` — read: `StatsService`, `ReportService`, `StudentStatsService` (+ their `*Data` record DTOs); write: `ReferenceCrudService` (detach-on-delete), `StudentCrudService`, `AuditService`.
+  - `service/` — read: `StatsService`, `ReportService`, `StudentStatsService` (+ their `*Data` record DTOs); write: `ReferenceCrudService` (detach-on-delete), `StudentCrudService`, `AuditService`; features: `NotificationService` (mail), `ReportCsvService` (OpenCSV), `StudentReportPdfService` (openhtmltopdf), `EventSignupService`, `PasswordResetService`.
   - `security/` — `SecurityConfig`, `CustomUserDetailsService`.
-  - `config/` — `DevDataSeeder` (roles + 3 users from env vars) and `DemoDataSeeder` (orgs/events/agencies + random students/hours); **both `@Profile("dev")`**.
-  - `web/` — read: `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`. CRUD: `EventController`, `CampusOrgController`, `CommunityAgencyController`, `StudentAdminController`, `ModeratorController`, `HourController` (+ `ServiceHourForm`).
-- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf; all pages decorate `templates/fragments/layout.html`), `db/migration/V1__initial_schema.sql` + `V2__service_hour_audit_log.sql`. Frontend assets are vendored via WebJars (no `static/` blobs), served at `/webjars/**`.
+  - `config/` — `DevDataSeeder` (roles + 3 users from env vars) and `DemoDataSeeder` (orgs/events/agencies + random students/hours); plus `DemoAccountSeeder` (**`@Profile("demo")`**, for the container/AWS showcase — fails fast without `SSTATION_DEMO_*_PASSWORD`). `DevDataSeeder` is `dev`-only; `DemoDataSeeder` runs under **both** `dev` and `demo`.
+  - `web/` — read: `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`. CRUD: `EventController`, `CampusOrgController`, `CommunityAgencyController`, `StudentAdminController`, `ModeratorController`, `HourController` (+ `ServiceHourForm`). Features: `EventSignupController`, `PasswordResetController`, `CsvDownloads`.
+- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf; all pages decorate `templates/fragments/layout.html`), `db/migration/` **`V1__initial_schema.sql` → `V4__password_reset_tokens.sql`** (V2 audit log, V3 event signups, V4 reset tokens). Frontend assets are vendored via WebJars (no `static/` blobs), served at `/webjars/**`.
+- `Dockerfile`, `docker-compose.yml` / `.dev.yml` / `.ec2.yml`, `.env.example` — container packaging (TC-113/TC-114). See [DEPLOY.md](DEPLOY.md).
 
 ### What's ported (Lane 7 progress, all verified `./gradlew check` green + live)
-- **TC-100** — AC IT stack memo ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)); recommendation pending AC IT confirmation.
+- **TC-100** — AC IT stack memo ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)). **Closed 2026-09-02 as decided-by-default** — no written reply, but the Service Station office has agreed and the stack is settled. The one residual item with teeth is **Highcharts licensing (TC-119)**.
 - **TC-101 / TC-102** — scaffold + parallel CI (`ci-next.yml`, path-filtered to `sstation-next/**`; the Grails `ci.yml` is untouched).
 - **TC-103** — domain model. **Real `@ManyToOne` `User → Student` FK** (fixes the email-string hack at the source — TC-009). `User` no longer self-encodes its password (kills the TC-008 plaintext fallback at the source). `ServiceHour.{campusOrg, commAg, event}` kept **nullable** by decision; the owning `student` is required. Flyway `V1` is the schema source of truth (Hibernate runs `ddl-auto=validate`).
 - **TC-104** — Spring Security 6: form login + logout, **BCrypt** (delegating `{bcrypt}` encoder), **CSRF on**, `@EnableMethodSecurity` + `@PreAuthorize` on controllers, dev-only seeded users with passwords from `SSTATION_DEV_*_PASSWORD` env vars.
@@ -79,8 +79,14 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - **TC-106** — all write paths: CRUD for the five entity types (`/admin/{students,hours,events,campus-orgs,agencies}`), `@Valid` bean-validation re-rendering forms with field errors, the **quick approve/reject REST endpoint** `POST /admin/hours/{id}/status` (CSRF, ADMIN-only, returns JSON — replaces the Grails `ajaxUpdateStatus`), moderator promote/demote (`/admin/moderators`, ADMIN-only), and the **audit trail** (`ServiceHourAuditLog` + Flyway `V2`, written on every status change; admin-only per-hour view). Deleting a reference entity **detaches** it from its hours (nulls the FK) rather than cascade-deleting; deleting a student clears any linked `User.student` FK then cascade-removes their hours.
 - **TC-107** — frontend: shared Thymeleaf layout ([templates/fragments/layout.html](sstation-next/src/main/resources/templates/fragments/layout.html)) decorated via `~{fragments/layout :: page(~{::title}, ~{::main})}`, **all** templates restyled with Bootstrap 5. **Assets are vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, Highcharts 11.2.0. Charts keep the same data shapes; DataTables powers the students list. **Highcharts is non-free for commercial/government use — AC IT must confirm licensing (🏫).**
 
+- **TC-108** — **all eight Lane 4 features**, in seven slices (a–g): (a) approve/reject **email notifications** via Spring Mail — `NotificationService`, env-driven SMTP, **log-only when `spring.mail.host` is empty**; (b) **bulk approve/reject** from the pending queue; (c) **CSV export** on all six reports + the student report (`ReportCsvService`, OpenCSV, RFC-4180 escaping); (d) **PDF export** of the per-student report (`StudentReportPdfService`, openhtmltopdf + jsoup, renders `templates/pdf/student-report.html`); (e) **date-range filter** on the admin dashboard; (f) **event sign-up flow** — `EventSignup` + Flyway `V3`, student `/student/events`, admin roster; (g) **self-service password reset** — `PasswordResetToken` + Flyway `V4`, SHA-256-hashed single-use tokens, 1-hour TTL, no user enumeration.
+- **TC-113 / TC-114** — container packaging: multi-stage `Dockerfile` (JDK 21 build → JRE 21 Alpine run, non-root, healthcheck), three compose files, `.env.example`, and [DEPLOY.md](DEPLOY.md). `DemoAccountSeeder` (`@Profile("demo")`) **refuses to start without `SSTATION_DEMO_*_PASSWORD`**, so `admin_secret` can never reach a public host.
+
 ### Still to do in the rewrite
-- **TC-108 → TC-112** — Lane 4 features in the new stack, AWS demo, DEPLOY rewrite, parity tests, decommission the Grails app.
+- **TC-118** ⚠️ — the Testcontainers Postgres test **skips silently** (see gotchas below). Do this before the AWS demo.
+- **TC-119** 🏫 — Highcharts licensing. Blocks any public URL.
+- **TC-115 / TC-116** — CI Docker image build; AWS public demo on EC2 t3.micro + RDS (supersedes the App Runner plan in TC-109).
+- **TC-110 / TC-111 / TC-112** — finish DEPLOY.md for AWS, E2E acceptance suite + stakeholder sign-off, decommission the Grails app.
 
 ### Rewrite gotchas to internalize
 - **`bootRun` auto-activates the `dev` profile** (set in `build.gradle.kts`); prod runs with `-Dspring.profiles.active=prod` and **never seeds**. Prod needs `SSTATION_DB_URL` / `SSTATION_DB_USER` / `SSTATION_DB_PASSWORD`.
@@ -92,6 +98,10 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - **Status changes are ADMIN-only and always audited.** Route every status mutation through `AuditService.record(...)`. The audit FK uses `ON DELETE CASCADE`, so deleting a hour (or its student) cleans up the audit rows without app code.
 - CRUD forms bind to **form DTOs** where the entity shape doesn't fit a web form: `ServiceHourForm` (FK selects as ids + `datetime-local` → `LocalDateTime`). Controllers with optional text/number fields register a `StringTrimmerEditor(true)` via `@InitBinder` so empty inputs bind to `null`.
 - **Every page decorates `fragments/layout.html`** via `th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}"` — put the page's `<title>` in `<head>` and its content in `<main>`. The layout loads the **vendored** Bootstrap/jQuery/Highcharts/DataTables from `/webjars/**` (no CDN — TC-038/TC-107) and exposes the CSRF token as `<meta name="_csrf">` for JS (the hours quick-approve fetch reads it). Add new assets as **WebJar dependencies**, not `static/` files; confirm the exact in-jar path (`/webjars/<name>/<version>/…`) since it varies (e.g. Highcharts lives under `…/code/highcharts.js`).
+- ⚠️ **`./gradlew check` being green does NOT prove the Postgres path works.** `DemoProfileIntegrationTest` is the only test that touches real PostgreSQL, and it is annotated `@Testcontainers(disabledWithoutDocker = true)`. On a **Docker 29.x** host, Testcontainers 1.20.3's docker-java client gets `HTTP 400` from `/info` during strategy detection, so both tests report **SKIPPED while the build still says BUILD SUCCESSFUL**. Bumping to 1.21.3 does not fix it. When you touch a Flyway migration or an entity mapping, **check the test XML for `skipped=`** — don't trust the green. Tracked as **TC-118**.
+- **There are three seeding profiles, not one.** `dev` (local H2, `DevDataSeeder` + `DemoDataSeeder`, passwords fall back to `admin_secret` etc.), `demo` (`DemoAccountSeeder` + `DemoDataSeeder`, **hard-fails without `SSTATION_DEMO_*_PASSWORD`** — this is what containers/AWS use, typically as `prod,demo`), and `prod` alone (**never seeds** — a bare `prod` boot gives you a login page with no accounts, which is the correct AC IT day-one behavior).
+- **Email is log-only unless `spring.mail.host` is set.** `SSTATION_MAIL_HOST` defaults to empty so containers boot without SMTP, which means `JavaMailSender` is never auto-configured and `NotificationService` just logs. Approve/reject and password-reset mails will silently not send until AC IT supplies a relay — **the app gives no error**. Don't debug this as a mail bug.
+- **Password-reset tokens are stored SHA-256-hashed, single-use, 1-hour TTL**, and `requestReset` deliberately reveals nothing about whether an account exists. Keep that property if you touch `PasswordResetService`.
 
 ## High-level architecture (the Grails app)
 
@@ -204,7 +214,9 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-105 read-only views (admin dashboard + 6 reports + student dashboard/report) ✅ — landed 2026-06-03
 - TC-106 CRUD + quick approve/reject REST + moderator promote/demote + audit trail ✅ — landed 2026-06-03
 - TC-107 Thymeleaf layout + Bootstrap 5 + vendored WebJars (no CDN) ✅ — landed 2026-06-03
-- **Next:** TC-108 (Lane 4 features), then TC-109→TC-112.
+- TC-108 Lane 4 features, all eight, in slices a–g ✅ — landed 2026-06-03
+- TC-113 Docker packaging + TC-114 demo-profile seeder ✅ — landed 2026-06-04 (merged to main 2026-09-02)
+- **Next:** TC-118 (make the Postgres test actually run) → TC-119 (Highcharts licensing) → TC-115/TC-116 (CI image, AWS demo) → TC-110 → TC-111 → TC-112.
 
 ## Pointers for working in this repo
 
