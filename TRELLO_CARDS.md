@@ -199,9 +199,14 @@ These cards make the app *actually work* on a fresh checkout against fresh data.
 
 ## Lane 4 — Features (paper-form-replacement parity)
 
+> **⚠️ This entire lane is delivered — but in `sstation-next/`, not the Grails app.** All eight cards below
+> shipped as **TC-108a–g** (plus the audit log in TC-106c) on 2026-06-03. They are kept here for traceability;
+> **do not implement any of them in `sstation/`.** See [TC-108](#tc-108--port--implement-the-lane-4-features-in-the-new-stack--landed-2026-06-03).
+
 These bring the app to "we can actually replace the paper form" — the original project pitch.
 
 ### TC-021 ✨ Email notifications on approve / reject
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108a** (`NotificationService` + Spring Mail, `templates/email/status-change.html`). This Grails-targeted card is superseded — do not implement in `sstation/`.
 - **Why:** The `mail` plugin is wired in [Config.groovy:62](sstation/grails-app/conf/Config.groovy#L62), but SMTP credentials are empty and no controller actually calls `mailService.sendMail`. The README explicitly promises this.
 - **Acceptance criteria:**
   - `HomeController.ajaxUpdateStatus` (and the equivalent in `HourController`) sends an email to the affected `AcStudent.acEmail` on transitions to APPROVED or REJECTED.
@@ -212,6 +217,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-022 ✨ Bulk approve / reject from the pending queue
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108b** (`HourController` bulk endpoint + checkbox UI on `hours/list.html`). Superseded for the Grails app.
 - **Why:** The pending queue today only supports one-at-a-time approval via the AJAX dialog. For an office processing 100+ paper forms a week, this is a non-starter.
 - **Acceptance criteria:**
   - Checkbox column on the pending table.
@@ -221,6 +227,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-023 ✨ CSV export on every report page
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108c** (`ReportCsvService` via OpenCSV, download link on all six reports + the student report). Superseded for the Grails app.
 - **Why:** The `csv` plugin (`org.grails.plugins:csv:0.3.1`) is already in [BuildConfig.groovy:66](sstation/grails-app/conf/BuildConfig.groovy#L66) but unused. The actual paper-form workflow ends with "give me a spreadsheet."
 - **Acceptance criteria:**
   - "Download CSV" button on summaryReport, semesterReport, yearReport, eventReport, commOrgReport, campusOrgReport, and per-student report.
@@ -229,6 +236,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-024 ✨ PDF export of a student's per-semester report
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108d** (`StudentReportPdfService` via openhtmltopdf + jsoup). Superseded for the Grails app.
 - **Why:** Direct paper-form replacement: students need a printable record to attach to applications.
 - **Acceptance criteria:**
   - "Download PDF" button on the per-student report.
@@ -237,6 +245,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-025 ✨ Date-range filter on the admin dashboard
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108e** (`StatsService` date-range overload + filter controls on `admin/home.html`). Superseded for the Grails app.
 - **Why:** "Current year" is too rigid. Office staff need "last 30 days", "this semester", "custom range" for grant reporting.
 - **Acceptance criteria:**
   - Date pickers on the admin dashboard.
@@ -245,6 +254,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-026 ✨ Service-event sign-up flow
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108f** (`EventSignup` + `SignupStatus` + Flyway `V3`, student `/student/events` self-signup, admin roster). Superseded for the Grails app.
 - **Why:** README promises "post service events and recruit students to participate", but no controller supports student → event sign-up. Today a student can only log hours *after* the fact.
 - **Acceptance criteria:**
   - New `EventSignup` domain (`AcStudent`, `Event`, `signupTime`, `status` enum: SIGNED_UP / ATTENDED / NO_SHOW).
@@ -253,6 +263,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** L.
 
 ### TC-027 ✨ Audit log on every ServiceHour status change
+- **Status:** ✅ **Delivered in the rewrite** as part of **TC-106c** (`ServiceHourAuditLog` + Flyway `V2` + `AuditService`, admin-only per-hour view). Superseded for the Grails app.
 - **Why:** "Who approved my hours?" is a real question. Today there's no record.
 - **Acceptance criteria:**
   - New `ServiceHourAuditLog` domain (`serviceHour`, `actor` (`AcUser`), `fromStatus`, `toStatus`, `timestamp`, `note`).
@@ -261,6 +272,7 @@ These bring the app to "we can actually replace the paper form" — the original
 - **Estimate:** M.
 
 ### TC-028 ✨ Student self-service password reset
+- **Status:** ✅ **Delivered in the rewrite** as **TC-108g** (`PasswordResetService`, SHA-256-hashed single-use tokens, 1-hour TTL, no user enumeration). Superseded for the Grails app.
 - **Why:** No way to reset a password today. Every forgotten password is a manual DB poke.
 - **Acceptance criteria:**
   - "Forgot password" link on login page → enter AC email → email with a single-use token (depends on TC-021 for SMTP).
@@ -404,11 +416,20 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 
 **Working assumption — recommended target stack:**
 
-> **TC-100 status (2026-06-02):** Memo sent to AC IT — see [docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md).
-> Stack below is the team's **recommendation, pending AC IT's written confirmation**. Scaffolding work (TC-101+)
-> is proceeding on this working assumption; if AC IT counter-proposes a different house standard, revisit before
-> TC-103 hardens the domain. Open questions still owed by AC IT: deploy target, prod OS, existing Java version,
-> DB standard, SMTP relay, SSO/IdP, and **Highcharts licensing** (non-free for commercial use).
+> **TC-100 status (updated 2026-09-02):** Memo sent 2026-06-02 ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)); no
+> written reply. **Superseded in practice:** the Service Station office has agreed to the project, and AC IT is not
+> expected to push back on the stack. The stack below is therefore treated as **settled** — TC-103 → TC-108 have all
+> shipped on it and it is not being revisited.
+>
+> **What genuinely remains open is narrower than the original memo, and only two items block anything:**
+> - 🏫 **Highcharts licensing** — this is a **legal** question, not a stack preference, and it does not go away because
+>   AC IT is easygoing. Highcharts is non-free for commercial/institutional use and TC-107 **vendored it into the jar**.
+>   Resolve before any public URL: confirm AC holds a license, or swap to Chart.js/ApexCharts. See **TC-119**.
+> - 🏫 **SMTP relay** — host/port/credentials. Until supplied, `spring.mail.host` is empty and TC-108a notifications are
+>   **log-only**. The app boots fine; the emails simply never send.
+>
+> Lower-stakes and answerable at deploy time rather than now: prod OS, existing Java version, SSO/IdP (a config seam is
+> already left in `SecurityConfig`). Postgres is settled by TC-113/TC-114.
 
 - **Java 21 LTS** + **Spring Boot 3.x** + **Spring Security 6** + **Spring Data JPA** + **Hibernate 6**
 - **Thymeleaf** server-rendered templates (1:1 conceptual port from GSP, low-risk; no SPA)
@@ -432,9 +453,9 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 
 ---
 
-### TC-100 📝 🏫 Lock target stack with AC IT ✅ memo sent 2026-06-02 (awaiting AC IT reply)
-- **Status:** Memo written ([docs/TC-100-stack-memo.md](docs/TC-100-stack-memo.md)) and recommendation recorded in the Working-assumption block above. Scaffolding (TC-101+) proceeded on the working assumption; AC IT's written confirmation is still outstanding.
-- **Why:** Everything else in this lane depends on the answer. Don't write a single line of Spring Boot code before this is confirmed.
+### TC-100 📝 🏫 Lock target stack with AC IT ✅ closed 2026-09-02 (proceeding on the working assumption)
+- **Status:** **Closed as "decided by default."** Memo written and sent 2026-06-02; no written reply received in three months. Per the Service Station office (2026-09-02), the project is agreed and AC IT is not expected to contest the stack. Seven cards (TC-103 → TC-108) have now shipped on Spring Boot 3 / Java 21 / Postgres and the decision is not being reopened. **Do not treat this card as a blocker anymore.** The residual 🏫 items were split out: **TC-119** (Highcharts licensing — the one with legal teeth) and the SMTP relay placeholder tracked in TC-110/[Notes for AC IT](#notes-for-ac-it-collect-placeholders-here).
+- **Why (original):** Everything else in this lane depends on the answer. *(Retained for history — in practice the team proceeded on the working assumption and it was the right call.)*
 - **Acceptance criteria:**
   - One-page memo emailed to AC IT contact: recommended stack (Spring Boot 3 / Java 21 / Postgres / Thymeleaf), why, what we're trading off, ask for written confirmation or a counter-proposal.
   - AC IT's preferred deploy target documented (Tomcat? bare JAR? Docker? Kubernetes? OS preference?).
@@ -613,17 +634,18 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - This file: TC-109 marked **alternate (App Runner)**; TC-033 marked **Grails-only / superseded by TC-113 for rewrite**.
 - **Estimate:** S.
 
-### TC-108 ✨ Port + implement the Lane 4 features in the new stack
+### TC-108 ✨ Port + implement the Lane 4 features in the new stack ✅ landed 2026-06-03
+- **Status:** Done, in seven slices (`feat/port-backend`, PR #7). (a) `NotificationService` + Spring Mail, env-driven SMTP, log-only when `spring.mail.host` is unset. (b) Bulk approve/reject on the pending queue. (c) `ReportCsvService` (OpenCSV, RFC-4180 escaping) wired to all six reports + the student report. (d) `StudentReportPdfService` (openhtmltopdf + jsoup) rendering a dedicated `pdf/student-report.html`. (e) Date-range filter on the admin dashboard (`StatsService`). (f) Event sign-up flow — `EventSignup`/`SignupStatus` + Flyway `V3`, student self-signup and an admin roster. (g) Self-service password reset — `PasswordResetToken` + Flyway `V4`, SHA-256-hashed single-use tokens with a 1-hour TTL and no user enumeration. Verified `./gradlew check` green (115 tests at the time).
 - **Why:** Several Lane 4 cards (email notifications, CSV export, PDF export, bulk approve, date-range filter, signup flow, audit log, password reset) are easier to implement in Spring Boot than to port from Grails 2.4 and then re-port. If we're rewriting anyway, build these in the new stack from the start.
 - **Acceptance criteria:**
-  - Email via Spring Mail (TC-021 equivalent) — env-driven SMTP.
-  - CSV export via OpenCSV or Spring's `HttpMessageConverter` (TC-023).
-  - PDF export via OpenPDF or Flying Saucer (TC-024).
-  - Bulk approve/reject (TC-022).
-  - Date-range filter (TC-025).
-  - Event sign-up (TC-026).
-  - Audit log (TC-027) — built into TC-106 from day one.
-  - Password reset (TC-028).
+  - ✅ Email via Spring Mail (TC-021 equivalent) — env-driven SMTP.
+  - ✅ CSV export via OpenCSV (TC-023).
+  - ✅ PDF export via openhtmltopdf (TC-024).
+  - ✅ Bulk approve/reject (TC-022).
+  - ✅ Date-range filter (TC-025).
+  - ✅ Event sign-up (TC-026).
+  - ✅ Audit log (TC-027) — built into TC-106 from day one.
+  - ✅ Password reset (TC-028).
 - **Estimate:** L. Roughly halves the Lane 4 work since we're not doing it twice.
 
 ### TC-109 ☁️ Migrate the AWS demo to the new stack — **App Runner alternate**
@@ -655,13 +677,40 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Depends on:** TC-113 (draft sections can start in parallel).
 - **Estimate:** M.
 
-### TC-111 🧹 Parity test the new app against the old
-- **Why:** Before we declare the rewrite "done," prove that user-visible behavior matches. Don't rely on humans clicking through.
+### TC-111 🧹 End-to-end acceptance suite + stakeholder sign-off (was: "parity test against the old app")
+- **Status:** 🔲 **Rescoped 2026-09-02.** The original card asked for a side-by-side HTML diff against the Grails app. **That is no longer achievable and should not be attempted:** TC-107 restyled every page to Bootstrap 5, and TC-108 added seven flows the Grails app never had (email notifications, bulk approve, CSV, PDF, date-range filter, event sign-up, password reset). There is no longer a comparable page to diff. Parity is now established by *feature coverage*, not by rendered output.
+- **Why:** Before declaring the rewrite done we still need machine-checked proof that the user-visible flows work in a real browser. The 119 JUnit tests cover services and controllers via MockMvc — **nothing currently drives a real browser**, and no test has ever exercised the app end-to-end over HTTP.
 - **Acceptance criteria:**
-  - Playwright suite (from [TC-039](#tc-039-)) is ported to point at the new app. Same expectations pass.
-  - Side-by-side test: spin up both apps against the same seed data, hit a representative set of pages, diff the rendered HTML for major structural drift. Differences are explained or fixed.
-  - At least one AC IT-side stakeholder clicks through and signs off.
-- **Estimate:** M.
+  - Playwright suite (from [TC-039](#tc-039-)) written **against `sstation-next` only** — no Grails comparison.
+  - Covers, per role: login/logout + role routing, admin dashboard KPIs render, one report of each shape, the pending-queue approve/reject round trip (and its audit entry), one CRUD create→edit→delete cycle, student self-signup, and the CSV + PDF downloads returning the right content type.
+  - Runs against the **Docker compose stack** (TC-113) so it exercises Postgres, not H2.
+  - Wired into `ci-next.yml` (headless, on PR).
+  - A **checklist mapping every Grails feature to its rewrite equivalent** — this is the real parity artifact, and it replaces the HTML diff.
+  - At least one Service Station stakeholder clicks through and signs off.
+- **Depends on:** TC-113 ✅, TC-118 (Postgres tests must actually run first).
+- **Estimate:** M–L.
+
+### TC-119 🏫 ⚠️ Resolve Highcharts licensing before any public URL
+- **Status:** 🔲 **Blocks TC-116 (public AWS demo), not local dev.** Split out of TC-100 on 2026-09-02 so it stops hiding inside a card everyone treats as "waiting on email."
+- **Why:** Highcharts is **not free for commercial or government/institutional use** — it is free only for personal/non-profit/school-project use, and "a college's administrative office runs it in production" is exactly the boundary case that needs a real answer. TC-107 **vendored `org.webjars:highcharts:11.2.0` into the application jar**, so we are now redistributing it. This is a legal exposure, not a technical preference, and unlike the rest of TC-100 it is **not** resolved by AC IT being relaxed about the stack.
+- **Acceptance criteria:** *(pick one and record the outcome here)*
+  - **(a)** Confirm Austin College holds a Highcharts license covering this use, and record the license/serial in [DEPLOY.md](DEPLOY.md); **or**
+  - **(b)** Confirm the deployment qualifies for Highcharts' non-commercial terms in writing; **or**
+  - **(c)** **Swap to a freely-licensed library** — Chart.js (MIT) or ApexCharts (MIT). Scope if we go this route: four charts on `admin/home.html` plus the six report pages. The data shapes were deliberately kept chart-agnostic in TC-105, so this is a template-and-JS swap, not a service-layer change. Replace the WebJar dependency in [build.gradle.kts](build.gradle.kts) and the `/webjars/**` script tag in [layout.html](sstation-next/src/main/resources/templates/fragments/layout.html).
+- **Notes:** If in doubt, just do **(c)**. It is an afternoon of work and it permanently removes the question — cheaper than the email thread, and it de-risks the handoff.
+- **Estimate:** S if (a)/(b); M if (c).
+
+### TC-118 ⚠️ The Postgres integration test silently skips — `check` is green on a no-op
+- **Status:** 🔲 **Next — do this before TC-116 (AWS).** Found 2026-09-02 while merging `Dev/Docker`.
+- **Why:** `DemoProfileIntegrationTest` (TC-114) is the **only** test that touches real PostgreSQL — it Testcontainers a `postgres:16-alpine`, runs Flyway, seeds, and logs in. It is annotated `@Testcontainers(disabledWithoutDocker = true)`, and on a Docker **29.x** host the Testcontainers 1.20.3 docker-java client gets `HTTP 400` back from `/info` during strategy detection (Docker Engine 29 dropped the older API versions docker-java negotiates). Result: **both tests report SKIPPED while `./gradlew check` still says BUILD SUCCESSFUL.** Bumping to Testcontainers 1.21.3 was tried and does **not** fix it.
+- **Why it matters:** Flyway `V1`–`V4` are hand-written in the "Postgres/H2-common subset" and `ddl-auto=validate` runs on every boot. If any migration or entity mapping is subtly H2-only, **the first place we find out is RDS, in front of an audience.** A green CI badge is currently *not* evidence that the prod database path works.
+- **Acceptance criteria:**
+  - Root-cause the docker-java/Docker-29 mismatch — try a newer Testcontainers, or pin `DOCKER_API_VERSION`, or point `DOCKER_HOST` at the Docker Desktop socket explicitly.
+  - **Make the skip loud:** either drop `disabledWithoutDocker = true` so a missing Docker daemon *fails* the build, or add a `check`-time assertion that the Postgres test actually executed. Silent skips on the one test that de-risks prod are worse than no test.
+  - Confirm from a CI run's uploaded test XML that `DemoProfileIntegrationTest` reports `tests=2 skipped=0` on the GH runner. *(The June 2026 artifacts have aged out past the 14-day retention, so this has never actually been confirmed anywhere.)*
+  - Add a second Postgres-backed test that boots plain `prod` (no `demo`) and asserts Flyway migrates a virgin database cleanly — that is the literal AC IT day-one path.
+- **Notes / files to touch:** [DemoProfileIntegrationTest.java](sstation-next/src/test/java/edu/austincollege/sstation/config/DemoProfileIntegrationTest.java), [build.gradle.kts](sstation-next/build.gradle.kts), [ci-next.yml](.github/workflows/ci-next.yml).
+- **Estimate:** S–M.
 
 ### TC-112 🧹 Decommission the Grails app
 - **Why:** Once TC-111 signs off, the old app is dead weight in the repo and a source of confusion.
@@ -689,8 +738,8 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
 5. **Docker + AWS demo (current sprint):** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → TC-117. See **Build readiness** above.
-6. **Then:** TC-108 (Lane 4 features in new stack) → TC-111 (parity) → TC-112 (decommission Grails). TC-109 (App Runner) only if EC2 path (**TC-116**) is abandoned.
-7. **Skip most of Lane 4** in the Grails app — those features get built directly in the new stack as TC-108.
+6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → **TC-118** (make the Postgres test actually run — do this *before* TC-116) → **TC-119** (Highcharts licensing, before any public URL) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
+7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.
 9. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.
 
