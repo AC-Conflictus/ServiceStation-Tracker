@@ -7,7 +7,7 @@
 
 > **This repo contains two apps:**
 > - [sstation/](sstation/) — the original **Grails 2.4.4** app (currently shippable; needs JDK 7/8).
-> - [sstation-next/](sstation-next/) — the in-progress **Spring Boot 3 / Java 21** rewrite (Lane 7). Domain model, auth, and all read-only views are done; CRUD (TC-106) and the modern frontend (TC-107) are next.
+> - [sstation-next/](sstation-next/) — the **Spring Boot 3 / Java 21** rewrite (Lane 7), now **feature-complete**: domain model, auth, all views, full CRUD, a Bootstrap 5 frontend, all eight Lane 4 features (email, bulk approve, CSV/PDF export, date filter, event sign-up, password reset), and Docker packaging. What's left is deployment and handoff, not features.
 >
 > **To run either locally, see [demo.md](demo.md).** Docker: [DEPLOY.md](DEPLOY.md). Guidance for contributors/AI assistants is in [CLAUDE.md](CLAUDE.md).
 
@@ -27,11 +27,20 @@ For students:
 
 ### Structure of the Web App
 #### Tech Stack
-We utilized the Groovy-on-Grails framework which adopts the Spring MVC structure.
+The original app used Groovy-on-Grails (Spring MVC). The rewrite keeps the server-rendered model but on a supported stack:
 
-- Front-End: jQuery, Javascript, Bootstrap, AJAX, HTML, CSS
-- Back-End Framework: Groovy-on-Grails
-- Test: Groovy-base unit tests, Selenium
+| | Original ([sstation/](sstation/)) | Rewrite ([sstation-next/](sstation-next/)) |
+|---|---|---|
+| Language / runtime | Groovy, JDK 7/8 | **Java 21 LTS** |
+| Framework | Grails 2.4.4 | **Spring Boot 3.3** |
+| Security | Spring Security plugin 2.0-RC5 | **Spring Security 6** (BCrypt, CSRF on) |
+| Persistence | GORM / Hibernate 4 | **Spring Data JPA / Hibernate 6**, Flyway migrations |
+| Database | H2 | **PostgreSQL** (H2 in PG-compat mode for dev) |
+| Views | GSP | **Thymeleaf** |
+| Front-end | jQuery 1.11, Bootstrap 3, CDN-loaded | **Bootstrap 5, jQuery 3.7**, vendored via WebJars |
+| Build | Grails CLI | **Gradle** (Kotlin DSL) wrapper |
+| Tests | Spock unit specs, Selenium IDE | **JUnit 5 + Spring Test + Testcontainers** |
+| Packaging | WAR into Tomcat | **Executable JAR / Docker image** |
 
 #### Users 
 There are three types of users:
@@ -44,10 +53,23 @@ There are three types of users:
 
 - Service Events: A *Event* class includes related information of a service event, such as event name, pariticpated non-profit organizations, and event date. Super users will create and update these events.
 
-- Campus Organizations: A *CampusOrg* class includes 
+- Campus Organizations: A *CampusOrg* class includes information about an Austin College student organization that runs or co-sponsors service events — THINK, BIG, APO and the like. Service hour records reference the campus organization a student served with, which is what drives the per-organization reports. Super users create and update these.
 
 - Non-profit Agencys: An *CommAg* class includes related information about a local non-profit agency, such as agency name, agency mission, and agency contact. Super users will create and update these organizations.
 
 ### Workflow
+
+The core loop the app replaces is the paper hour-form:
+
+1. **Service Station posts an event.** A super user creates an *Event*, linking the *CommAg* (non-profit) it serves and the *CampusOrg* co-sponsoring it.
+2. **Students sign up.** A student browses upcoming events and signs up; staff can view the roster for an event.
+3. **The event happens.**
+4. **The student logs their hours.** They create a *ServiceHour* record against that event — hours served, date, and which organization/agency it was for. It starts as `PENDING`.
+5. **Staff review the queue.** Admins and moderators work the pending queue and approve or reject each record, individually or in bulk. Every status change is written to an audit log, and the student is emailed the outcome.
+6. **Everyone gets their numbers.** The student sees running totals and a per-semester report they can export as PDF for an application. The office gets dashboards and six reports (by year, semester, event, community agency, campus org, plus a summary), each exportable as CSV, to see which events and partners actually drew participation.
+
+Password resets are self-service; promoting a student to moderator is an admin action.
+
+> Steps 1–6 describe [sstation-next/](sstation-next/). The legacy Grails app supports the core loop (events, hour logging, approve/reject, reports) but **not** event sign-up, bulk approval, CSV/PDF export, email notification, or password reset — those were built only in the rewrite (TC-108).
 
 
