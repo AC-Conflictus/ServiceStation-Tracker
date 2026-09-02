@@ -6,8 +6,7 @@ moving off the end-of-life Grails 2.4.4 stack (`../sstation/`) to a modern, supp
 > **Status: feature-complete, not yet deployed.** Every user-facing flow from the Grails app is
 > ported, plus eight features it never had (TC-108) and container packaging (TC-113/TC-114). The
 > Grails app in `../sstation/` remains the nominally shippable one until the E2E suite and
-> stakeholder sign-off land (TC-111) and it is decommissioned (TC-112). Before any **public** URL,
-> resolve Highcharts licensing (🏫 TC-119).
+> stakeholder sign-off land (TC-111) and it is decommissioned (TC-112).
 
 ## Target stack (Lane 7 — pending AC IT confirmation, TC-100)
 
@@ -50,11 +49,11 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-104 — Spring Security 6 auth (form login, BCrypt, `@PreAuthorize`, CSRF, dev-only env-var seed)
 - [x] TC-105 — read-only views: admin dashboard, six reports, student dashboard + per-student report
 - [x] TC-106 — CRUD + quick approve/reject REST + moderator promote/demote + audit trail
-- [x] TC-107 — frontend: shared layout + Bootstrap 5, vendored WebJars (Bootstrap/jQuery/DataTables/Highcharts, no CDN)
+- [x] TC-107 — frontend: shared layout + Bootstrap 5, vendored WebJars (Bootstrap/jQuery/DataTables/charts, no CDN)
 - [x] TC-108 — all eight Lane 4 features (a–g): email notifications, bulk approve/reject, CSV export, PDF export, date-range filter, event sign-up, password reset
 - [x] TC-113 / TC-114 — Dockerfile + compose + `demo` profile seeder (see [../DEPLOY.md](../DEPLOY.md))
-- [ ] TC-118 — the Testcontainers Postgres test skips silently on Docker 29.x (CI runs it; local `check` does not)
-- [ ] TC-119 — 🏫 Highcharts licensing, before any public URL
+- [ ] TC-118 — make the Testcontainers Postgres test's skip loud (silent on Docker 29.x locally; CI does run it)
+- [x] TC-119 — replaced Highcharts with **Chart.js 4.4.3 (MIT)**; no licensing question remains
 - [ ] TC-115 / TC-116 — CI image build; AWS demo on EC2 + RDS
 - [ ] TC-110 / TC-111 / TC-112 — DEPLOY.md for AWS, E2E suite + sign-off, decommission Grails
 

@@ -88,7 +88,8 @@ moving to a supported, hireable, patchable platform.
    internal relay?
 7. **Identity** — do you run an SSO IdP (SAML / OIDC, e.g. Azure AD / Shibboleth)? If so we
    can leave a config seam for it (TC-104) instead of app-local accounts.
-8. **Highcharts licensing** — see above.
+8. ~~**Highcharts licensing**~~ — **withdrawn 2026-09-02.** We resolved this ourselves rather than wait:
+   the app now uses Chart.js (MIT), so there is no license for you to check or buy. No answer needed.
 
 ---
 
