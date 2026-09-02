@@ -98,7 +98,7 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - **Status changes are ADMIN-only and always audited.** Route every status mutation through `AuditService.record(...)`. The audit FK uses `ON DELETE CASCADE`, so deleting a hour (or its student) cleans up the audit rows without app code.
 - CRUD forms bind to **form DTOs** where the entity shape doesn't fit a web form: `ServiceHourForm` (FK selects as ids + `datetime-local` → `LocalDateTime`). Controllers with optional text/number fields register a `StringTrimmerEditor(true)` via `@InitBinder` so empty inputs bind to `null`.
 - **Every page decorates `fragments/layout.html`** via `th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}"` — put the page's `<title>` in `<head>` and its content in `<main>`. The layout loads the **vendored** Bootstrap/jQuery/Highcharts/DataTables from `/webjars/**` (no CDN — TC-038/TC-107) and exposes the CSRF token as `<meta name="_csrf">` for JS (the hours quick-approve fetch reads it). Add new assets as **WebJar dependencies**, not `static/` files; confirm the exact in-jar path (`/webjars/<name>/<version>/…`) since it varies (e.g. Highcharts lives under `…/code/highcharts.js`).
-- ⚠️ **`./gradlew check` being green does NOT prove the Postgres path works.** `DemoProfileIntegrationTest` is the only test that touches real PostgreSQL, and it is annotated `@Testcontainers(disabledWithoutDocker = true)`. On a **Docker 29.x** host, Testcontainers 1.20.3's docker-java client gets `HTTP 400` from `/info` during strategy detection, so both tests report **SKIPPED while the build still says BUILD SUCCESSFUL**. Bumping to 1.21.3 does not fix it. When you touch a Flyway migration or an entity mapping, **check the test XML for `skipped=`** — don't trust the green. Tracked as **TC-118**.
+- ⚠️ **A green local `./gradlew check` does not prove the Postgres path works — a green CI run does.** `DemoProfileIntegrationTest` is the only test that touches real PostgreSQL (Testcontainers, `postgres:16-alpine`, profiles `prod,demo`). It is annotated `@Testcontainers(disabledWithoutDocker = true)`, and on a **Docker 29.x** host Testcontainers 1.20.3's docker-java client gets `HTTP 400` from `/info` during strategy detection — so it reports **SKIPPED while the build still says BUILD SUCCESSFUL** (bumping to 1.21.3 does not help). On the GH runner it runs fine: CI shows `tests=2 skipped=0`, 119/119. **So: after touching a Flyway migration or entity mapping, either check your local test XML for `skipped=` or just trust CI over your laptop.** Tracked as **TC-118**.
 - **There are three seeding profiles, not one.** `dev` (local H2, `DevDataSeeder` + `DemoDataSeeder`, passwords fall back to `admin_secret` etc.), `demo` (`DemoAccountSeeder` + `DemoDataSeeder`, **hard-fails without `SSTATION_DEMO_*_PASSWORD`** — this is what containers/AWS use, typically as `prod,demo`), and `prod` alone (**never seeds** — a bare `prod` boot gives you a login page with no accounts, which is the correct AC IT day-one behavior).
 - **Email is log-only unless `spring.mail.host` is set.** `SSTATION_MAIL_HOST` defaults to empty so containers boot without SMTP, which means `JavaMailSender` is never auto-configured and `NotificationService` just logs. Approve/reject and password-reset mails will silently not send until AC IT supplies a relay — **the app gives no error**. Don't debug this as a mail bug.
 - **Password-reset tokens are stored SHA-256-hashed, single-use, 1-hour TTL**, and `requestReset` deliberately reveals nothing about whether an account exists. Keep that property if you touch `PasswordResetService`.
@@ -184,12 +184,12 @@ Concrete gaps you can confirm by reading the code:
 - **README workflow section is empty**, and the README description of `CampusOrg` is truncated (`A CampusOrg class includes`). See TC-037.
 - ~~**`BootStrap.init` runs in production.**~~ **Fixed (TC-007 — 2026-05-29).** Seed data is gated on non-production; roles are created idempotently everywhere.
 - ~~**`AcUser` plaintext password fallback.**~~ **Fixed (TC-008 — 2026-05-29).** `encodePassword` now fails fast with `IllegalStateException`.
-- **Mail credentials missing** in [Config.groovy](sstation/grails-app/conf/Config.groovy) — any feature that sends mail is non-functional. TC-021.
+- **Mail credentials missing** in [Config.groovy](sstation/grails-app/conf/Config.groovy) — any feature that sends mail is non-functional. TC-021 (delivered in the rewrite as TC-108a; still blank here, and staying that way).
 - ~~**NPE-prone report iteration**~~ **Fixed (TC-006 — 2026-05-29).** `semesterReport` uses `?.` for all nullable FK accesses. Note: the three `*ReportService` helpers still dereference `.name` unguarded — TC-010.
 - ~~**`IndexOutOfBoundsException` risk** in `summaryReport`/`semesterReport`.~~ **Fixed (TC-003 — 2026-05-29).** `constant` is now `min(5, list sizes)`.
 - **`selinium_tests/` is misspelled** and not wired into CI. TC-015 / TC-039.
 - ~~**No CI/build pipeline.**~~ **Fixed (TC-034 — 2026-05-26).** Build-only WAR pipeline via GitHub Actions. Test execution still requires a local JDK 8 machine (see TC-034 scope reduction).
-- **Stack is end-of-life.** Grails 2.4.4 is unsupported; Spring Security plugin 2.0‑RC5 is a release candidate; jQuery 1.11 / Bootstrap 3 are out of support; H2 versions in this era have known CVEs. Lane 7 (TC-100–TC-112) is the rewrite path.
+- **Stack is end-of-life.** Grails 2.4.4 is unsupported; Spring Security plugin 2.0‑RC5 is a release candidate; jQuery 1.11 / Bootstrap 3 are out of support; H2 versions in this era have known CVEs. Lane 7 (TC-100–TC-119) is the rewrite path.
 
 ## Trello backlog (see TRELLO_CARDS.md for full details)
 
@@ -205,7 +205,7 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-007 BootStrap.init runs in production ✅
 - TC-008 Plaintext password fallback in AcUser ✅
 
-**Lane 2 — Next up (Grails app):** TC-009 (AcUser↔AcStudent FK), TC-010 (refactor report services), TC-033 (Dockerize). Note: TC-009/TC-010 are also being fixed **at the source** in the rewrite.
+**Lane 2 — Grails app, deprioritized:** TC-009 (AcUser↔AcStudent FK) and TC-010 (refactor report services) are both fixed **at the source** in the rewrite, and TC-033 (Dockerize) is superseded by TC-113. Don't spend time here — TC-112 deletes this app.
 **Lane 5 — CI:** TC-034 build-only WAR pipeline ✅ (2026-05-26).
 
 **Lane 7 — Rewrite** (Spring Boot 3 / Java 21 / Thymeleaf / Postgres, in [sstation-next/](sstation-next/)):
@@ -214,6 +214,8 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-105 read-only views (admin dashboard + 6 reports + student dashboard/report) ✅ — landed 2026-06-03
 - TC-106 CRUD + quick approve/reject REST + moderator promote/demote + audit trail ✅ — landed 2026-06-03
 - TC-107 Thymeleaf layout + Bootstrap 5 + vendored WebJars (no CDN) ✅ — landed 2026-06-03
+- TC-108 all eight Lane 4 features in slices a–g (mail, bulk approve, CSV, PDF, date filter, event sign-up, password reset) ✅ — landed 2026-06-03
+- TC-113 Docker packaging + TC-114 demo-profile seeder ✅ — landed 2026-06-04, merged to main 2026-09-02
 - TC-108 Lane 4 features, all eight, in slices a–g ✅ — landed 2026-06-03
 - TC-113 Docker packaging + TC-114 demo-profile seeder ✅ — landed 2026-06-04 (merged to main 2026-09-02)
 - **Next:** TC-118 (make the Postgres test actually run) → TC-119 (Highcharts licensing) → TC-115/TC-116 (CI image, AWS demo) → TC-110 → TC-111 → TC-112.
