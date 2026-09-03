@@ -81,16 +81,16 @@
 
       <div class="row g-3">
         <div class="col-lg-6">
-          <div class="card"><div class="card-body"><div id="chart-5year" style="height: 320px"></div></div></div>
+          <div class="card"><div class="card-body"><div style="height: 320px"><canvas id="chart-5year"></canvas></div></div></div>
         </div>
         <div class="col-lg-6">
-          <div class="card"><div class="card-body"><div id="chart-monthly" style="height: 320px"></div></div></div>
+          <div class="card"><div class="card-body"><div style="height: 320px"><canvas id="chart-monthly"></canvas></div></div></div>
         </div>
         <div class="col-lg-6">
-          <div class="card"><div class="card-body"><div id="chart-classification" style="height: 320px"></div></div></div>
+          <div class="card"><div class="card-body"><div style="height: 320px"><canvas id="chart-classification"></canvas></div></div></div>
         </div>
         <div class="col-lg-6">
-          <div class="card"><div class="card-body"><div id="chart-status" style="height: 320px"></div></div></div>
+          <div class="card"><div class="card-body"><div style="height: 320px"><canvas id="chart-status"></canvas></div></div></div>
         </div>
       </div>
 
@@ -100,33 +100,50 @@
         var ranged = /*[[${ranged}]]*/ false;
         var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-        Highcharts.chart("chart-5year", {
-          chart: { type: "column" },
-          title: { text: ranged ? "Approved hours by year (in range)" : "Approved hours — last 5 years" },
-          xAxis: { categories: dashboard.fiveYear.years },
-          yAxis: { title: { text: "Hours" } },
-          series: [{ name: "Hours", data: dashboard.fiveYear.totals }],
-        });
+        // Chart.js (TC-119). The wrapper div carries the height, so the canvas must be free to
+        // fill it — hence maintainAspectRatio: false on every chart.
+        var palette = ["#0d6efd", "#198754", "#dc3545", "#fd7e14", "#6f42c1", "#20c997"];
+        function bars(canvasId, type, title, labels, data) {
+          return new Chart(document.getElementById(canvasId), {
+            type: type,
+            data: { labels: labels, datasets: [{ label: "Hours", data: data, backgroundColor: palette[0], borderColor: palette[0] }] },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { title: { display: true, text: title }, legend: { display: false } },
+              scales: { y: { beginAtZero: true, title: { display: true, text: "Hours" } } },
+            },
+          });
+        }
+        function share(canvasId, title, slices) {
+          return new Chart(document.getElementById(canvasId), {
+            type: "pie",
+            data: {
+              labels: slices.map(function (s) { return s.label; }),
+              datasets: [{ data: slices.map(function (s) { return s.fraction; }), backgroundColor: palette }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { title: { display: true, text: title }, legend: { position: "bottom" } },
+            },
+          });
+        }
 
-        Highcharts.chart("chart-monthly", {
-          chart: { type: "line" },
-          title: { text: ranged ? "Approved hours by month (in range)" : "Approved hours by month (this year)" },
-          xAxis: { categories: months },
-          yAxis: { title: { text: "Hours" } },
-          series: [{ name: "Hours", data: dashboard.monthly.monthly }],
-        });
+        bars(
+          "chart-5year", "bar",
+          ranged ? "Approved hours by year (in range)" : "Approved hours — last 5 years",
+          dashboard.fiveYear.years, dashboard.fiveYear.totals
+        );
 
-        Highcharts.chart("chart-classification", {
-          chart: { type: "pie" },
-          title: { text: "Hours by classification" },
-          series: [{ name: "Share", data: dashboard.byClassification.map(function (s) { return { name: s.label, y: s.fraction }; }) }],
-        });
+        bars(
+          "chart-monthly", "line",
+          ranged ? "Approved hours by month (in range)" : "Approved hours by month (this year)",
+          months, dashboard.monthly.monthly
+        );
 
-        Highcharts.chart("chart-status", {
-          chart: { type: "pie" },
-          title: { text: "Hours by status" },
-          series: [{ name: "Share", data: dashboard.byStatus.map(function (s) { return { name: s.label, y: s.fraction }; }) }],
-        });
+        share("chart-classification", "Hours by classification", dashboard.byClassification);
+        share("chart-status", "Hours by status", dashboard.byStatus);
         /*]]>*/
       </script>
     </main>

@@ -422,9 +422,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 > shipped on it and it is not being revisited.
 >
 > **What genuinely remains open is narrower than the original memo, and only two items block anything:**
-> - 🏫 **Highcharts licensing** — this is a **legal** question, not a stack preference, and it does not go away because
->   AC IT is easygoing. Highcharts is non-free for commercial/institutional use and TC-107 **vendored it into the jar**.
->   Resolve before any public URL: confirm AC holds a license, or swap to Chart.js/ApexCharts. See **TC-119**.
+ > - ~~🏫 **Highcharts licensing**~~ ✅ **Resolved 2026-09-02 (TC-119)** — swapped to Chart.js (MIT). No license to obtain,
+>   nothing to ask AC IT, and no longer a blocker on a public URL.
 > - 🏫 **SMTP relay** — host/port/credentials. Until supplied, `spring.mail.host` is empty and TC-108a notifications are
 >   **log-only**. The app boots fine; the emails simply never send.
 >
@@ -534,11 +533,11 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Estimate:** L.
 
 ### TC-107 ✨ Port + modernize the frontend layer ✅ landed 2026-06-03
-- **Status:** Done. Shared `fragments/layout.html` (Bootstrap 5 navbar/container/footer) decorated by every page; all templates restyled with Bootstrap 5. Assets **vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, Highcharts 11.2.0. Chart data shapes unchanged; DataTables on the students list; mobile-friendly. 🏫 **Highcharts licensing still needs AC IT confirmation.**
+- **Status:** Done. Shared `fragments/layout.html` (Bootstrap 5 navbar/container/footer) decorated by every page; all templates restyled with Bootstrap 5. Assets **vendored via WebJars** (`/webjars/**`, no CDN — closes TC-038): Bootstrap 5.3.3, jQuery 3.7.1, DataTables 2.1.8, and (originally) Highcharts 11.2.0 — **the charting library was replaced with Chart.js 4.4.3 (MIT) in TC-119**. Chart data shapes unchanged; DataTables on the students list; mobile-friendly.
 - **Why:** Thymeleaf templates instead of GSP. Same page structure, modern asset versions, vendored not CDN.
 - **Acceptance criteria:**
   - Thymeleaf templates mirror the existing GSP layout (`main.gsp` → `fragments/layout.html`, etc.).
-  - **Vendored assets:** Bootstrap 5.3, jQuery 3.7, DataTables 2.x, Highcharts (with a license note — Highcharts is non-free for commercial use; confirm AC IT's situation 🏫), no CDN dependencies (closes TC-038 at the source).
+  - **Vendored assets:** Bootstrap 5.3, jQuery 3.7, DataTables 2.x, and Chart.js 4.4 (MIT — originally Highcharts, replaced in TC-119), no CDN dependencies (closes TC-038 at the source).
   - The dashboard charts render with the same data shapes as before (we change *backends*, not chart configs).
   - Mobile-friendly (Bootstrap 5 gives us this almost for free).
 - **Estimate:** M.
@@ -561,7 +560,7 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 | **Do not ship `admin_secret` on the internet** | Dev defaults are fine locally; AWS demo needs strong passwords via env vars (**TC-114**, extends TC-017). |
 | **t3.micro = 1 GiB RAM** | Running Spring Boot **and** Postgres on one instance often OOMs. **TC-116** recommends **EC2 + RDS**; all-in-one compose on EC2 is documented as demo-only fallback. |
 | **HTTPS is your problem on EC2** | Unlike App Runner (TC-109), EC2 needs Caddy/nginx + Let's Encrypt or an ALB (~$16/mo extra). Budget for TLS in **TC-116**. |
-| **Highcharts licensing** | Vendored in TC-107; AC IT must confirm commercial use (🏫) before calling the demo "production-ready." |
+| ~~**Highcharts licensing**~~ | ✅ Resolved by **TC-119** (2026-09-02) — swapped to Chart.js (MIT). No longer gates the demo. |
 | **TC-100 AC IT reply still open** | Does **not** block a student-project AWS demo; **does** block calling the rewrite "handoff-ready." |
 
 **Grails cards to skip on the Lane 7 path:** TC-029, TC-030, TC-031, TC-032, TC-035 (Grails DEPLOY), and the original TC-033 acceptance criteria — unless the rewrite slips and you need a fallback WAR demo.
@@ -702,13 +701,13 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Notes / files to touch:** [DemoProfileIntegrationTest.java](sstation-next/src/test/java/edu/austincollege/sstation/config/DemoProfileIntegrationTest.java), [build.gradle.kts](sstation-next/build.gradle.kts), [ci-next.yml](.github/workflows/ci-next.yml).
 - **Estimate:** S–M.
 
-### TC-119 🏫 ⚠️ Resolve Highcharts licensing before any public URL
-- **Status:** 🔲 **Blocks TC-116 (public AWS demo), not local dev.** Split out of TC-100 on 2026-09-02 so it stops hiding inside a card everyone treats as "waiting on email."
+### TC-119 🏫 ⚠️ Resolve Highcharts licensing before any public URL ✅ landed 2026-09-02
+- **Status:** ✅ **Resolved via option (c) — swapped to Chart.js (MIT).** Highcharts is gone from the build; there is no longer a licensing question to ask AC IT, and nothing here blocks a public URL. Landed in three slices on `feat/tc-119-chartjs`: (a) `org.webjars:highcharts:11.2.0` → `org.webjars:chartjs:4.4.3` + layout script tag and footer credit; (b) the four admin dashboard charts; (c) the four charted reports (year, event, campus-org, community-org — `summary` and `semester` are table-only). **No service-layer change** — the `*Data` DTOs were already chart-agnostic. Verified `./gradlew check` green (119 tests) plus a live browser pass over all eight charts: each renders with the right type, orientation, title and data-point count, and the console is clean.
 - **Why:** Highcharts is **not free for commercial or government/institutional use** — it is free only for personal/non-profit/school-project use, and "a college's administrative office runs it in production" is exactly the boundary case that needs a real answer. TC-107 **vendored `org.webjars:highcharts:11.2.0` into the application jar**, so we are now redistributing it. This is a legal exposure, not a technical preference, and unlike the rest of TC-100 it is **not** resolved by AC IT being relaxed about the stack.
 - **Acceptance criteria:** *(pick one and record the outcome here)*
-  - **(a)** Confirm Austin College holds a Highcharts license covering this use, and record the license/serial in [DEPLOY.md](DEPLOY.md); **or**
-  - **(b)** Confirm the deployment qualifies for Highcharts' non-commercial terms in writing; **or**
-  - **(c)** **Swap to a freely-licensed library** — Chart.js (MIT) or ApexCharts (MIT). Scope if we go this route: four charts on `admin/home.html` plus the six report pages. The data shapes were deliberately kept chart-agnostic in TC-105, so this is a template-and-JS swap, not a service-layer change. Replace the WebJar dependency in [build.gradle.kts](build.gradle.kts) and the `/webjars/**` script tag in [layout.html](sstation-next/src/main/resources/templates/fragments/layout.html).
+  - ~~**(a)** Confirm Austin College holds a Highcharts license covering this use~~ — not pursued.
+  - ~~**(b)** Confirm the deployment qualifies for Highcharts' non-commercial terms in writing~~ — not pursued.
+  - ✅ **(c)** **Swap to a freely-licensed library** — Chart.js (MIT) or ApexCharts (MIT). Scope if we go this route: four charts on `admin/home.html` plus the six report pages. The data shapes were deliberately kept chart-agnostic in TC-105, so this is a template-and-JS swap, not a service-layer change. Replace the WebJar dependency in [build.gradle.kts](build.gradle.kts) and the `/webjars/**` script tag in [layout.html](sstation-next/src/main/resources/templates/fragments/layout.html).
 - **Notes:** If in doubt, just do **(c)**. It is an afternoon of work and it permanently removes the question — cheaper than the email thread, and it de-risks the handoff.
 - **Estimate:** S if (a)/(b); M if (c).
 
@@ -738,7 +737,7 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
 5. **Docker + AWS demo (current sprint):** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → TC-117. See **Build readiness** above.
-6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → **TC-118** (make the Postgres test actually run — do this *before* TC-116) → **TC-119** (Highcharts licensing, before any public URL) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
+6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → **TC-118** (make the Postgres test actually run — do this *before* TC-116) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
 7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.
 9. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.

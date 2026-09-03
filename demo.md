@@ -16,8 +16,8 @@ promote/demote, per-hour audit trail), a styled UI (TC-107: Bootstrap 5, role-aw
 notifications, bulk approve/reject, CSV export, PDF export, date-range filter, event sign-up,
 password reset), and **Docker packaging** (TC-113/TC-114).
 
-What's left is deployment and handoff — plus one open item: AC IT confirming **Highcharts
-licensing** (🏫 TC-119).
+What's left is deployment and handoff. Charts are **Chart.js (MIT)** as of TC-119 — the old Highcharts
+licensing question is closed.
 
 ### 1. Prerequisites
 
@@ -70,7 +70,7 @@ local convenience. Override them by exporting e.g. `SSTATION_DEV_ADMIN_PASSWORD=
 
 - **Sign in as `admin`** → you're redirected to **`/admin`**:
   - KPI cards: students, approved hours (all-time + this year), avg hours/student, pending count.
-  - Four Highcharts: hours by year (last 5), by month (this year), by classification, by status.
+  - Four charts: hours by year (last 5), by month (this year), by classification, by status.
   - The year axis is **dynamic** — it always ends on the current year (no hardcoded 2015/2016).
 - **Admin → Reports** (`/reports`) — all six render with selectors:
   - By year (5-year KPI table + chart), by event, by community agency, by campus organization.

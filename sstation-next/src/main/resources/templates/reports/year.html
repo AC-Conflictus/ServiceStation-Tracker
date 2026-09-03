@@ -15,7 +15,7 @@
 
       <div class="card mb-4">
         <div class="card-body">
-          <div id="chart" style="height: 360px"></div>
+          <div style="height: 360px"><canvas id="chart"></canvas></div>
         </div>
       </div>
 
@@ -49,12 +49,18 @@
       <script th:inline="javascript">
         /*<![CDATA[*/
         var kpis = /*[[${kpis}]]*/ [];
-        Highcharts.chart("chart", {
-          chart: { type: "column" },
-          title: { text: "Approved hours by year" },
-          xAxis: { categories: kpis.map(function (k) { return k.year; }) },
-          yAxis: { title: { text: "Hours" } },
-          series: [{ name: "Hours", data: kpis.map(function (k) { return k.total; }) }],
+        new Chart(document.getElementById("chart"), {
+          type: "bar",
+          data: {
+            labels: kpis.map(function (k) { return k.year; }),
+            datasets: [{ label: "Hours", data: kpis.map(function (k) { return k.total; }), backgroundColor: "#0d6efd" }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: "Approved hours by year" }, legend: { display: false } },
+            scales: { y: { beginAtZero: true, title: { display: true, text: "Hours" } } },
+          },
         });
         /*]]>*/
       </script>

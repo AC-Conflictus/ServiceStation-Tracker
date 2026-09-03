@@ -14,7 +14,7 @@
       </div>
 
       <div class="card mb-4">
-        <div class="card-body"><div id="chart" style="height: 380px"></div></div>
+        <div class="card-body"><div style="height: 380px"><canvas id="chart"></canvas></div></div>
       </div>
 
       <div class="table-responsive">
@@ -39,12 +39,19 @@
       <script th:inline="javascript">
         /*<![CDATA[*/
         var totals = /*[[${totals}]]*/ [];
-        Highcharts.chart("chart", {
-          chart: { type: "bar" },
-          title: { text: "Total hours by community agency" },
-          xAxis: { categories: totals.map(function (t) { return t.name; }) },
-          yAxis: { title: { text: "Hours" } },
-          series: [{ name: "Hours", data: totals.map(function (t) { return t.total; }) }],
+        new Chart(document.getElementById("chart"), {
+          type: "bar",
+          data: {
+            labels: totals.map(function (t) { return t.name; }),
+            datasets: [{ label: "Hours", data: totals.map(function (t) { return t.total; }), backgroundColor: "#0d6efd" }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            plugins: { title: { display: true, text: "Total hours by community agency" }, legend: { display: false } },
+            scales: { x: { beginAtZero: true, title: { display: true, text: "Hours" } } },
+          },
         });
         /*]]>*/
       </script>

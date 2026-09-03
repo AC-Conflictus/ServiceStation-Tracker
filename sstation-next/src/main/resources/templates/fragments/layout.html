@@ -15,14 +15,16 @@
 
     <!--
       Vendored assets (TC-107) — served locally from /webjars/**, no CDN (closes TC-038).
-      NOTE: Highcharts is non-free for commercial/government use; AC IT must confirm licensing (🏫).
+      Charting is Chart.js (MIT) as of TC-119 — it replaced Highcharts, which is not free for
+      commercial/institutional use and which we were redistributing inside the jar.
+      Note the UMD build: dist/chart.js is ESM and will not define the `Chart` global here.
       Loaded in <head> so inline page scripts (charts, DataTables) can rely on them being present.
     -->
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}" />
     <link rel="stylesheet" th:href="@{/webjars/datatables/2.1.8/css/dataTables.dataTables.min.css}" />
     <script th:src="@{/webjars/jquery/3.7.1/jquery.min.js}"></script>
     <script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
-    <script th:src="@{/webjars/highcharts/11.2.0/code/highcharts.js}"></script>
+    <script th:src="@{/webjars/chartjs/4.4.3/dist/chart.umd.js}"></script>
     <script th:src="@{/webjars/datatables/2.1.8/js/dataTables.min.js}"></script>
   </head>
   <body class="bg-body-tertiary">
@@ -100,8 +102,8 @@
 
     <footer class="container text-muted py-4 border-top">
       <small
-        >Service Station Hours — Spring Boot rewrite (Lane 7). Charts by Highcharts (licensing
-        pending AC IT confirmation).</small
+        >Service Station Hours — Spring Boot rewrite (Lane 7). Charts by
+        <a href="https://www.chartjs.org/" rel="noopener">Chart.js</a> (MIT).</small
       >
     </footer>
   </body>
