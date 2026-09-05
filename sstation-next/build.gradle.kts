@@ -113,7 +113,63 @@ spotless {
     }
 }
 
-// `check` runs the formatter verification (spotlessCheck) and tests.
+// TC-118: a skipped test must never pass for a green build.
+//
+// `DemoProfileIntegrationTest` is the only test that touches real PostgreSQL, and it carries
+// `@Testcontainers(disabledWithoutDocker = true)` -- so when Docker is unreachable it reports
+// SKIPPED and the build still succeeds. That is the exact trap
+// TC-118 was raised for: `./gradlew check` went green having proven nothing about the database we
+// actually deploy to.
+//
+// The rule here is deliberately blunt and needs no allowlist to maintain: if *any* test in the
+// suite was skipped rather than executed, fail and name it. The suite runs 119/119 with zero
+// skips on both a dev box and the CI runner, so a skip is always a signal, never noise.
+val verifyNoSkippedTests =
+    tasks.register("verifyNoSkippedTests") {
+        group = "verification"
+        description = "TC-118: fail the build if any test was skipped instead of executed."
+        dependsOn(tasks.named("test"))
+
+        val resultsDir = layout.buildDirectory.dir("test-results/test")
+        outputs.upToDateWhen { false }
+
+        doLast {
+            val dir = resultsDir.get().asFile
+            val reports =
+                dir.listFiles { f: java.io.File -> f.name.startsWith("TEST-") && f.name.endsWith(".xml") }
+                    ?.sortedBy { it.name }
+                    .orEmpty()
+
+            if (reports.isEmpty()) {
+                throw GradleException("TC-118: no test-result XML under $dir — the test task ran nothing.")
+            }
+
+            val builder = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            val skipped =
+                reports.mapNotNull { file ->
+                    val root = builder.parse(file).documentElement
+                    val count = root.getAttribute("skipped").toIntOrNull() ?: 0
+                    if (count > 0) "  - ${root.getAttribute("name")} ($count skipped)" else null
+                }
+
+            if (skipped.isNotEmpty()) {
+                throw GradleException(
+                    buildString {
+                        appendLine("TC-118: ${skipped.size} test class(es) were SKIPPED, not executed:")
+                        skipped.forEach { appendLine(it) }
+                        appendLine()
+                        appendLine("A skipped test proves nothing, so this fails the build instead of")
+                        appendLine("reporting success. If these are the Postgres-backed integration tests,")
+                        appendLine("Testcontainers could not reach a Docker daemon. Check that Docker is")
+                        appendLine("running, and see the `api.version` system property set on the test task")
+                        appendLine("above — Docker Engine 29 rejects the API version docker-java defaults to.")
+                    }
+                )
+            }
+        }
+    }
+
+// `check` runs the formatter verification (spotlessCheck), the tests, and the no-silent-skip gate.
 tasks.named("check") {
-    dependsOn("spotlessCheck")
+    dependsOn("spotlessCheck", verifyNoSkippedTests)
 }
