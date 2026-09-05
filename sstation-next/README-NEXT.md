@@ -52,8 +52,9 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-107 — frontend: shared layout + Bootstrap 5, vendored WebJars (Bootstrap/jQuery/DataTables/charts, no CDN)
 - [x] TC-108 — all eight Lane 4 features (a–g): email notifications, bulk approve/reject, CSV export, PDF export, date-range filter, event sign-up, password reset
 - [x] TC-113 / TC-114 — Dockerfile + compose + `demo` profile seeder (see [../DEPLOY.md](../DEPLOY.md))
-- [ ] TC-118 — make the Testcontainers Postgres test's skip loud (silent on Docker 29.x locally; CI does run it)
+- [x] TC-118 — Postgres tests actually run locally (docker-java `api.version` pin), a skipped test now **fails** `check`, and a bare-`prod` virgin-database test was added — 122 tests, 0 skipped
 - [x] TC-119 — replaced Highcharts with **Chart.js 4.4.3 (MIT)**; no licensing question remains
+- [ ] TC-120 / TC-121 — custom 403/404/500 error pages; day-one admin bootstrap for a bare `prod` boot
 - [ ] TC-115 / TC-116 — CI image build; AWS demo on EC2 + RDS
 - [ ] TC-110 / TC-111 / TC-112 — DEPLOY.md for AWS, E2E suite + sign-off, decommission Grails
 
