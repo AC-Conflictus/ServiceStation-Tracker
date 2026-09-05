@@ -71,6 +71,18 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // TC-118: pin the Docker Engine API version docker-java negotiates.
+    //
+    // Testcontainers' shaded docker-java defaults to API v1.32. Docker Engine 29 raised its
+    // MinAPIVersion to 1.40, so `/v1.32/info` comes back HTTP 400 during strategy detection,
+    // every strategy fails, and `@Testcontainers(disabledWithoutDocker = true)` quietly marks
+    // DemoProfileIntegrationTest SKIPPED while the build still reports BUILD SUCCESSFUL.
+    //
+    // 1.41 is the widest-compatibility choice: it is >= Docker 29's floor of 1.40 and still well
+    // under the ceiling of Docker 20.10 (1.41), so this works on both old and new daemons. Raise
+    // it only if a container feature needs a newer API than 1.41 provides.
+    systemProperty("api.version", "1.41")
 }
 
 // Local `./gradlew bootRun` boots the dev profile so the seeded admin/student/moderator
