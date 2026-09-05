@@ -714,6 +714,36 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Notes:** If in doubt, just do **(c)**. It is an afternoon of work and it permanently removes the question — cheaper than the email thread, and it de-risks the handoff.
 - **Estimate:** S if (a)/(b); M if (c).
 
+### TC-120 ✨ Error pages — 403 / 404 / 500 all render Spring's Whitelabel
+- **Status:** 🔲 **Next — before TC-116 (AWS).** Raised 2026-09-04 while reviewing what a public demo would actually show a reviewer who pokes at a URL.
+- **Why:** There is **no `@ControllerAdvice`, no `ErrorController`, and no `templates/error/` directory** anywhere in `sstation-next` (verified 2026-09-04 — the grep returns nothing). Every failure path falls through to Spring Boot's default Whitelabel Error Page: bare white page, no navbar, no link back, nothing identifying the application. The Grails app being replaced at least rendered errors inside its own layout, so this is a **regression against the thing we are claiming parity with** (TC-111).
+- **Why it matters now:** the most likely 403 is an ordinary one — a student following a bookmarked `/admin/**` URL, or a moderator hitting an ADMIN-only route. Those are expected states of a role-based app, not crashes, and they currently look like the app fell over. On the public AWS demo (**TC-116**) it is the first impression a reviewer gets.
+- **Acceptance criteria:**
+  - `templates/error/403.html`, `404.html`, `500.html` and a catch-all `error.html`, each decorating `fragments/layout.html` so the navbar and a route home are present.
+  - The 403 page says plainly that the signed-in account lacks the required role, and offers log-out / switch-account — it is the common case, so it should read as a permissions message, not an error.
+  - `@ControllerAdvice` maps uncaught exceptions to the 500 view and logs at ERROR **with the request path** (the Whitelabel page gives the user nothing to report, and the log is where that has to live instead).
+  - **The JSON endpoint must stay JSON.** `POST /admin/hours/{id}/status` (the quick approve/reject fetch) currently returns JSON; an access-denied or exception path must not start returning an HTML error page to it, or the dashboard JS breaks on parse. Handle content negotiation explicitly.
+  - Confirm `server.error.include-message` and `include-stacktrace` remain at their Boot defaults (`never`) so a custom page cannot start leaking internals that Whitelabel was already withholding.
+  - Tests: MockMvc asserts a student GETting `/admin` gets 403 **and the custom view**, an unknown path gets 404 and the custom view, and the JSON endpoint still returns JSON on denial.
+- **Depends on:** TC-107 ✅ (the layout to decorate).
+- **Estimate:** S.
+
+### TC-121 🔒 🏫 Day-one admin bootstrap — a bare `prod` boot has no account to log in with
+- **Status:** 🔲 **Next — before TC-116 (AWS), and blocking a real AC IT handoff.** Raised 2026-09-04, out of the bare-`prod` test written for TC-118.
+- **Why:** A bare `prod` boot **never seeds**, which is correct and deliberate — `DevDataSeeder` is `@Profile("dev")`, `DemoAccountSeeder` and `DemoDataSeeder` are `@Profile("demo")`. [ProdProfileMigrationIntegrationTest.bareProdSeedsNothing](sstation-next/src/test/java/edu/austincollege/sstation/config/ProdProfileMigrationIntegrationTest.java) now **asserts** it: zero users, zero roles, zero students, zero hours. The consequence is that AC IT's first production boot presents a login form against an empty user table, and there is **no documented or supported way to create the first account** — no CLI, no first-run signup, no bootstrap flag. [DEPLOY.md](DEPLOY.md) documents the `prod` database and SMTP env vars and never mentions the first admin.
+- **Why it matters:** this is not a rough edge, it is a wall. Handing over an application that cannot be logged into is a failed handoff regardless of how complete the features are. It is also the one gap on this list that **no amount of demo polish hides**, because the `demo` profile papers over it — `prod,demo` seeds accounts, so every environment we have actually run boots with users, and the bare-`prod` path has never once been exercised by a human.
+- **Acceptance criteria:** *(pick one and record the outcome here)*
+  - **(a) One-shot bootstrap runner — recommended.** A `@Profile("prod")` runner that creates a single ADMIN from `SSTATION_BOOTSTRAP_ADMIN_USERNAME` / `SSTATION_BOOTSTRAP_ADMIN_PASSWORD`, **only when the user table is empty**, logging loudly what it did. Same fail-fast discipline as `DemoAccountSeeder`: no defaults, ever. Gating on an empty table means it cannot silently resurrect a deliberately deleted admin.
+  - **(b) Documented SQL.** DEPLOY.md ships a copy-paste `INSERT` plus a documented way to generate the BCrypt hash. Zero code, but it hands AC IT a hashing chore on day one and invites a bad paste.
+  - **(c) A `--bootstrap-admin` CLI mode** on the executable jar.
+  - Recommendation: **(a)**, with **(b)** documented as the break-glass path if the env vars were missed.
+  - Force a password change on first login, or at minimum document that the bootstrap password is single-use and should be rotated immediately.
+  - DEPLOY.md gains a **"First login"** section — **TC-110 should not be closed without it.**
+  - A Postgres-backed test alongside `ProdProfileMigrationIntegrationTest`: bare `prod` + bootstrap env vars yields exactly one ADMIN who can authenticate, and a second boot does not create a duplicate.
+- **Depends on:** TC-118 ✅ (the bare-`prod` test that demonstrates the gap).
+- **Blocks:** TC-110 (DEPLOY.md is incomplete without it) and any genuine AC IT handoff.
+- **Estimate:** S–M.
+
 ### TC-112 🧹 Decommission the Grails app
 - **Why:** Once TC-111 signs off, the old app is dead weight in the repo and a source of confusion.
 - **Acceptance criteria:**
@@ -740,7 +770,7 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
 5. **Docker + AWS demo (current sprint):** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → TC-117. See **Build readiness** above.
-6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → **TC-118** (make the Postgres test actually run — do this *before* TC-116) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
+6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → ~~TC-118~~ ✅ **done 2026-09-04** (Postgres tests actually run; skips now fail the build) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → **TC-120** (error pages) and **TC-121** (day-one admin bootstrap) — *both before TC-116, since the first is what a demo visitor sees and the second is what AC IT hits on their first boot* → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
 7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.
 9. **Lane 2 / Lane 3 / Lane 6 deprioritized** in the Grails app. No point polishing a codebase we're deleting in TC-112.
