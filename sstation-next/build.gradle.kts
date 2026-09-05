@@ -8,6 +8,17 @@ plugins {
 group = "edu.austincollege"
 version = "0.0.1-SNAPSHOT"
 
+// TC-118: pin the whole Testcontainers family from one place.
+//
+// Spring Boot 3.3.5's BOM manages `testcontainers-bom` at 1.19.8, which wins over an explicit
+// version on a *transitive* artifact. Declaring `junit-jupiter:1.20.3` therefore produced a
+// mixed-version classpath -- `testcontainers:1.20.3 -> 1.19.8` -- because core arrived
+// transitively and got pulled back. Docker strategy detection lives in core, so bumping the
+// explicit coordinates alone changed nothing at all; that is why an earlier attempt to fix the
+// silent skip by moving to 1.21.3 appeared to have no effect. Override the BOM property instead
+// and the whole family moves together.
+extra["testcontainers.version"] = "1.21.3"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -64,8 +75,8 @@ dependencies {
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.3")
-    testImplementation("org.testcontainers:postgresql:1.20.3")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
