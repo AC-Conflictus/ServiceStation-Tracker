@@ -41,8 +41,12 @@ import org.springframework.web.bind.annotation.RestController;
 @ActiveProfiles("dev")
 class ErrorPageIntegrationTest {
 
-  /** Marker text from Spring Boot's default error page — must never appear in a response. */
-  private static final String WHITELABEL = "Whitelabel Error Page";
+  /**
+   * Spring Boot's default error page calls itself the "Whitelabel Error Page". The whole word is
+   * matched, not the full phrase: a live check turned up the term shipping to the browser inside an
+   * explanatory HTML comment, which the narrower assertion had walked straight past.
+   */
+  private static final String WHITELABEL = "Whitelabel";
 
   private static final Pattern CSRF_INPUT =
       Pattern.compile("name=\"_csrf\"[^>]*value=\"([^\"]+)\"");
