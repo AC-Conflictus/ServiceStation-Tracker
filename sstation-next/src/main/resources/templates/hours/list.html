@@ -94,24 +94,40 @@
           if (e.target && e.target.classList && e.target.classList.contains("row-check")) updateCount();
         });
 
+        // Turns a JSON error body into a message worth reading. 401 is the common one: the
+        // session expired while the page sat open.
+        function failure(r) {
+          if (r.status === 401) {
+            throw new Error("Your session has expired. Reload the page and sign in again.");
+          }
+          return r.json().then(
+            function (body) { throw new Error((body && body.error ? body.error : "Request failed") + " (HTTP " + r.status + ")"); },
+            function () { throw new Error("HTTP " + r.status); }
+          );
+        }
+
         function bulkSetStatus(status) {
           var ids = selectedIds();
           if (ids.length === 0) { alert("No rows selected."); return; }
           if (!confirm("Set " + ids.length + " hour(s) to " + status + "?")) return;
-          var headers = { "Content-Type": "application/x-www-form-urlencoded" };
+          // Accept matters: without it fetch sends */*, the server answers errors in HTML, and a
+          // signed-out session comes back as the sign-in page with status 200 (TC-120).
+          var headers = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" };
           headers[csrfHeader] = csrfToken;
           var body = ids.map(function (id) { return "ids=" + id; }).join("&") + "&status=" + status;
           fetch("/admin/hours/bulk-status", { method: "POST", headers: headers, body: body })
-            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+            .then(function (r) { if (!r.ok) return failure(r); return r.json(); })
             .then(function () { window.location.reload(); })
             .catch(function (e) { alert("Bulk update failed: " + e.message); });
         }
 
         function setStatus(id, status) {
-          var headers = { "Content-Type": "application/x-www-form-urlencoded" };
+          // Accept matters: without it fetch sends */*, the server answers errors in HTML, and a
+          // signed-out session comes back as the sign-in page with status 200 (TC-120).
+          var headers = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" };
           headers[csrfHeader] = csrfToken;
           fetch("/admin/hours/" + id + "/status", { method: "POST", headers: headers, body: "status=" + status })
-            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+            .then(function (r) { if (!r.ok) return failure(r); return r.json(); })
             .then(function (data) {
               var badge = document.getElementById("status-" + data.id);
               badge.textContent = data.status;

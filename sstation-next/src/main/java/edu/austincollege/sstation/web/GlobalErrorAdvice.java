@@ -1,13 +1,12 @@
 package edu.austincollege.sstation.web;
 
+import edu.austincollege.sstation.security.JsonApiRequestMatcher;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -84,20 +83,8 @@ public class GlobalErrorAdvice {
         || AnnotatedElementUtils.hasAnnotation(ex.getClass(), ResponseStatus.class);
   }
 
-  /** True when the caller asked for JSON and did not ask for HTML. Browsers send HTML or star. */
-  static boolean wantsJson(HttpServletRequest request) {
-    String accept = request.getHeader("Accept");
-    if (accept == null || accept.isBlank()) {
-      return false;
-    }
-    List<MediaType> accepted;
-    try {
-      accepted = MediaType.parseMediaTypes(accept);
-    } catch (IllegalArgumentException malformed) {
-      return false;
-    }
-    boolean html = accepted.stream().anyMatch(MediaType.TEXT_HTML::isCompatibleWith);
-    boolean json = accepted.stream().anyMatch(MediaType.APPLICATION_JSON::isCompatibleWith);
-    return json && !html;
+  /** One definition of "this caller wants JSON", shared with the security exception handling. */
+  private static boolean wantsJson(HttpServletRequest request) {
+    return JsonApiRequestMatcher.wantsJson(request);
   }
 }
