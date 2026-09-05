@@ -2,12 +2,19 @@ package edu.austincollege.sstation.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +25,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * TC-120: the custom error pages actually render, inside the application shell.
@@ -39,6 +48,38 @@ class ErrorPageIntegrationTest {
           "name=\"_csrf\"[^>]*value=\"([^\"]+)\"|value=\"([^\"]+)\"[^>]*name=\"_csrf\"");
 
   @Autowired private TestRestTemplate rest;
+
+  private ListAppender<ILoggingEvent> adviceLogs;
+
+  /**
+   * A route that always fails, so the 500 path can be exercised without breaking a real one. The
+   * nested controller needs no {@code @Bean} method — member classes of a configuration class are
+   * themselves registered, and declaring both gives an ambiguous mapping.
+   */
+  @TestConfiguration
+  static class BoomConfig {
+    @RestController
+    static class BoomController {
+      @GetMapping("/boom")
+      String boom() {
+        throw new IllegalStateException("deliberate failure from ErrorPageIntegrationTest");
+      }
+    }
+  }
+
+  @BeforeEach
+  void captureAdviceLogs() {
+    adviceLogs = new ListAppender<>();
+    adviceLogs.start();
+    ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(GlobalErrorAdvice.class))
+        .addAppender(adviceLogs);
+  }
+
+  @AfterEach
+  void releaseAdviceLogs() {
+    ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(GlobalErrorAdvice.class))
+        .detachAppender(adviceLogs);
+  }
 
   @Test
   void studentOnAnAdminUrlSeesTheCustom403() {
@@ -67,6 +108,20 @@ class ErrorPageIntegrationTest {
   }
 
   @Test
+  void statusWithoutItsOwnPageFallsBackToTheCatchAll() {
+    // GET on the POST-only quick-approve endpoint -> 405, which has no error/405.html. It must
+    // land on templates/error.html rather than falling through to Whitelabel.
+    ResponseEntity<String> res = get("/admin/hours/1/status", signIn("admin", "admin_secret"));
+
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+    assertThat(res.getBody())
+        .doesNotContain(WHITELABEL)
+        .contains(">405<")
+        .contains("could not be completed");
+    assertRendersInsideTheAppShell(res.getBody());
+  }
+
+  @Test
   void errorPagesDoNotLeakInternals() {
     ResponseEntity<String> res = get("/no-such-page", signIn("admin", "admin_secret"));
 
@@ -88,6 +143,50 @@ class ErrorPageIntegrationTest {
         .contains("Sign in")
         .contains("type=\"password\"")
         .doesNotContain("You don't have access to that page");
+  }
+
+  @Test
+  void uncaughtExceptionRendersTheCustom500() {
+    ResponseEntity<String> res = get("/boom", signIn("admin", "admin_secret"));
+
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThat(res.getBody())
+        .doesNotContain(WHITELABEL)
+        .contains("Something went wrong on our end")
+        .contains("/boom")
+        // The page tells the user to report the address, not to read a stack trace.
+        .doesNotContain("IllegalStateException")
+        .doesNotContain("deliberate failure");
+    assertRendersInsideTheAppShell(res.getBody());
+  }
+
+  @Test
+  void uncaughtExceptionIsLoggedAtErrorWithTheRequestPath() {
+    get("/boom", signIn("admin", "admin_secret"));
+
+    assertThat(adviceLogs.list)
+        .as("the 500 page shows no detail, so the log is the only record")
+        .anySatisfy(
+            event -> {
+              assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+              assertThat(event.getFormattedMessage()).contains("/boom").contains("GET");
+              assertThat(event.getThrowableProxy().getMessage()).contains("deliberate failure");
+            });
+  }
+
+  @Test
+  void jsonClientGetsJsonBackNotAnHtmlErrorPage() {
+    HttpHeaders headers = signIn("admin", "admin_secret");
+    headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+    ResponseEntity<String> res =
+        rest.exchange("/boom", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThat(res.getBody())
+        .startsWith("{")
+        .contains("\"path\":\"/boom\"")
+        .doesNotContain("<html");
   }
 
   /** The navbar and footer come from fragments/layout.html — their presence is the whole point. */
