@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Page not found — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <div class="p-4 mb-4 bg-white rounded-3 shadow-sm">
+        <p class="text-muted text-uppercase small mb-1">Error 404</p>
+        <h1 class="h3">That page doesn't exist</h1>
+        <p class="mb-0">
+          Nothing is published at
+          <!-- th:text escapes, so reflecting the request path here can't inject markup. -->
+          <code th:text="${path}">/somewhere</code>. It may have been renamed or removed — use the
+          menu above, or start again from the home page.
+        </p>
+      </div>
+
+      <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+    </main>
+  </body>
+</html>
