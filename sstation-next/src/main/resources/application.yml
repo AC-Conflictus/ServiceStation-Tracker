@@ -38,6 +38,17 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    mail:
+      # TC-115: off unless a real relay is configured.
+      #
+      # SSTATION_MAIL_HOST is deliberately allowed to be empty (email is log-only until AC IT
+      # supplies a relay). Spring still builds a JavaMailSender, because @ConditionalOnProperty
+      # treats a *present but empty* spring.mail.host as set — and this indicator then fails to
+      # connect and drags the whole /actuator/health response to DOWN. That makes the container's
+      # HEALTHCHECK never pass, so `docker compose up` sits at "starting" forever and any load
+      # balancer or orchestrator considers the app dead. Set to true once SMTP is real.
+      enabled: ${SSTATION_MAIL_HEALTH_ENABLED:false}
 
 ---
 # Production profile: real PostgreSQL, credentials from env vars (never committed). 🏫 AC IT
