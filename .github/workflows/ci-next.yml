@@ -75,6 +75,10 @@ jobs:
 
   image:
     name: Docker image (build + smoke test)
+    permissions:
+      contents: read
+      # Needed only by the GHCR push below, which is skipped on pull requests.
+      packages: write
     # Only worth building the image once the suite is green; a broken build
     # would fail here for reasons that have nothing to do with packaging.
     needs: check
@@ -122,3 +126,32 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+
+      # ---------------------------------------------------------------------
+      # Publish (TC-115). Only from main, and only after the smoke test above
+      # has passed — the point of a registry image is that TC-116's EC2 box can
+      # `docker pull` instead of compiling a Spring Boot app on 1 GiB of RAM, so
+      # nothing unverified should be pullable.
+      #
+      # Pull requests skip this: a fork's GITHUB_TOKEN cannot write packages,
+      # and an unmerged branch has no business publishing.
+      # ---------------------------------------------------------------------
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: sstation-next
+          push: true
+          # Fully cached by the build step above, so this re-runs in seconds.
+          cache-from: type=gha
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/sstation-next:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/sstation-next:latest
