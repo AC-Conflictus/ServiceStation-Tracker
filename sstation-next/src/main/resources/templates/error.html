@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Error — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <!--
+        TC-120: catch-all for any status without its own page under templates/error/. Spring Boot's
+        DefaultErrorViewResolver tries error/<status> first, so 403/404/500 never land here; this
+        exists so that a 405, 409 or 503 still renders inside the application shell rather than
+        falling through to the framework default.
+      -->
+      <div class="p-4 mb-4 bg-white rounded-3 shadow-sm">
+        <p class="text-muted text-uppercase small mb-1">
+          Error <span th:text="${status}">000</span>
+        </p>
+        <h1 class="h3" th:text="${error} ?: 'Something went wrong'">Something went wrong</h1>
+        <p class="mb-0">
+          The request to <code th:text="${path}">/somewhere</code> could not be completed. Use the
+          menu above, or start again from the home page.
+        </p>
+      </div>
+
+      <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+    </main>
+  </body>
+</html>

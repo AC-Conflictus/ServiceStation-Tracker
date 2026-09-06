@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Something went wrong — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <div class="p-4 mb-4 bg-white rounded-3 shadow-sm">
+        <p class="text-muted text-uppercase small mb-1">Error 500</p>
+        <h1 class="h3">Something went wrong on our end</h1>
+        <p>
+          The request to <code th:text="${path}">/somewhere</code> failed. This one is a fault in
+          the application, not something you did wrong.
+        </p>
+        <!--
+          Deliberately no exception message or stack trace: server.error.include-message and
+          include-stacktrace stay at their "never" defaults, so this page cannot leak internals.
+          The detail is in the application log, keyed by the path above (see GlobalErrorAdvice).
+        -->
+        <p class="mb-0 text-muted">
+          The details have been written to the server log. If it keeps happening, report it to the
+          Service Station office along with the address above and roughly when it occurred.
+        </p>
+      </div>
+
+      <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+    </main>
+  </body>
+</html>

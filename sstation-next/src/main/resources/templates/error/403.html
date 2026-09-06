@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Not permitted — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <div class="p-4 mb-4 bg-white rounded-3 shadow-sm">
+        <p class="text-muted text-uppercase small mb-1">Error 403</p>
+        <h1 class="h3">You don't have access to that page</h1>
+
+        <!--
+          TC-120: a 403 here is usually an ordinary role denial, not a fault — a student on a
+          bookmarked /admin URL, or a moderator on an ADMIN-only route. It reads as a permissions
+          message for that reason, and offers the account switch that actually resolves it.
+        -->
+        <p class="mb-0" sec:authorize="isAuthenticated()">
+          You're signed in as <strong sec:authentication="name">user</strong>, and that account
+          doesn't have the role this page requires. If you should have access, ask the Service
+          Station office to update your account — otherwise sign in with a different one.
+        </p>
+        <p class="mb-0" sec:authorize="!isAuthenticated()">
+          You aren't signed in, so this page isn't available. Sign in and try again.
+        </p>
+      </div>
+
+      <div class="d-flex gap-2">
+        <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+        <form th:action="@{/logout}" method="post" class="m-0" sec:authorize="isAuthenticated()">
+          <button class="btn btn-outline-secondary" type="submit">Sign out</button>
+        </form>
+        <a class="btn btn-outline-secondary" th:href="@{/login}" sec:authorize="!isAuthenticated()"
+          >Sign in</a
+        >
+      </div>
+    </main>
+  </body>
+</html>
