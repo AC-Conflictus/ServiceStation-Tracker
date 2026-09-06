@@ -58,8 +58,87 @@ docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 | `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials (AC IT) |
 | `SSTATION_MAIL_FROM` | All | From address; default `no-reply@austincollege.edu` |
 | `SSTATION_DEV_*_PASSWORD` | `dev` | Override seeded dev passwords |
+| `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` | bare `prod` | **Required on a first boot against an empty database** — creates the first administrator (TC-121). Minimum 8 characters. Ignored once any account exists. |
+| `SSTATION_BOOTSTRAP_ADMIN_USERNAME` | bare `prod` | Username for that account; default `admin` |
 
 Never commit real production secrets. Use a vault or AWS SSM on EC2.
+
+## First login on a new production database (TC-121)
+
+A bare `prod` boot **never seeds** — that is deliberate, and it means a brand-new database has
+**no accounts at all**. Without the two variables below you get a sign-in form that rejects
+every credential, which looks like a broken deployment rather than an empty one.
+
+> The `demo` profile does not have this problem, because `DemoAccountSeeder` creates accounts.
+> If you are running `prod,demo` for the showcase, skip this section.
+
+**1. Set the bootstrap variables before the first start:**
+
+```bash
+SSTATION_BOOTSTRAP_ADMIN_USERNAME=ac-it-admin      # optional, defaults to "admin"
+SSTATION_BOOTSTRAP_ADMIN_PASSWORD='<a strong one-time password>'
+```
+
+On startup you will see, at WARN level:
+
+```
+[bootstrap] created the first administrator 'ac-it-admin'. This password came from an
+environment variable and is single-use: you will be required to change it at first sign-in.
+```
+
+If instead you see `[bootstrap] this database has no user accounts and
+SSTATION_BOOTSTRAP_ADMIN_PASSWORD is not set, so nobody can sign in.` — that is this section
+telling you it was skipped.
+
+**2. Sign in and change the password.** The account is created flagged, so it is confined to
+`/change-password` until it has a password of its own. Re-entering the bootstrap password is
+refused; the whole point is retiring the value that lives in your deployment config. Changing it
+ends the session, so you sign in again with the new one.
+
+**3. Remove `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` from the deployment configuration.** It has done
+its job. Leaving it set is not dangerous — the runner is gated on the `users` table being empty,
+so it will never run again or resurrect a deleted admin — but there is no reason to keep a
+credential in a compose file or unit file.
+
+**4. Create the real accounts** from the admin UI (`/admin/students`, `/admin/moderators`).
+
+### Break-glass: creating an admin by SQL
+
+If the app is already running with accounts and you have locked yourself out, the bootstrap
+runner will not help — it only acts on an empty table. Insert directly instead, with a BCrypt
+hash you generate yourself:
+
+Generate a BCrypt hash. This one-liner needs nothing but Docker, which you already have:
+
+```bash
+docker run --rm httpd:2.4-alpine htpasswd -bnBC 10 "" '<new password>' \
+  | tr -d ':\n' | sed 's/^\$2y/\$2a/'
+```
+
+(If `htpasswd` is installed on the host, drop the `docker run --rm httpd:2.4-alpine` prefix. The
+`sed` rewrites Apache's `$2y` prefix to the `$2a` that Spring Security expects.)
+
+```sql
+INSERT INTO users (username, password, enabled, account_expired, account_locked,
+                   password_expired, must_change_password)
+VALUES ('recovery-admin', '{bcrypt}<hash from above>', TRUE, FALSE, FALSE, FALSE, TRUE);
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id FROM users u, roles r
+WHERE u.username = 'recovery-admin' AND r.authority = 'ROLE_ADMIN';
+```
+
+The `{bcrypt}` prefix is required — the app uses a delegating password encoder and reads the
+algorithm from it. Setting `must_change_password` to `TRUE` gives the same forced change as the
+bootstrap path.
+
+The second statement assumes `ROLE_ADMIN` already exists in `roles`, which it will on any
+database the app has created an account on. On a truly empty one, insert it first with
+`INSERT INTO roles (authority) VALUES ('ROLE_ADMIN');` — or just use the bootstrap variables
+above, which is what they are for.
+
+*Verified against PostgreSQL 16 on 2026-09-05: hash generated with the command above, both
+statements applied, and the resulting account signed in and was sent to `/change-password`.*
 
 ## AWS EC2 demo (TC-116 — outline)
 
