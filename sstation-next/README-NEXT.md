@@ -56,7 +56,8 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-119 — replaced Highcharts with **Chart.js 4.4.3 (MIT)**; no licensing question remains
 - [x] TC-120 — custom 403/404/500 + catch-all error pages inside the app shell; uncaught exceptions logged with their request path; JSON endpoints answer JSON on 401/403 instead of redirecting a `fetch` to the sign-in page
 - [x] TC-121 — day-one admin bootstrap for a bare `prod` boot, forced password change on that account, and the in-app password change the app previously lacked entirely
-- [ ] TC-115 / TC-116 — CI image build; AWS demo on EC2 + RDS
+- [x] TC-115 — CI builds the Docker image, runs it against Postgres and smoke-tests the running container, then publishes to GHCR from `main`
+- [ ] TC-116 — AWS demo on EC2 + RDS
 - [ ] TC-110 / TC-111 / TC-112 — DEPLOY.md for AWS, E2E suite + sign-off, decommission Grails
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.

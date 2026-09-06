@@ -44,6 +44,23 @@ docker build -t sstation-next:local .
 docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 ```
 
+## Pull a pre-built image (TC-115)
+
+CI builds the image on every change under `sstation-next/`, runs it against Postgres, smoke-tests
+the running container, and publishes it from `main`. On a small host (a t3.micro has 1 GiB of RAM)
+pull it rather than compiling a Spring Boot app locally:
+
+```bash
+docker pull ghcr.io/ac-conflictus/sstation-next:latest
+# or pin a commit
+docker pull ghcr.io/ac-conflictus/sstation-next:<git-sha>
+```
+
+To run that image with the compose stack instead of building, override the `app` service's image —
+`docker-compose.ci.yml` is a working example of exactly that override.
+
+The published image is only ever one that passed the smoke test: the publish step runs after it.
+
 ## Environment variables
 
 | Variable | Used when | Purpose |
@@ -56,6 +73,7 @@ docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 | `SSTATION_MAIL_HOST` | `prod` | SMTP host; leave empty for log-only notifications |
 | `SSTATION_MAIL_PORT` | `prod` | Default `587` |
 | `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials (AC IT) |
+| `SSTATION_MAIL_HEALTH_ENABLED` | `prod` | Default `false`. Leave off until SMTP is real — the mail health check fails against an empty host and takes `/actuator/health` DOWN, which stops the container ever reporting healthy (TC-115). Set `true` once a relay is configured. |
 | `SSTATION_MAIL_FROM` | All | From address; default `no-reply@austincollege.edu` |
 | `SSTATION_DEV_*_PASSWORD` | `dev` | Override seeded dev passwords |
 | `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` | bare `prod` | **Required on a first boot against an empty database** — creates the first administrator (TC-121). Minimum 8 characters. Ignored once any account exists. |

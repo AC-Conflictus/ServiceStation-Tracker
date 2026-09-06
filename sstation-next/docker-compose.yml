@@ -30,7 +30,10 @@ services:
       SSTATION_DEMO_ADMIN_PASSWORD: ${SSTATION_DEMO_ADMIN_PASSWORD:-changeme-demo-admin}
       SSTATION_DEMO_STUDENT_PASSWORD: ${SSTATION_DEMO_STUDENT_PASSWORD:-changeme-demo-student}
       SSTATION_DEMO_MODERATOR_PASSWORD: ${SSTATION_DEMO_MODERATOR_PASSWORD:-changeme-demo-moderator}
-      # Empty host keeps JavaMailSender off (notifications log-only until SMTP is configured).
+      # Notifications are log-only until SMTP is configured. Note this does NOT switch
+      # JavaMailSender off — a present-but-empty spring.mail.host still builds one (TC-115).
+      # NotificationService checks the host string, and the mail health indicator is disabled
+      # by default so an unreachable relay can't hold /actuator/health DOWN.
       SSTATION_MAIL_HOST: ""
     depends_on:
       db:

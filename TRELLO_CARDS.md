@@ -597,15 +597,23 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Depends on:** TC-104 ✅, TC-105 ✅ (demo data shapes).
 - **Estimate:** S–M.
 
-### TC-115 ☁️ CI — build and verify Docker image
-- **Status:** 🔲 **Next** — optional GHCR push can land in same card or a follow-up.
-- **Why:** Proves the Dockerfile stays valid on every PR; EC2 can `docker pull` a pre-built image instead of compiling on a 1 GiB instance.
+### TC-115 ☁️ CI — build and verify Docker image ✅ landed 2026-09-06
+- **Status:** ✅ **Done.** `ci-next.yml` gains an `image` job that builds the container, **runs it**, smoke-tests it, and publishes to GHCR from `main`. Landed in four slices on `feat/tc-115-ci-docker-image`.
+- **Why:** Proves the Dockerfile stays valid on every PR, and gives **TC-116** an image its t3.micro can `docker pull` instead of compiling a Spring Boot app on 1 GiB of RAM.
 - **Acceptance criteria:**
-  - [.github/workflows/ci-next.yml](.github/workflows/ci-next.yml) adds a job (or step): `docker build -f sstation-next/Dockerfile sstation-next` on PR/push to `sstation-next/**`.
-  - Job runs after `./gradlew check` passes (or as a dependent job).
-  - Optional: push to `ghcr.io/<org>/sstation-next:<sha>` on `main` tags; document pull command in **TC-110**.
-- **Depends on:** TC-113, TC-102 ✅.
-- **Estimate:** S.
+  - ✅ CI builds the image on PR/push under `sstation-next/**`, with a `type=gha` layer cache (the Dockerfile runs a full Gradle build, so an uncached image costs minutes).
+  - ✅ Runs as a separate job with `needs: check` — a broken suite fails there, not here.
+  - ✅ **Publishes `ghcr.io/<owner>/sstation-next:{sha,latest}`** on pushes to `main`, after the smoke test, so nothing unverified is ever pullable. Pull requests skip it (a fork's `GITHUB_TOKEN` cannot write packages). Pull command documented in [DEPLOY.md](DEPLOY.md).
+- **Scope grew one step, deliberately: the card said "build and verify" and a `docker build` verifies nothing but syntax.** The job brings up the real [docker-compose.yml](sstation-next/docker-compose.yml) through a [docker-compose.ci.yml](sstation-next/docker-compose.ci.yml) override and runs [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh): the image's own HEALTHCHECK (what `depends_on` and any load balancer key off), `/actuator/health` from outside the container, `/login` rendering, a **demo-admin sign-in**, and that **`admin_secret` is still rejected** (TC-114's guarantee, worth pinning when a public host is the target). Using the real compose file means its env wiring and `depends_on` are under test too, not just the Dockerfile.
+- **⚠️ And it immediately earned that scope — it found a release-blocking bug.** The image built perfectly and **never became healthy**: `/actuator/health` returned `503 DOWN` forever, so the HEALTHCHECK never passed, `docker compose up` sat at `starting`, and any orchestrator or load balancer would have called the app dead. **TC-116 would have shipped an EC2 demo that looked broken.**
+  - **Cause:** a wrong assumption this repo had documented for months. CLAUDE.md said `JavaMailSender` is "never auto-configured" when `SSTATION_MAIL_HOST` is empty. It is. Under `prod`, `spring.mail.host` binds to `${SSTATION_MAIL_HOST:}` and is therefore **present but empty** — and `@ConditionalOnProperty` counts present-but-empty as **set**. So Spring builds a mail sender pointed at nowhere, and `MailHealthIndicator` drags the whole health response down trying to reach it.
+  - **Second consequence, worse than noise:** `NotificationService` decided "log-only" by checking whether the bean existed. Under `prod` it always did — so **every approve/reject and password-reset opened a doomed SMTP connection** instead of logging. It was caught and swallowed, so entirely silent, but it was never the no-op the docs promised.
+  - **Fix:** `NotificationService` checks the host string; `management.health.mail.enabled` defaults to `false` with `SSTATION_MAIL_HEALTH_ENABLED` to turn it back on once SMTP is real. Regression tests cover both send paths with an empty and a whitespace host.
+- **Verified locally end to end** before it ever ran in CI: cold `docker compose up` reaches healthy in **10s** and all six smoke checks pass; stopping the app container makes the script exit 1 with the reason and dump logs. Suite **152 → 154 tests, 0 skipped**.
+- **One step is unverifiable until merge:** the GHCR push does not run on pull requests, so if the org restricts package writes it will fail on the first push to `main` and need a permissions change rather than a code change.
+- **Notes / files touched:** [ci-next.yml](.github/workflows/ci-next.yml), [docker-compose.ci.yml](sstation-next/docker-compose.ci.yml) + [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh) (new), `application.yml`, `NotificationService`, `NotificationServiceTest`, `docker-compose.yml` (stale comment), [DEPLOY.md](DEPLOY.md), CLAUDE.md.
+- **Depends on:** TC-113 ✅, TC-102 ✅.
+- **Estimate:** S. *(Actual: S–M — the health bug was not in the scoping.)*
 
 ### TC-116 ☁️ AWS public demo — EC2 t3.micro + RDS Postgres
 - **Status:** 🔲 **Next** — **team choice:** EC2 t3.micro (this card) instead of App Runner in [TC-109](#tc-109-). TC-109 remains a documented **alternate** if ops preference changes.
@@ -784,7 +792,7 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
-5. **Docker + AWS demo (current sprint):** TC-113 → TC-114 → TC-110 (DEPLOY.md) → TC-115 → TC-116 → TC-117. See **Build readiness** above.
+5. **Docker + AWS demo (current sprint):** ~~TC-113~~ ✅ → ~~TC-114~~ ✅ → TC-110 (DEPLOY.md) → ~~TC-115~~ ✅ **done 2026-09-06** → **TC-116** → TC-117. See **Build readiness** above.
 6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → ~~TC-118~~ ✅ **done 2026-09-04** (Postgres tests actually run; skips now fail the build) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → ~~TC-120~~ ✅ **done 2026-09-05** (error pages) → ~~TC-121~~ ✅ **done 2026-09-05** (day-one admin bootstrap) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
 7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.
