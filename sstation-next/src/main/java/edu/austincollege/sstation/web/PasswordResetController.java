@@ -1,5 +1,6 @@
 package edu.austincollege.sstation.web;
 
+import edu.austincollege.sstation.service.PasswordPolicy;
 import edu.austincollege.sstation.service.PasswordResetService;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -46,6 +47,7 @@ public class PasswordResetController {
   @GetMapping("/reset-password")
   public String resetForm(@RequestParam(required = false) String token, Model model) {
     model.addAttribute("token", token);
+    model.addAttribute("minLength", PasswordPolicy.MIN_LENGTH);
     return "reset-password";
   }
 
@@ -55,7 +57,9 @@ public class PasswordResetController {
     if (service.reset(token, password)) {
       return "redirect:/login?reset";
     }
-    flash.addFlashAttribute("error", "That reset link is invalid or has expired.");
+    flash.addFlashAttribute(
+        "error",
+        PasswordPolicy.validate(password).orElse("That reset link is invalid or has expired."));
     return "redirect:/reset-password?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
   }
 }

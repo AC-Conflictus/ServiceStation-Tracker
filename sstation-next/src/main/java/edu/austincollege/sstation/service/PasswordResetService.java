@@ -68,7 +68,13 @@ public class PasswordResetService {
    */
   @Transactional
   public boolean reset(String rawToken, String newPassword) {
-    if (rawToken == null || rawToken.isBlank() || newPassword == null || newPassword.isBlank()) {
+    if (rawToken == null || rawToken.isBlank()) {
+      return false;
+    }
+    // TC-121: the only length rule used to be minlength="6" on the form — HTML validation, which
+    // any client that isn't a cooperating browser ignores. Checked server-side now, via the same
+    // policy the change-password flow uses.
+    if (PasswordPolicy.validate(newPassword).isPresent()) {
       return false;
     }
     return tokens

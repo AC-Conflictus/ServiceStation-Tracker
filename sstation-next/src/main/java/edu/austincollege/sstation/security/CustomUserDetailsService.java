@@ -39,14 +39,16 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     // The authorities already carry the ROLE_ prefix (e.g. ROLE_ADMIN), so hasRole('ADMIN')
     // resolves correctly without further mangling.
-    return org.springframework.security.core.userdetails.User.builder()
-        .username(user.getUsername())
-        .password(user.getPassword())
-        .authorities(authorities)
-        .disabled(!user.isEnabled())
-        .accountExpired(user.isAccountExpired())
-        .accountLocked(user.isAccountLocked())
-        .credentialsExpired(user.isPasswordExpired())
-        .build();
+    //
+    // The flag arguments are inverted ("non-expired"), so each is negated exactly once here.
+    return new SstationUserDetails(
+        user.getUsername(),
+        user.getPassword(),
+        user.isEnabled(),
+        !user.isAccountExpired(),
+        !user.isPasswordExpired(),
+        !user.isAccountLocked(),
+        authorities,
+        user.isMustChangePassword());
   }
 }

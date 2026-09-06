@@ -79,8 +79,12 @@ class ProdProfileMigrationIntegrationTest {
   @Test
   void bareProdSeedsNothing() {
     // DevDataSeeder is @Profile("dev") and DemoAccountSeeder/DemoDataSeeder are @Profile("demo"),
-    // so none of them are active here. No migration inserts rows either. An empty database is the
-    // correct handoff state — if this ever fails, a seeder has leaked into production.
+    // so none of them are active here. No migration inserts rows either.
+    //
+    // BootstrapAdminSeeder *is* active under bare prod (TC-121), but declines without
+    // SSTATION_BOOTSTRAP_ADMIN_PASSWORD, which this test deliberately does not set — so this also
+    // pins the "warn, don't create" branch. BootstrapAdminIntegrationTest covers the other side.
+    // If this ever fails, a seeder has started creating accounts it shouldn't.
     assertThat(users.count()).isZero();
     assertThat(roles.count()).isZero();
     assertThat(students.count()).isZero();

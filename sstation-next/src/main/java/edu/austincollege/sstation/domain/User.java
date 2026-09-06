@@ -52,6 +52,17 @@ public class User {
   @Column(name = "password_expired", nullable = false)
   private boolean passwordExpired = false;
 
+  /**
+   * TC-121: forces the holder onto {@code /change-password} before they can use anything else.
+   *
+   * <p>Distinct from {@link #passwordExpired}, which maps to Spring Security's {@code
+   * credentialsExpired} and fails authentication outright. This one lets the user in and then
+   * corners them, which is the only workable behaviour for an account whose password arrived in an
+   * environment variable.
+   */
+  @Column(name = "must_change_password", nullable = false)
+  private boolean mustChangePassword = false;
+
   /** The real FK that the Grails app lacked (TC-009). Null for non-student accounts. */
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "student_id")
@@ -114,6 +125,14 @@ public class User {
 
   public void setPasswordExpired(boolean passwordExpired) {
     this.passwordExpired = passwordExpired;
+  }
+
+  public boolean isMustChangePassword() {
+    return mustChangePassword;
+  }
+
+  public void setMustChangePassword(boolean mustChangePassword) {
+    this.mustChangePassword = mustChangePassword;
   }
 
   public Student getStudent() {

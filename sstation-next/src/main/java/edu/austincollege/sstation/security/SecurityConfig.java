@@ -19,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.access.RequestMatcherDelegatingAccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.DelegatingAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -89,6 +90,10 @@ public class SecurityConfig {
                     .invalidateHttpSession(true)
                     .deleteCookies("JSESSIONID")
                     .permitAll())
+        // TC-121: an account whose password came from an environment variable is confined to
+        // /change-password until it has one of its own. Placed after AuthorizationFilter so the
+        // SecurityContext is populated and normal authorization has already had its say.
+        .addFilterAfter(new MustChangePasswordFilter(), AuthorizationFilter.class)
         // TC-120: answer API callers in their own content type.
         //
         // The quick approve/reject fetch on the hours page posts to a JSON endpoint. Without this,

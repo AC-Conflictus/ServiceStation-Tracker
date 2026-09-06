@@ -23,6 +23,9 @@
               <div th:if="${param.reset}" class="alert alert-success py-2">
                 Your password has been reset. Please sign in.
               </div>
+              <div th:if="${param.changed}" class="alert alert-success py-2">
+                Your password has been changed. Sign in again with your new password.
+              </div>
 
               <form th:action="@{/login}" method="post">
                 <div class="mb-3">

@@ -82,8 +82,8 @@ class PasswordResetServiceTest {
   @Test
   void resetIsRejectedForReusedToken() {
     String raw = captureRawToken();
-    assertThat(service.reset(raw, "first")).isTrue();
-    assertThat(service.reset(raw, "second")).isFalse(); // single-use
+    assertThat(service.reset(raw, "first_new_password")).isTrue();
+    assertThat(service.reset(raw, "second_new_password")).isFalse(); // single-use
   }
 
   @Test
@@ -128,5 +128,16 @@ class PasswordResetServiceTest {
     s.setStatus('A');
     s.setIsModerator(false);
     return s;
+  }
+
+  @Test
+  void resetRejectsAPasswordShorterThanThePolicyAllows() {
+    String raw = captureRawToken();
+
+    // TC-121: the form's minlength attribute is not a control — anything that isn't a cooperating
+    // browser skips it. A short password must be refused here, and the token must survive so the
+    // user can try again.
+    assertThat(service.reset(raw, "short")).isFalse();
+    assertThat(service.reset(raw, "a_long_enough_password")).isTrue();
   }
 }
