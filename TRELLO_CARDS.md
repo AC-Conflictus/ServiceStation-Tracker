@@ -615,8 +615,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Depends on:** TC-113 ✅, TC-102 ✅.
 - **Estimate:** S. *(Actual: S–M — the health bug was not in the scoping.)*
 
-### TC-116 ☁️ AWS public demo — EC2 t3.micro + RDS Postgres
-- **Status:** 🔲 **Next** — **team choice:** EC2 t3.micro (this card) instead of App Runner in [TC-109](#tc-109-). TC-109 remains a documented **alternate** if ops preference changes.
+### TC-116 ☁️ AWS public demo — EC2 t3.micro + RDS Postgres — ⏸️ **superseded by [TC-122](#tc-122-) (Vercel), 2026-09-07**
+- **Status:** ⏸️ **Not doing — superseded 2026-09-07.** The team chose **Vercel** instead; see **[TC-122](#tc-122-)**. Kept on the board as a documented alternate (same as [TC-109](#tc-109-)) because the topology, security groups and cost notes below stay accurate if AWS is ever revisited. **Do not start this card.**
 - **Why:** Click-through demo for AC reviewers without a local JDK 21 / Grails install. EC2 t3.micro is free-tier-friendly; pairing with RDS avoids OOM on 1 GiB RAM when running Postgres + Spring Boot on one box.
 - **Acceptance criteria:**
   - **Recommended topology:** `t3.micro` EC2 (Amazon Linux 2023) runs Docker app container only; `db.t4g.micro` RDS Postgres 16 in same VPC; RDS SG allows 5432 **only** from EC2 SG; EC2 SG allows 443 (and 22 from operator IP only).
@@ -630,6 +630,31 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Does not replace:** AC IT production deploy (🏫 SMTP, real admin provisioning, hardening) — showcase only, same spirit as [TC-032](#tc-032-).
 - **Depends on:** TC-113, TC-114, TC-110 (draft OK in parallel).
 - **Estimate:** L.
+
+### TC-122 ☁️ Public demo on Vercel (replaces the AWS plan)
+- **Status:** 🔲 **Next.** Platform decision made **2026-09-07** — deploy the demo to **Vercel** rather than EC2 + RDS. [TC-116](#tc-116-) is retired to "documented alternate".
+- **Why the switch is viable at all:** Vercel used to be Node/Python/Go functions only, which a Spring Boot app could not use. It now runs **arbitrary OCI container images as Vercel Functions on Fluid compute** — you add a `Dockerfile.vercel`, it builds on every push, stores the image in the Vercel Container Registry and serves it. So the container work already done in **TC-113** and **TC-115** carries over almost unchanged; this is a hosting swap, not a re-architecture.
+- **Why it is a better fit than TC-116 for this project:** no VPC, no security groups, no TLS to terminate by hand, no separate RDS to provision and pay for, and **1 vCPU / 2 GB** on the standard instance — which is *more* memory than the t3.micro the AWS card was trying to squeeze a JVM and Postgres onto. It also scales to zero, so an idle demo costs nothing.
+
+- **⚠️ Three things that are real work, not configuration.** These are the reason this is not a same-afternoon card:
+  1. **HTTP sessions must move out of instance memory.** This app is entirely session-based (Spring Security form login), and sessions are currently plain in-memory Tomcat sessions. Vercel's own guidance for Fluid compute is explicit that shared state belongs in an external store because *any* instance may serve a given request and instances are paused between work. With more than one instance live, a signed-in user gets bounced to the login page at random — the kind of bug that looks like flakiness and wastes a day. **Fix: `spring-session-jdbc`**, storing sessions in the Postgres we already have. Small dependency, one migration, no application-code change.
+  2. **The port is hardcoded.** `application.yml` pins `server.port: 8080`; Vercel expects the server to listen on `$PORT`. Change to `${PORT:8080}` so local and container behaviour are unchanged.
+  3. **A `Dockerfile.vercel` at the repo root.** Our existing `Dockerfile` lives in `sstation-next/` and is the multi-stage build we already smoke-test in CI. Either add a thin root-level `Dockerfile.vercel` or use `vercel.json` `services` with `root: sstation-next/` and `entrypoint`. Prefer the latter — it avoids a second Dockerfile drifting from the tested one.
+
+- **Acceptance criteria:**
+  - Sessions survive an instance change (`spring-session-jdbc` + Flyway `V6`), verified by signing in and exercising the app across enough requests to hit more than one instance.
+  - `server.port` honours `$PORT`.
+  - Vercel project linked to this repo; container build green on push.
+  - Postgres provisioned — **Neon via the Vercel Marketplace** is the path of least resistance and keeps the database next to the compute. `SSTATION_DB_*` point at it.
+  - `SPRING_PROFILES_ACTIVE=prod,demo` with real `SSTATION_DEMO_*_PASSWORD` values set as Vercel environment variables (never committed — the [TC-114](#tc-114-) guarantee still applies, and CI still asserts `admin_secret` is rejected).
+  - Flyway runs cleanly on the first boot against the empty Neon database. Note Flyway takes a lock, so concurrent instances starting at once is safe.
+  - **Cold start is documented, not discovered.** Production instances scale down after **5 minutes** with no traffic; the next visitor pays a full Spring Boot boot. Measure it and put the number in the README next to the demo link so a reviewer clicking a stale link doesn't think it's broken.
+  - Smoke test equivalent to [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh) run against the deployed URL: dashboard KPIs non-zero, student login lands on a populated dashboard, one report renders.
+  - README "Live demo" link updated.
+- **Known limitations to record for AC IT:** Static IPs and Secure Compute are **not** supported for container-image functions, so this is unsuitable if AC IT ever needs IP allowlisting to reach an internal SMTP relay or database. That is a constraint on the *demo*, not on the production deploy, which stays AC IT's own infrastructure.
+- **Does not replace:** AC IT's production deploy (🏫 SMTP, real admin provisioning, hardening) — showcase only, same spirit as [TC-116](#tc-116-) before it.
+- **Depends on:** TC-113 ✅, TC-115 ✅. Needs a **Vercel account** and a Postgres, both of which are the user's to provision.
+- **Estimate:** M.
 
 ### TC-117 📝 README + Trello hygiene after Docker/EC2
 - **Status:** 🔲 **After TC-116**.
@@ -792,7 +817,7 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
-5. **Docker + AWS demo (current sprint):** ~~TC-113~~ ✅ → ~~TC-114~~ ✅ → TC-110 (DEPLOY.md) → ~~TC-115~~ ✅ **done 2026-09-06** → **TC-116** → TC-117. See **Build readiness** above.
+5. **Docker + AWS demo (current sprint):** ~~TC-113~~ ✅ → ~~TC-114~~ ✅ → TC-110 (DEPLOY.md) → ~~TC-115~~ ✅ **done 2026-09-06** → ~~TC-116~~ ⏸️ **superseded** → **TC-122 (Vercel)** → TC-117. See **Build readiness** above.
 6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → ~~TC-118~~ ✅ **done 2026-09-04** (Postgres tests actually run; skips now fail the build) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → ~~TC-120~~ ✅ **done 2026-09-05** (error pages) → ~~TC-121~~ ✅ **done 2026-09-05** (day-one admin bootstrap) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
 7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.

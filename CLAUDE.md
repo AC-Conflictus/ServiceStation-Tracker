@@ -86,7 +86,7 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 - **TC-115** — **CI builds the container image and proves it runs.** `ci-next.yml` gains an `image` job (needs `check`) that builds with a `type=gha` layer cache, brings up the real `docker-compose.yml` via a `docker-compose.ci.yml` override, and runs [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh) — the image's own HEALTHCHECK, `/actuator/health`, `/login`, a demo-admin sign-in, and that `admin_secret` is still rejected. On pushes to `main` it publishes `ghcr.io/<owner>/sstation-next:{sha,latest}` so TC-116's t3.micro can pull rather than compile.
 
 ### Still to do in the rewrite
-- **TC-116** — AWS public demo on EC2 t3.micro + RDS (supersedes the App Runner plan in TC-109). The image is already built, smoke-tested and published by CI (TC-115).
+- **TC-122** — **public demo on Vercel** (decided 2026-09-07; supersedes the AWS plan in TC-116, which supersedes App Runner in TC-109). Vercel now runs OCI container images as Functions on Fluid compute, so the TC-113/TC-115 container work carries over — this is a hosting swap, not a re-architecture. **Three things are real work, not config:** HTTP sessions must move to `spring-session-jdbc` (they are in-memory Tomcat sessions today, and Fluid compute may serve a request from any instance — otherwise signed-in users get bounced to the login page at random); `server.port` is hardcoded to `8080` and must honour `$PORT`; and a `Dockerfile.vercel` / `vercel.json` `services` entrypoint is needed pointing at the existing tested Dockerfile.
 - **TC-110 / TC-111 / TC-112** — finish DEPLOY.md for AWS, E2E acceptance suite + stakeholder sign-off, decommission the Grails app.
 
 ### Rewrite gotchas to internalize
@@ -232,7 +232,7 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-120 error pages (403/404/500 + catch-all, JSON stays JSON) ✅ — landed 2026-09-05
 - TC-121 day-one admin bootstrap + in-app password change ✅ — landed 2026-09-05
 - TC-115 CI Docker image build + container smoke test + GHCR publish ✅ — landed 2026-09-06
-- **Next:** TC-116 (AWS demo) → TC-110 → TC-111 → TC-112.
+- **Next:** TC-122 (Vercel demo — TC-116/AWS retired to documented alternate) → TC-110 → TC-111 → TC-112.
 
 ## Pointers for working in this repo
 

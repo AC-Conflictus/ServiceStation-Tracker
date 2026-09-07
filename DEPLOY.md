@@ -158,7 +158,43 @@ above, which is what they are for.
 *Verified against PostgreSQL 16 on 2026-09-05: hash generated with the command above, both
 statements applied, and the resulting account signed in and was sent to `/change-password`.*
 
-## AWS EC2 demo (TC-116 — outline)
+## Public demo — Vercel (TC-122)
+
+**Decided 2026-09-07: the public demo goes to Vercel, not AWS.** The AWS EC2 + RDS outline below is
+kept as a documented alternate and is **not** the current plan.
+
+Vercel runs [OCI container images as Functions on Fluid compute](https://vercel.com/docs/functions/container-images),
+so the image CI already builds and smoke-tests (TC-115) is what gets deployed — this is a hosting
+swap, not a re-architecture. Compared with the EC2 plan it drops the VPC, security groups, manual
+TLS and a separately-billed RDS instance, and gives the JVM **1 vCPU / 2 GB** instead of a
+t3.micro's 1 GB.
+
+**Not yet implemented — see [TC-122](TRELLO_CARDS.md) for the full card.** Three items are real
+work rather than configuration, and the first one bites silently:
+
+1. **Sessions must leave instance memory.** This app is session-based (Spring Security form login)
+   and currently uses in-memory Tomcat sessions. On Fluid compute any instance may serve any
+   request, so with more than one instance live a signed-in user is randomly returned to the login
+   page. Fix is `spring-session-jdbc` against the Postgres we already use.
+2. **`server.port` is hardcoded to `8080`** and must become `${PORT:8080}`; Vercel routes to
+   `$PORT`.
+3. **A `Dockerfile.vercel` or `vercel.json` `services` entrypoint** pointing at
+   `sstation-next/Dockerfile`, so there is no second Dockerfile to drift from the tested one.
+
+Other things worth knowing before relying on it:
+
+- **Scale to zero.** Production instances shut down after 5 minutes without traffic, so the next
+  visitor pays a full Spring Boot cold start. Fine for a demo; measure it and put the number next
+  to the demo link.
+- **No Static IPs or Secure Compute** for container-image functions. Irrelevant for a public demo,
+  but it rules Vercel out if AC IT ever needs IP allowlisting to reach an internal SMTP relay or
+  database.
+- **Database:** Neon Postgres via the Vercel Marketplace keeps the data next to the compute. Point
+  `SSTATION_DB_URL` / `_USER` / `_PASSWORD` at it.
+- **Demo passwords** go in Vercel environment variables, never the repo. `DemoAccountSeeder` still
+  refuses to start without them (TC-114).
+
+## AWS EC2 demo (TC-116 — ⏸️ superseded, kept as a documented alternate)
 
 **Recommended:** `t3.micro` EC2 (app container only) + `db.t4g.micro` RDS Postgres 16 in the same VPC.
 
