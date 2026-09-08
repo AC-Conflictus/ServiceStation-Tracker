@@ -16,6 +16,8 @@
 > [TC-122](#public-demo--vercel-tc-122) (`spring-session-jdbc`) is a constraint of the Vercel
 > showcase, **not** something AC IT's deployment needs.
 
+Spring Boot 3 / Java 21 rewrite. For local JDK development see [demo.md](demo.md).
+
 ## Prerequisites
 
 What the host running the app needs:
@@ -43,8 +45,6 @@ Three ways to run it — pick whatever matches AC IT's existing setup; each link
 - **Behind an existing reverse proxy** — any of the above, with TLS terminated at the
   nginx/Apache/IIS and the standard `X-Forwarded-*` headers set
   ([Reverse proxy and TLS termination](#reverse-proxy-and-tls-termination)).
-
-Spring Boot 3 / Java 21 rewrite. For local JDK development see [demo.md](demo.md).
 
 ## Docker quick start (TC-113)
 
