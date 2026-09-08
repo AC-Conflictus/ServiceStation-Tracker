@@ -701,25 +701,27 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Superseded for current sprint by:** [TC-116](#tc-116-) unless team prefers managed TLS via App Runner.
 - **Estimate:** M.
 
-### TC-110 📝 🏫 Self-hosting runbook for AC IT — **the primary handoff artifact**
-- **Status:** 🔲 **Now the highest-value remaining card.** Reprioritised 2026-09-07 when the deployment goal was clarified.
+### TC-110 📝 🏫 Self-hosting runbook for AC IT — **the primary handoff artifact** ✅ landed 2026-09-08
+- **Status:** ✅ **Done.** Landed in five slices on `feat/tc-110-self-hosting-runbook`. DEPLOY.md is now a runbook an AC IT admin with no Spring Boot context can follow on their own infrastructure — and writing it found and fixed a real deployment bug.
 - **Why:** **We are not operating this application.** The goal was clarified 2026-09-07: nobody is standing up a service that all of Austin College then uses. AC IT will **host it on their own servers**; everything we deploy is a demo that exists to show them it works and to get sign-off. That makes this card — the instructions AC IT follows on their own infrastructure — **the actual deliverable of the whole rewrite.** The hosted demo ([TC-122](#tc-122-)) is a sales tool for it, not the product.
-- **Also why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needs a full rewrite of its own.
+- **Also why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needed a full rewrite of its own.
 - **Acceptance criteria:**
-  - Prerequisites: JDK 21 (or just "the Dockerfile, if you do Docker"), PostgreSQL 13+, SMTP relay.
-  - Build: `./gradlew bootJar` or pull pre-built image from GHCR (**TC-115**).
-  - **Docker:** `docker compose up` local smoke test (**TC-113**).
-  - **Their infrastructure, not ours.** The runbook must work for a plain VM with Docker, a VM without Docker (`java -jar`), and behind whatever reverse proxy AC IT already runs. No cloud-provider-specific instructions in the main path — the retired AWS notes in [TC-116](#tc-116-) stay an appendix at most.
-  - **A single container is a valid deployment.** For an office this size one instance is the expected shape, which means in-memory sessions are fine for them and `spring-session-jdbc` (needed for [TC-122](#tc-122-) because Vercel scales horizontally) is optional here. Say so, or they will think it is required.
-  - **First login** — already written (TC-121), keep it prominent; it is the step that most obviously blocks them.
-  - **Backups and upgrades:** where the data lives, how to dump/restore Postgres, and what happens on the next image (Flyway migrates forward on boot).
-  - Same env var names as the Grails version where possible (`SSTATION_DB_URL`, `SSTATION_MAIL_HOST`, etc.) so AC IT's secrets manager doesn't need rework.
-  - Migration story: Flyway auto-runs on boot.
-  - Demo profile / passwords (**TC-114**); never use dev defaults on a public host.
-  - 🏫 same placeholder set as TC-035.
-  - Old `DEPLOY.md` retained as `DEPLOY-legacy.md` for one release, then removed.
-- **Depends on:** TC-113 (draft sections can start in parallel).
-- **Estimate:** M.
+  - ✅ Prerequisites: JDK 21 (or just Docker), PostgreSQL 13+, optional SMTP relay — a new section at the top of DEPLOY.md.
+  - ✅ Build: `./gradlew bootJar` OR the pre-built GHCR image (**TC-115**) — both documented, both verified.
+  - ✅ **Docker:** `docker compose up` local smoke path (**TC-113**) — re-verified via [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh) against a locally-built image.
+  - ✅ **Their infrastructure, not ours.** Plain VM with Docker, plain VM without Docker (`java -jar`), and behind whatever reverse proxy AC IT already runs — a nginx example with Apache/IIS equivalents named. No cloud-provider-specific instructions in the main path; the retired AWS notes ([TC-116](#tc-116-)) are a clearly-labelled appendix.
+  - ✅ **A single container is a valid deployment** — stated prominently up front. In-memory sessions are fine; `spring-session-jdbc` (needed for [TC-122](#tc-122-)) is a Vercel constraint, not something AC IT has to set up.
+  - ✅ **First login** (TC-121) stays prominent, untouched, right after the install steps.
+  - ✅ **Backups and upgrades:** where the data lives (`sstation_pg` volume), a `pg_dump`/`psql` walkthrough for the compose stack and external hosts, and the upgrade story (pull + restart, Flyway auto-migrates on boot, honest single-container restart downtime).
+  - ✅ Same env var names as the Grails version — matched, with the two differences written down: `SSTATION_MAIL_USER` (was `SSTATION_MAIL_USERNAME`) and no `SSTATION_SERVER_URL` (the app derives its public URL from the request).
+  - ✅ Migration story: Flyway auto-runs on boot, stated in the upgrades section.
+  - ✅ Demo profile / passwords (**TC-114**): dev defaults never on a public host — a bolded warning, not buried in a table.
+  - ✅ 🏫 same placeholder set as TC-035 (DB host/creds, SMTP relay creds, server URL/hostname, TLS termination). DEPLOY.md went from **zero 🏫 markers to the full set**.
+  - ✅ Old `DEPLOY.md` retained as `DEPLOY-legacy.md` — **N/A.** `git log --follow -- DEPLOY.md` shows the file was written fresh for the rewrite (first committed with the Docker packaging work, `ac8913f`); there was never a Grails-era DEPLOY.md in this repo, so there is nothing to preserve.
+- **Found and fixed on the way — the reverse-proxy investigation (TC-110b) found a real bug:** `PasswordResetController` builds the reset link from `ServletUriComponentsBuilder.fromCurrentContextPath()`, which reads raw `request.getScheme()/getServerName()/getServerPort()`. Spring Boot's `server.forward-headers-strategy` defaults to `NONE`, so behind a TLS-terminating proxy every reset link was emailed as `http://…` — unusable from outside the network. Verified against the spring-webmvc 6.1.14 bytecode rather than assumed. Fixed with `server.forward-headers-strategy: framework` in the `prod` profile (registers Spring's `ForwardedHeaderFilter` at order MIN_VALUE), a focused test in `PasswordResetControllerTest`, and a live container check: with `X-Forwarded-Proto: https` / `-Host` the logged link is `https://service-station.austincollege.edu/…`; without the headers it stays `http://localhost:8080/…`, proving the filter is inert on direct connections.
+- **Verified:** `./gradlew check` green — **155 tests, 0 skipped** — plus a locally-built image passing [scripts/smoke-container.sh](sstation-next/scripts/smoke-container.sh) and the manual forwarded-header curl exercised both ways against the running container.
+- **Notes / files touched:** [DEPLOY.md](DEPLOY.md) (restructured), [application.yml](sstation-next/src/main/resources/application.yml) (TC-110b), [PasswordResetControllerTest.java](sstation-next/src/test/java/edu/austincollege/sstation/web/PasswordResetControllerTest.java) (TC-110b), [.env.example](sstation-next/.env.example), [README-NEXT.md](sstation-next/README-NEXT.md), this card, CLAUDE.md.
+- **Estimate:** M. *(Actual: M — the forward-headers fix was most of it.)*
 
 ### TC-111 🧹 End-to-end acceptance suite + stakeholder sign-off (was: "parity test against the old app")
 - **Status:** 🔲 **Rescoped 2026-09-02.** The original card asked for a side-by-side HTML diff against the Grails app. **That is no longer achievable and should not be attempted:** TC-107 restyled every page to Bootstrap 5, and TC-108 added seven flows the Grails app never had (email notifications, bulk approve, CSV, PDF, date-range filter, event sign-up, password reset). There is no longer a comparable page to diff. Parity is now established by *feature coverage*, not by rendered output.
@@ -829,7 +831,7 @@ With the Summer 2026 timeline and the Lane 7 rewrite in scope, the plan **forks*
 
 ### Phase 1A — If AC IT says "rewrite" (Lane 7 path, ~10 weeks)
 4. **Lane 7 core (done):** TC-101 → TC-102 → TC-103 → TC-104 → TC-105 → TC-106 → TC-107 ✅.
-5. **Docker + AWS demo (current sprint):** ~~TC-113~~ ✅ → ~~TC-114~~ ✅ → TC-110 (DEPLOY.md) → ~~TC-115~~ ✅ **done 2026-09-06** → ~~TC-116~~ ⏸️ **superseded** → **TC-122 (Vercel)** → TC-117. See **Build readiness** above.
+5. **Docker + AWS demo (current sprint):** ~~TC-113~~ ✅ → ~~TC-114~~ ✅ → ~~TC-110~~ ✅ **done 2026-09-08** (self-hosting runbook — the actual deliverable) → ~~TC-115~~ ✅ **done 2026-09-06** → ~~TC-116~~ ⏸️ **superseded** → **TC-122 (Vercel)** → TC-117. See **Build readiness** above.
 6. **Then:** ~~TC-108~~ ✅ **already landed 2026-06-03** → ~~TC-118~~ ✅ **done 2026-09-04** (Postgres tests actually run; skips now fail the build) → ~~TC-119~~ ✅ **done 2026-09-02** (Chart.js swap) → ~~TC-120~~ ✅ **done 2026-09-05** (error pages) → ~~TC-121~~ ✅ **done 2026-09-05** (day-one admin bootstrap) → TC-111 (E2E suite + sign-off) → TC-112 (decommission Grails). TC-109 (App Runner) only if the EC2 path (**TC-116**) is abandoned.
 7. **Lane 4 is done** — all eight cards shipped in the new stack as TC-108a–g (+ audit log in TC-106c). Nothing from Lane 4 should be built in the Grails app.
 8. **Still do TC-035 / TC-029 / TC-032** *only if* the rewrite slips and we need a fallback Grails handoff. Otherwise TC-116 and TC-110 supersede TC-032/TC-035 for the demo.

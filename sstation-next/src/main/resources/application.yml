@@ -78,6 +78,15 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
 
+# Behind AC IT's TLS-terminating reverse proxy, plain-HTTP requests arrive with the original
+# scheme/host in X-Forwarded-* headers. Without this, the app sees "http" and builds absolute
+# URLs (password-reset links, redirects) with the wrong scheme (TC-110b). `framework` registers
+# Spring's ForwardedHeaderFilter, which reads X-Forwarded-Proto/Host/Port before the request
+# reaches any controller. It is inert when no forwarded headers are present, so a direct
+# connection is unaffected.
+server:
+  forward-headers-strategy: framework
+
 ---
 # Demo profile (TC-114): showcase seeders only — always pair with prod + Postgres for Docker/AWS.
 # Example: SPRING_PROFILES_ACTIVE=prod,demo and SSTATION_DEMO_*_PASSWORD env vars set.

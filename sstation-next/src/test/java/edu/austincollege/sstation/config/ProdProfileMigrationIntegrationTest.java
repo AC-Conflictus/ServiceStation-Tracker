@@ -16,10 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -32,10 +35,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * written to yet. Hence a second container rather than a shared one: the moment these two tests
  * share a Postgres instance, "virgin" stops being true.
  *
- * <p>What a green run proves: Flyway V1–V4 apply cleanly to an empty schema, Hibernate's {@code
- * ddl-auto=validate} agrees with the result (the context would refuse to start otherwise), and a
- * bare {@code prod} boot seeds nothing at all — so AC IT's first login is against an empty user
- * table, which is the documented and intended behaviour.
+ * <p>What a green run proves: Flyway V1–V5 apply cleanly to an empty schema, Hibernate's {@code
+ * ddl-auto=validate} agrees with the result (the context would refuse to start otherwise), a bare
+ * {@code prod} boot seeds nothing at all — so AC IT's first login is against an empty user table,
+ * which is the documented and intended behaviour — and the proxy-header handling AC IT's deployment
+ * depends on is actually switched on (TC-110b).
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -58,6 +62,7 @@ class ProdProfileMigrationIntegrationTest {
     registry.add("SSTATION_MAIL_HOST", () -> "");
   }
 
+  @Autowired private ApplicationContext context;
   @Autowired private Flyway flyway;
   @Autowired private UserRepository users;
   @Autowired private RoleRepository roles;
@@ -89,6 +94,24 @@ class ProdProfileMigrationIntegrationTest {
     assertThat(roles.count()).isZero();
     assertThat(students.count()).isZero();
     assertThat(serviceHours.count()).isZero();
+  }
+
+  @Test
+  void prodRegistersTheForwardedHeaderFilter() {
+    // TC-110b, pinned here rather than only in PasswordResetControllerTest. That test supplies
+    // `server.forward-headers-strategy` itself via @SpringBootTest(properties = …), so it proves
+    // the filter behaves — not that the prod profile turns it on. Deleting the property from
+    // application.yml left the entire suite green, which is the failure this asserts against.
+    //
+    // Checks the effect rather than the property string: under `framework` Boot registers
+    // Spring's ForwardedHeaderFilter, and that bean disappearing is what would silently put
+    // http:// links back into password-reset email behind AC IT's TLS-terminating proxy.
+    // Matched by wrapped filter type rather than bean name: Boot registers it as a
+    // FilterRegistrationBean (named `forwardedHeaderFilter` today), and pinning the name would
+    // make this a false alarm the day Boot renames it.
+    assertThat(context.getBeansOfType(FilterRegistrationBean.class).values())
+        .as("prod must register ForwardedHeaderFilter — see server.forward-headers-strategy")
+        .anyMatch(registration -> registration.getFilter() instanceof ForwardedHeaderFilter);
   }
 
   @Test

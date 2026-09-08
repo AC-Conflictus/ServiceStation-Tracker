@@ -8,8 +8,43 @@
 > (see [Public demo](#public-demo--vercel-tc-122)) exists only so the Service Station office and
 > AC IT can click through a working copy before deciding to host it. It holds throwaway seed data,
 > is expected to be slow on first load, and is not something to depend on.
+>
+> **A single container is a valid deployment.** For an office this size, one instance of the app
+> is the expected shape — one host, one app process (container or `java -jar`), one Postgres. The
+> app keeps its HTTP sessions in memory, which is fine for that; there is nothing to cluster and no
+> shared session store to stand up. The horizontal-scaling work mentioned in
+> [TC-122](#public-demo--vercel-tc-122) (`spring-session-jdbc`) is a constraint of the Vercel
+> showcase, **not** something AC IT's deployment needs.
 
 Spring Boot 3 / Java 21 rewrite. For local JDK development see [demo.md](demo.md).
+
+## Prerequisites
+
+What the host running the app needs:
+
+- **Either Docker** (Engine + Compose v2, or Docker Desktop) — the container path needs no JDK on
+  the host at all.
+- **Or JDK 21** — only for the no-Docker path ([Build without Docker](#build-without-docker)):
+  JDK 21 once to build the JAR with the Gradle wrapper, then a JRE 21 to run it.
+- **PostgreSQL 13+** 🏫 — the app's only datastore. The compose stack can run it for you (Postgres
+  16, see below); otherwise AC IT supplies the server, database name, user and password via the
+  `SSTATION_DB_*` variables.
+- **An SMTP relay (optional)** 🏫 — the app runs fine with none configured: approve/reject
+  notifications and password-reset mail are written to the log instead of sent. Add a relay
+  (host, port, credentials) when real mail is wanted.
+- **A reverse proxy terminating TLS (optional, recommended)** 🏫 — see
+  [Reverse proxy and TLS termination](#reverse-proxy-and-tls-termination). A plain-HTTP host on a
+  network you control also works, but anything internet-facing should sit behind your proxy.
+
+Three ways to run it — pick whatever matches AC IT's existing setup; each links to its section:
+
+- **Docker on a VM** — [Docker quick start](#docker-quick-start-tc-113), ideally pulling the
+  pre-built image ([Pull a pre-built image](#pull-a-pre-built-image-tc-115)) rather than compiling.
+- **A plain VM without Docker** — [Build without Docker](#build-without-docker) (`java -jar`)
+  against AC IT's own Postgres.
+- **Behind an existing reverse proxy** — any of the above, with TLS terminated at the
+  nginx/Apache/IIS and the standard `X-Forwarded-*` headers set
+  ([Reverse proxy and TLS termination](#reverse-proxy-and-tls-termination)).
 
 ## Docker quick start (TC-113)
 
@@ -39,7 +74,7 @@ docker compose up --build
   - `moderator` / `changeme-demo-moderator`
 - Health: **http://localhost:8080/actuator/health**
 
-**AWS / internet:** set strong `SSTATION_DEMO_*_PASSWORD` values — the Java app has **no** `admin_secret` fallback when `demo` is active.
+**Any public host / internet:** set strong `SSTATION_DEMO_*_PASSWORD` values — the Java app has **no** `admin_secret` fallback when `demo` is active.
 
 Optional: adjust `POSTGRES_PASSWORD` in `.env` as well.
 
@@ -56,8 +91,8 @@ docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 ## Pull a pre-built image (TC-115)
 
 CI builds the image on every change under `sstation-next/`, runs it against Postgres, smoke-tests
-the running container, and publishes it from `main`. On a small host (a t3.micro has 1 GiB of RAM)
-pull it rather than compiling a Spring Boot app locally:
+the running container, and publishes it from `main`. On a small host (1 GiB of RAM is plenty to
+*run* the app but not to compile it) pull it rather than compiling a Spring Boot app locally:
 
 ```bash
 docker pull ghcr.io/ac-conflictus/sstation-next:latest
@@ -76,19 +111,32 @@ The published image is only ever one that passed the smoke test: the publish ste
 |----------|-----------|---------|
 | `SPRING_PROFILES_ACTIVE` | Always | `dev` (H2 + dev seed), `prod` (Postgres), `prod,demo` (Postgres + showcase seed, TC-114) |
 | `SSTATION_DEMO_*_PASSWORD` | `demo` | **Required** when `demo` profile is on (no defaults in code) |
-| `SSTATION_DB_URL` | `prod` | JDBC URL, e.g. `jdbc:postgresql://host:5432/sstation` |
-| `SSTATION_DB_USER` | `prod` | DB user |
-| `SSTATION_DB_PASSWORD` | `prod` | DB password |
-| `SSTATION_MAIL_HOST` | `prod` | SMTP host; leave empty for log-only notifications |
+| `SSTATION_DB_URL` | `prod` | JDBC URL, e.g. `jdbc:postgresql://host:5432/sstation` 🏫 |
+| `SSTATION_DB_USER` | `prod` | DB user 🏫 |
+| `SSTATION_DB_PASSWORD` | `prod` | DB password 🏫 |
+| `SSTATION_MAIL_HOST` | `prod` | SMTP host; leave empty for log-only notifications 🏫 |
 | `SSTATION_MAIL_PORT` | `prod` | Default `587` |
-| `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials (AC IT) |
+| `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials 🏫 |
 | `SSTATION_MAIL_HEALTH_ENABLED` | `prod` | Default `false`. Leave off until SMTP is real — the mail health check fails against an empty host and takes `/actuator/health` DOWN, which stops the container ever reporting healthy (TC-115). Set `true` once a relay is configured. |
 | `SSTATION_MAIL_FROM` | All | From address; default `no-reply@austincollege.edu` |
 | `SSTATION_DEV_*_PASSWORD` | `dev` | Override seeded dev passwords |
 | `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` | bare `prod` | **Required on a first boot against an empty database** — creates the first administrator (TC-121). Minimum 8 characters. Ignored once any account exists. |
 | `SSTATION_BOOTSTRAP_ADMIN_USERNAME` | bare `prod` | Username for that account; default `admin` |
 
-Never commit real production secrets. Use a vault or AWS SSM on EC2.
+🏫 = a value **AC IT supplies**; there is no default for it anywhere. Anything without a 🏫 is
+either optional or has a safe default.
+
+The variable names match the original Grails handoff plan (TC-035) so an existing secrets manager
+carries over unchanged, with two differences worth knowing:
+
+- The mail username variable is `SSTATION_MAIL_USER` here (the Grails plan said
+  `SSTATION_MAIL_USERNAME`).
+- There is **no `SSTATION_SERVER_URL`**. The app derives its public URL from the request it
+  receives — which is exactly why the reverse-proxy section insists on the `X-Forwarded-*` headers.
+
+Never commit real production secrets. Use whatever secrets manager your infrastructure already has
+or, at minimum, a root-only `.env` file with restrictive permissions — this runbook deliberately
+prescribes neither (same stance as the original Grails handoff plan, TC-035).
 
 ## First login on a new production database (TC-121)
 
@@ -167,7 +215,147 @@ above, which is what they are for.
 *Verified against PostgreSQL 16 on 2026-09-05: hash generated with the command above, both
 statements applied, and the resulting account signed in and was sent to `/change-password`.*
 
-## Public demo — Vercel (TC-122)
+## Backups and upgrades
+
+### Where the data lives
+
+Every piece of state is in PostgreSQL — the app container is stateless. With the compose stack
+([docker-compose.yml](sstation-next/docker-compose.yml)) Postgres runs in the `db` service and
+keeps its data in the **named volume `sstation_pg`**; that volume *is* the database. If instead you
+point `SSTATION_DB_URL` at an external Postgres, the data lives wherever that server keeps it, and
+back it up with that server's normal procedure 🏫.
+
+### Backing up
+
+A plain SQL dump from `pg_dump` — nothing else to coordinate (no file storage, no queues). Against
+the running compose stack:
+
+```bash
+docker compose -f docker-compose.yml exec db pg_dump -U sstation -d sstation \
+  > sstation-backup.sql
+```
+
+or from any host that can reach the database:
+
+```bash
+pg_dump "postgresql://<user>:<password>@<host>:5432/sstation" > sstation-backup.sql
+```
+
+The dump is a plain SQL script and includes Flyway's schema-history table, so it recreates the
+schema and the data together. Schedule it however AC IT already backs up Postgres — the app has no
+opinion and no built-in backup mechanism.
+
+### Restoring
+
+```bash
+docker compose -f docker-compose.yml exec -T db psql -U sstation -d sstation < sstation-backup.sql
+```
+
+(or `psql "postgresql://…" < sstation-backup.sql` from a host with a Postgres client.)
+
+Restore into an **empty** database — dumping over an existing one with data collides on primary
+keys. To roll a broken server back: stop the app, drop and recreate the database (or wipe the
+volume with `docker compose down -v`, which deletes *all* of it), restore the backup, start the
+app. Because the Flyway history rides in the dump, the restored database is exactly at the version
+the dump was taken from; there is no manual migration step on restore.
+
+### Upgrading
+
+Flyway migrations are the app's business: **pending migrations apply automatically on boot** — the
+schema history ships in the app (`V1`–`V5` today; future changes just add `V6`, `V7`, …). There is
+no manual migration command to run.
+
+To upgrade:
+
+1. **Back up first** (above) — a failed migration is the one failure a restore is for.
+2. Pull the new image (`docker compose pull`, or rebuild with `docker compose up --build`) or
+   replace the JAR.
+3. Restart the app: `docker compose up -d app` picks up the new image; on the no-Docker path,
+   restart the service.
+
+That is the whole upgrade. The honest version: a single-container deployment goes down for the
+seconds the new process takes to boot and run pending migrations. This shape does not give
+zero-downtime, and at this scale it doesn't need to. If a migration fails, the app refuses to
+start and the log names the failed migration — restore the backup and investigate.
+
+## Reverse proxy and TLS termination
+
+AC IT almost certainly already runs a reverse proxy (nginx, Apache, IIS ARR — the app does not care
+which) that terminates TLS and proxies plain HTTP to the app. That is a supported shape; the app
+asks two things of it.
+
+**1. Terminate TLS at the proxy, not in the app.** The app listens for plain HTTP (port `8080`)
+and has no TLS configuration of its own — do not put a certificate on the container or JAR.
+
+**2. Forward the standard `X-Forwarded-*` headers.** The `prod` profile sets
+`server.forward-headers-strategy: framework`, so Spring reads these headers and uses them to know
+the app is being served over HTTPS. This matters for every absolute URL the app builds — most
+visibly the password-reset link emailed to users, which is derived from the request's scheme and
+host. Without the headers, a TLS-terminating proxy makes the app think every request arrived over
+plain HTTP, and the links come out `http://…` — unusable from outside the network. Set at minimum:
+
+| Header | Value |
+|---|---|
+| `X-Forwarded-Proto` | `https` when the client connection used TLS |
+| `X-Forwarded-Host` | the public hostname the user typed |
+| `X-Forwarded-For` | the client IP (not used for anything security-relevant today, but standard) |
+
+There is no `SSTATION_SERVER_URL` and no other app-level URL setting — the app always derives its
+public URL from the request it actually receives, which is exactly why these headers are required
+rather than optional.
+
+A minimal nginx `server` block that terminates TLS and proxies to the app on the same host:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name service-station.austincollege.edu;            # 🏫 your public hostname
+
+    ssl_certificate     /etc/nginx/tls/service-station.crt;   # 🏫 your certificate
+    ssl_certificate_key /etc/nginx/tls/service-station.key;   # 🏫 your private key
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;                     # the app (container or java -jar)
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Proto $scheme;           # https, because nginx terminated TLS
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+(`proxy_pass http://127.0.0.1:8080` assumes the app publishes port 8080 on the host — the compose
+stack's `app` service does. For Apache the equivalent is `RequestHeader set X-Forwarded-Proto
+"https"` plus `ProxyPass`/`ProxyPassReverse`; for IIS ARR the built-in server-name and protocol
+forwarding do the same. Any proxy that sends these headers works.)
+
+A quick way to confirm the headers are honoured: request a password-reset link through the public
+URL and check the emailed link is `https://…`. On a mail-disabled install the app logs it:
+`[mail disabled] password reset link for <email>: <url>`.
+
+*Verified 2026-09-08 against a locally-built image (TC-110b): with `X-Forwarded-Proto: https` and
+`X-Forwarded-Host: service-station.austincollege.edu`, the app logs the reset link as
+`https://service-station.austincollege.edu/reset-password?token=…` and redirects to the same host;
+without the headers, the same request produces `http://localhost:8080/…`.*
+
+## Build without Docker
+
+```bash
+cd sstation-next
+./gradlew bootJar   # Windows: gradlew.bat bootJar
+java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+Requires JDK 21 only at build time if you use the Gradle wrapper on the host.
+
+## Showcase deployments — not the AC IT path
+
+The two sections that follow describe throwaway demo deployments, not the production runbook. The
+deliverable for AC IT is everything above this point; these exist only to show a working copy
+before AC IT decides to host the app themselves.
+
+### Public demo — Vercel (TC-122)
 
 **Decided 2026-09-07: the public demo goes to Vercel, not AWS.** The AWS EC2 + RDS outline below is
 kept as a documented alternate and is **not** the current plan.
@@ -222,7 +410,11 @@ Other things worth knowing before relying on it:
 - **Demo passwords** go in Vercel environment variables, never the repo. `DemoAccountSeeder` still
   refuses to start without them (TC-114).
 
-## AWS EC2 demo (TC-116 — ⏸️ superseded, kept as a documented alternate)
+### AWS EC2 demo (TC-116 — ⏸️ superseded, kept as a documented alternate)
+
+The retired AWS-based showcase plan, kept because its topology and cost notes stay accurate if AWS
+is ever revisited. This is **not** the AC IT self-hosting path — that is everything above the
+Showcase heading.
 
 **Recommended:** `t3.micro` EC2 (app container only) + `db.t4g.micro` RDS Postgres 16 in the same VPC.
 
@@ -235,16 +427,6 @@ Other things worth knowing before relying on it:
 **Budget fallback (demo only):** run `docker-compose.yml` on a single t3.micro — high OOM risk on 1 GiB RAM.
 
 Target cost: under ~$25/month (EC2 + RDS, no ALB) where free tier applies.
-
-## Build without Docker
-
-```bash
-cd sstation-next
-./gradlew bootJar   # Windows: gradlew.bat bootJar
-java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
-```
-
-Requires JDK 21 only at build time if you use the Gradle wrapper on the host.
 
 ## Legacy Grails app
 
