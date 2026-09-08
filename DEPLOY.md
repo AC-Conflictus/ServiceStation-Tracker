@@ -91,8 +91,8 @@ docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev sstation-next:local
 ## Pull a pre-built image (TC-115)
 
 CI builds the image on every change under `sstation-next/`, runs it against Postgres, smoke-tests
-the running container, and publishes it from `main`. On a small host (a t3.micro has 1 GiB of RAM)
-pull it rather than compiling a Spring Boot app locally:
+the running container, and publishes it from `main`. On a small host (1 GiB of RAM is plenty to
+*run* the app but not to compile it) pull it rather than compiling a Spring Boot app locally:
 
 ```bash
 docker pull ghcr.io/ac-conflictus/sstation-next:latest
