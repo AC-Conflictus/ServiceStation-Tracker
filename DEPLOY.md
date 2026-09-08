@@ -8,6 +8,41 @@
 > (see [Public demo](#public-demo--vercel-tc-122)) exists only so the Service Station office and
 > AC IT can click through a working copy before deciding to host it. It holds throwaway seed data,
 > is expected to be slow on first load, and is not something to depend on.
+>
+> **A single container is a valid deployment.** For an office this size, one instance of the app
+> is the expected shape — one host, one app process (container or `java -jar`), one Postgres. The
+> app keeps its HTTP sessions in memory, which is fine for that; there is nothing to cluster and no
+> shared session store to stand up. The horizontal-scaling work mentioned in
+> [TC-122](#public-demo--vercel-tc-122) (`spring-session-jdbc`) is a constraint of the Vercel
+> showcase, **not** something AC IT's deployment needs.
+
+## Prerequisites
+
+What the host running the app needs:
+
+- **Either Docker** (Engine + Compose v2, or Docker Desktop) — the container path needs no JDK on
+  the host at all.
+- **Or JDK 21** — only for the no-Docker path ([Build without Docker](#build-without-docker)):
+  JDK 21 once to build the JAR with the Gradle wrapper, then a JRE 21 to run it.
+- **PostgreSQL 13+** 🏫 — the app's only datastore. The compose stack can run it for you (Postgres
+  16, see below); otherwise AC IT supplies the server, database name, user and password via the
+  `SSTATION_DB_*` variables.
+- **An SMTP relay (optional)** 🏫 — the app runs fine with none configured: approve/reject
+  notifications and password-reset mail are written to the log instead of sent. Add a relay
+  (host, port, credentials) when real mail is wanted.
+- **A reverse proxy terminating TLS (optional, recommended)** 🏫 — see
+  [Reverse proxy and TLS termination](#reverse-proxy-and-tls-termination). A plain-HTTP host on a
+  network you control also works, but anything internet-facing should sit behind your proxy.
+
+Three ways to run it — pick whatever matches AC IT's existing setup; each links to its section:
+
+- **Docker on a VM** — [Docker quick start](#docker-quick-start-tc-113), ideally pulling the
+  pre-built image ([Pull a pre-built image](#pull-a-pre-built-image-tc-115)) rather than compiling.
+- **A plain VM without Docker** — [Build without Docker](#build-without-docker) (`java -jar`)
+  against AC IT's own Postgres.
+- **Behind an existing reverse proxy** — any of the above, with TLS terminated at the
+  nginx/Apache/IIS and the standard `X-Forwarded-*` headers set
+  ([Reverse proxy and TLS termination](#reverse-proxy-and-tls-termination)).
 
 Spring Boot 3 / Java 21 rewrite. For local JDK development see [demo.md](demo.md).
 
@@ -166,6 +201,69 @@ above, which is what they are for.
 
 *Verified against PostgreSQL 16 on 2026-09-05: hash generated with the command above, both
 statements applied, and the resulting account signed in and was sent to `/change-password`.*
+
+## Backups and upgrades
+
+### Where the data lives
+
+Every piece of state is in PostgreSQL — the app container is stateless. With the compose stack
+([docker-compose.yml](sstation-next/docker-compose.yml)) Postgres runs in the `db` service and
+keeps its data in the **named volume `sstation_pg`**; that volume *is* the database. If instead you
+point `SSTATION_DB_URL` at an external Postgres, the data lives wherever that server keeps it, and
+back it up with that server's normal procedure 🏫.
+
+### Backing up
+
+A plain SQL dump from `pg_dump` — nothing else to coordinate (no file storage, no queues). Against
+the running compose stack:
+
+```bash
+docker compose -f docker-compose.yml exec db pg_dump -U sstation -d sstation \
+  > sstation-backup.sql
+```
+
+or from any host that can reach the database:
+
+```bash
+pg_dump "postgresql://<user>:<password>@<host>:5432/sstation" > sstation-backup.sql
+```
+
+The dump is a plain SQL script and includes Flyway's schema-history table, so it recreates the
+schema and the data together. Schedule it however AC IT already backs up Postgres — the app has no
+opinion and no built-in backup mechanism.
+
+### Restoring
+
+```bash
+docker compose -f docker-compose.yml exec -T db psql -U sstation -d sstation < sstation-backup.sql
+```
+
+(or `psql "postgresql://…" < sstation-backup.sql` from a host with a Postgres client.)
+
+Restore into an **empty** database — dumping over an existing one with data collides on primary
+keys. To roll a broken server back: stop the app, drop and recreate the database (or wipe the
+volume with `docker compose down -v`, which deletes *all* of it), restore the backup, start the
+app. Because the Flyway history rides in the dump, the restored database is exactly at the version
+the dump was taken from; there is no manual migration step on restore.
+
+### Upgrading
+
+Flyway migrations are the app's business: **pending migrations apply automatically on boot** — the
+schema history ships in the app (`V1`–`V5` today; future changes just add `V6`, `V7`, …). There is
+no manual migration command to run.
+
+To upgrade:
+
+1. **Back up first** (above) — a failed migration is the one failure a restore is for.
+2. Pull the new image (`docker compose pull`, or rebuild with `docker compose up --build`) or
+   replace the JAR.
+3. Restart the app: `docker compose up -d app` picks up the new image; on the no-Docker path,
+   restart the service.
+
+That is the whole upgrade. The honest version: a single-container deployment goes down for the
+seconds the new process takes to boot and run pending migrations. This shape does not give
+zero-downtime, and at this scale it doesn't need to. If a migration fails, the app refuses to
+start and the log names the failed migration — restore the backup and investigate.
 
 ## Public demo — Vercel (TC-122)
 
