@@ -74,7 +74,7 @@ docker compose up --build
   - `moderator` / `changeme-demo-moderator`
 - Health: **http://localhost:8080/actuator/health**
 
-**AWS / internet:** set strong `SSTATION_DEMO_*_PASSWORD` values — the Java app has **no** `admin_secret` fallback when `demo` is active.
+**Any public host / internet:** set strong `SSTATION_DEMO_*_PASSWORD` values — the Java app has **no** `admin_secret` fallback when `demo` is active.
 
 Optional: adjust `POSTGRES_PASSWORD` in `.env` as well.
 
@@ -111,19 +111,32 @@ The published image is only ever one that passed the smoke test: the publish ste
 |----------|-----------|---------|
 | `SPRING_PROFILES_ACTIVE` | Always | `dev` (H2 + dev seed), `prod` (Postgres), `prod,demo` (Postgres + showcase seed, TC-114) |
 | `SSTATION_DEMO_*_PASSWORD` | `demo` | **Required** when `demo` profile is on (no defaults in code) |
-| `SSTATION_DB_URL` | `prod` | JDBC URL, e.g. `jdbc:postgresql://host:5432/sstation` |
-| `SSTATION_DB_USER` | `prod` | DB user |
-| `SSTATION_DB_PASSWORD` | `prod` | DB password |
-| `SSTATION_MAIL_HOST` | `prod` | SMTP host; leave empty for log-only notifications |
+| `SSTATION_DB_URL` | `prod` | JDBC URL, e.g. `jdbc:postgresql://host:5432/sstation` 🏫 |
+| `SSTATION_DB_USER` | `prod` | DB user 🏫 |
+| `SSTATION_DB_PASSWORD` | `prod` | DB password 🏫 |
+| `SSTATION_MAIL_HOST` | `prod` | SMTP host; leave empty for log-only notifications 🏫 |
 | `SSTATION_MAIL_PORT` | `prod` | Default `587` |
-| `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials (AC IT) |
+| `SSTATION_MAIL_USER` / `SSTATION_MAIL_PASSWORD` | `prod` | SMTP credentials 🏫 |
 | `SSTATION_MAIL_HEALTH_ENABLED` | `prod` | Default `false`. Leave off until SMTP is real — the mail health check fails against an empty host and takes `/actuator/health` DOWN, which stops the container ever reporting healthy (TC-115). Set `true` once a relay is configured. |
 | `SSTATION_MAIL_FROM` | All | From address; default `no-reply@austincollege.edu` |
 | `SSTATION_DEV_*_PASSWORD` | `dev` | Override seeded dev passwords |
 | `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` | bare `prod` | **Required on a first boot against an empty database** — creates the first administrator (TC-121). Minimum 8 characters. Ignored once any account exists. |
 | `SSTATION_BOOTSTRAP_ADMIN_USERNAME` | bare `prod` | Username for that account; default `admin` |
 
-Never commit real production secrets. Use a vault or AWS SSM on EC2.
+🏫 = a value **AC IT supplies**; there is no default for it anywhere. Anything without a 🏫 is
+either optional or has a safe default.
+
+The variable names match the original Grails handoff plan (TC-035) so an existing secrets manager
+carries over unchanged, with two differences worth knowing:
+
+- The mail username variable is `SSTATION_MAIL_USER` here (the Grails plan said
+  `SSTATION_MAIL_USERNAME`).
+- There is **no `SSTATION_SERVER_URL`**. The app derives its public URL from the request it
+  receives — which is exactly why the reverse-proxy section insists on the `X-Forwarded-*` headers.
+
+Never commit real production secrets. Use whatever secrets manager your infrastructure already has
+or, at minimum, a root-only `.env` file with restrictive permissions — this runbook deliberately
+prescribes neither (same stance as the original Grails handoff plan, TC-035).
 
 ## First login on a new production database (TC-121)
 
@@ -326,7 +339,23 @@ URL and check the emailed link is `https://…`. On a mail-disabled install the 
 `https://service-station.austincollege.edu/reset-password?token=…` and redirects to the same host;
 without the headers, the same request produces `http://localhost:8080/…`.*
 
-## Public demo — Vercel (TC-122)
+## Build without Docker
+
+```bash
+cd sstation-next
+./gradlew bootJar   # Windows: gradlew.bat bootJar
+java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+Requires JDK 21 only at build time if you use the Gradle wrapper on the host.
+
+## Showcase deployments — not the AC IT path
+
+The two sections that follow describe throwaway demo deployments, not the production runbook. The
+deliverable for AC IT is everything above this point; these exist only to show a working copy
+before AC IT decides to host the app themselves.
+
+### Public demo — Vercel (TC-122)
 
 **Decided 2026-09-07: the public demo goes to Vercel, not AWS.** The AWS EC2 + RDS outline below is
 kept as a documented alternate and is **not** the current plan.
@@ -381,7 +410,11 @@ Other things worth knowing before relying on it:
 - **Demo passwords** go in Vercel environment variables, never the repo. `DemoAccountSeeder` still
   refuses to start without them (TC-114).
 
-## AWS EC2 demo (TC-116 — ⏸️ superseded, kept as a documented alternate)
+### AWS EC2 demo (TC-116 — ⏸️ superseded, kept as a documented alternate)
+
+The retired AWS-based showcase plan, kept because its topology and cost notes stay accurate if AWS
+is ever revisited. This is **not** the AC IT self-hosting path — that is everything above the
+Showcase heading.
 
 **Recommended:** `t3.micro` EC2 (app container only) + `db.t4g.micro` RDS Postgres 16 in the same VPC.
 
@@ -394,16 +427,6 @@ Other things worth knowing before relying on it:
 **Budget fallback (demo only):** run `docker-compose.yml` on a single t3.micro — high OOM risk on 1 GiB RAM.
 
 Target cost: under ~$25/month (EC2 + RDS, no ALB) where free tier applies.
-
-## Build without Docker
-
-```bash
-cd sstation-next
-./gradlew bootJar   # Windows: gradlew.bat bootJar
-java -jar build/libs/sstation-next-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
-```
-
-Requires JDK 21 only at build time if you use the Gradle wrapper on the host.
 
 ## Legacy Grails app
 
