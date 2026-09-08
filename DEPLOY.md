@@ -1,5 +1,14 @@
 # Deploy — Service Station (`sstation-next`)
 
+> **Who this is for.** Austin College IT runs this application on **their own servers**. This
+> document is the runbook for doing that — start at [Docker quick start](#docker-quick-start-tc-113)
+> and [First login](#first-login-on-a-new-production-database-tc-121).
+>
+> Nobody on the project operates a service that the college then uses. Any public demo link
+> (see [Public demo](#public-demo--vercel-tc-122)) exists only so the Service Station office and
+> AC IT can click through a working copy before deciding to host it. It holds throwaway seed data,
+> is expected to be slow on first load, and is not something to depend on.
+
 Spring Boot 3 / Java 21 rewrite. For local JDK development see [demo.md](demo.md).
 
 ## Docker quick start (TC-113)
@@ -163,6 +172,9 @@ statements applied, and the resulting account signed in and was sent to `/change
 **Decided 2026-09-07: the public demo goes to Vercel, not AWS.** The AWS EC2 + RDS outline below is
 kept as a documented alternate and is **not** the current plan.
 
+**This section is not for AC IT.** It describes the throwaway showcase deployment. If you are
+setting the application up for Austin College, everything you need is above this section.
+
 Vercel runs [OCI container images as Functions on Fluid compute](https://vercel.com/docs/functions/container-images),
 so the image CI already builds and smoke-tests (TC-115) is what gets deployed — this is a hosting
 swap, not a re-architecture. Compared with the EC2 plan it drops the VPC, security groups, manual
@@ -176,6 +188,8 @@ work rather than configuration, and the first one bites silently:
    and currently uses in-memory Tomcat sessions. On Fluid compute any instance may serve any
    request, so with more than one instance live a signed-in user is randomly returned to the login
    page. Fix is `spring-session-jdbc` against the Postgres we already use.
+   **This is a Vercel constraint, not a requirement for AC IT** — a single container on a single
+   host, which is the expected shape for an office this size, is perfectly fine as-is.
 2. **`server.port` is hardcoded to `8080`** and must become `${PORT:8080}`; Vercel routes to
    `$PORT`.
 3. **A `Dockerfile.vercel` or `vercel.json` `services` entrypoint** pointing at
@@ -189,8 +203,22 @@ Other things worth knowing before relying on it:
 - **No Static IPs or Secure Compute** for container-image functions. Irrelevant for a public demo,
   but it rules Vercel out if AC IT ever needs IP allowlisting to reach an internal SMTP relay or
   database.
-- **Database:** Neon Postgres via the Vercel Marketplace keeps the data next to the compute. Point
-  `SSTATION_DB_URL` / `_USER` / `_PASSWORD` at it.
+- **Database — Supabase free tier works, with three specifics** (checked against Supabase's docs on
+  2026-09-07). 500 MB is far more than demo seed data needs, but:
+  - **Use the Supavisor _shared pooler_ connection string, in _session_ mode.** Two independent
+    reasons, either of which alone breaks the connection: free-tier **direct** connections are
+    **IPv6-only** without the paid IPv4 add-on, while the shared pooler is IPv4 on every tier; and
+    **transaction mode does not support prepared statements**, which Hibernate/JDBC uses on
+    practically every query. Session mode supports them.
+  - **A free project pauses after 7 days with no database activity**, and needs a manual unpause.
+    For a link someone opens two weeks after you send it, that means it is down exactly when it
+    matters. Add a **Vercel Cron** (a daily schedule is available on Hobby) hitting
+    `/actuator/health` — Boot's `db` health indicator issues a real query, which resets Supabase's
+    idle timer and wakes the scaled-to-zero function at the same time. No application code needed.
+  - Neon via the Vercel Marketplace is the alternative if the pausing proves annoying.
+- **Vercel Hobby is "non-commercial personal use only".** A student project demoed to a college IT
+  department, with no payments and nobody paid to build it, reads as non-commercial — but it is the
+  same class of question TC-119 raised about Highcharts, so it is written down rather than assumed.
 - **Demo passwords** go in Vercel environment variables, never the repo. `DemoAccountSeeder` still
   refuses to start without them (TC-114).
 

@@ -9,7 +9,9 @@
 > - [sstation/](sstation/) — the original **Grails 2.4.4** app (currently shippable; needs JDK 7/8).
 > - [sstation-next/](sstation-next/) — the **Spring Boot 3 / Java 21** rewrite (Lane 7), now **feature-complete**: domain model, auth, all views, full CRUD, a Bootstrap 5 frontend, all eight Lane 4 features (email, bulk approve, CSV/PDF export, date filter, event sign-up, password reset), and Docker packaging. What's left is deployment and handoff, not features.
 >
-> **To run either locally, see [demo.md](demo.md).** Docker: [DEPLOY.md](DEPLOY.md). Guidance for contributors/AI assistants is in [CLAUDE.md](CLAUDE.md).
+> **To run either locally, see [demo.md](demo.md).** Docker and self-hosting: [DEPLOY.md](DEPLOY.md). Guidance for contributors/AI assistants is in [CLAUDE.md](CLAUDE.md).
+>
+> **On hosting:** this project is handed to Austin College IT to run on **their own servers** — see the self-hosting runbook in [DEPLOY.md](DEPLOY.md). Any public demo link is a showcase with throwaway data, not the service the college would use.
 
 ### Backgrounds
 [Austin College Service Station](https://www.austincollege.edu/campus-life/service-station/) is a student-run office which organizes volunteer and community service events. Every year, Service Station organizes huge volunteer events focusing on diverse purposes, such as *Great Day of Service*, *GreenServe*, and *JanServe* and corporates with student service organizations and local non-profit agencys to hold these events. 

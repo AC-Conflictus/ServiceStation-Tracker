@@ -625,19 +625,22 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - DNS: `sstation-demo.<our-domain>` (🏫) or raw EC2 public DNS documented in README for interim.
   - Cost note in DEPLOY.md: target **< $25/mo** (EC2 + RDS, no ALB) where free tier applies.
   - Smoke test: admin dashboard KPIs non-zero, student login lands on populated dashboard, one report page renders.
-  - README "Live demo" link updated.
+  - README "Live demo" link updated, with the cold-start number and a line saying the demo holds no real data.
+  - **Deliberately out of scope:** uptime guarantees, real SMTP, real student data, custom DNS. All of those belong to AC IT's own deployment, not to a showcase.
   - **Appendix documented:** single-EC2 `docker compose` (app + Postgres) with memory limits — **demo-only**, OOM risk called out.
 - **Does not replace:** AC IT production deploy (🏫 SMTP, real admin provisioning, hardening) — showcase only, same spirit as [TC-032](#tc-032-).
 - **Depends on:** TC-113, TC-114, TC-110 (draft OK in parallel).
 - **Estimate:** L.
 
 ### TC-122 ☁️ Public demo on Vercel (replaces the AWS plan)
-- **Status:** 🔲 **Next.** Platform decision made **2026-09-07** — deploy the demo to **Vercel** rather than EC2 + RDS. [TC-116](#tc-116-) is retired to "documented alternate".
+- **Status:** 🔲 **Next, but explicitly a showcase — not infrastructure.** Platform decision **2026-09-07**: Vercel rather than EC2 + RDS. [TC-116](#tc-116-) retired to "documented alternate".
+- **What this deployment is for (clarified 2026-09-07):** AC IT will **host the app themselves**. This deployment exists so they and the Service Station office can click through a working copy before committing to that, and so [TC-111](#tc-111-) has something to sign off against. It is **not** the service Austin College will use, it carries no real data, and it does not need to be reliable. Judge it as a demo: if it is up when someone opens the link, it has done its job. **[TC-110](#tc-110-) is the real deliverable.**
 - **Why the switch is viable at all:** Vercel used to be Node/Python/Go functions only, which a Spring Boot app could not use. It now runs **arbitrary OCI container images as Vercel Functions on Fluid compute** — you add a `Dockerfile.vercel`, it builds on every push, stores the image in the Vercel Container Registry and serves it. So the container work already done in **TC-113** and **TC-115** carries over almost unchanged; this is a hosting swap, not a re-architecture.
 - **Why it is a better fit than TC-116 for this project:** no VPC, no security groups, no TLS to terminate by hand, no separate RDS to provision and pay for, and **1 vCPU / 2 GB** on the standard instance — which is *more* memory than the t3.micro the AWS card was trying to squeeze a JVM and Postgres onto. It also scales to zero, so an idle demo costs nothing.
 
 - **⚠️ Three things that are real work, not configuration.** These are the reason this is not a same-afternoon card:
   1. **HTTP sessions must move out of instance memory.** This app is entirely session-based (Spring Security form login), and sessions are currently plain in-memory Tomcat sessions. Vercel's own guidance for Fluid compute is explicit that shared state belongs in an external store because *any* instance may serve a given request and instances are paused between work. With more than one instance live, a signed-in user gets bounced to the login page at random — the kind of bug that looks like flakiness and wastes a day. **Fix: `spring-session-jdbc`**, storing sessions in the Postgres we already have. Small dependency, one migration, no application-code change.
+     - **This is a Vercel requirement, not an app deficiency.** AC IT running one container on one VM — the expected shape for an office this size — is fine with in-memory sessions. Worth doing anyway since it also unblocks them running more than one instance later, but [TC-110](#tc-110-) must not present it as mandatory.
   2. **The port is hardcoded.** `application.yml` pins `server.port: 8080`; Vercel expects the server to listen on `$PORT`. Change to `${PORT:8080}` so local and container behaviour are unchanged.
   3. **A `Dockerfile.vercel` at the repo root.** Our existing `Dockerfile` lives in `sstation-next/` and is the multi-stage build we already smoke-test in CI. Either add a thin root-level `Dockerfile.vercel` or use `vercel.json` `services` with `root: sstation-next/` and `entrypoint`. Prefer the latter — it avoids a second Dockerfile drifting from the tested one.
 
@@ -645,7 +648,11 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - Sessions survive an instance change (`spring-session-jdbc` + Flyway `V6`), verified by signing in and exercising the app across enough requests to hit more than one instance.
   - `server.port` honours `$PORT`.
   - Vercel project linked to this repo; container build green on push.
-  - Postgres provisioned — **Neon via the Vercel Marketplace** is the path of least resistance and keeps the database next to the compute. `SSTATION_DB_*` point at it.
+  - Postgres provisioned. **Supabase free tier is workable** (verified against their docs 2026-09-07) — 500 MB is far more than a demo's seed data — **but three specifics decide whether it works on the first try:**
+    - **Use the Supavisor *shared pooler* connection string, in *session* mode.** Two independent reasons, and each one alone is fatal. Free-tier **direct** connections are **IPv6-only** unless you buy the IPv4 add-on, while the shared pooler is IPv4 on every tier. And **transaction mode does not support prepared statements**, which Hibernate/JDBC uses on essentially every query; session mode does.
+    - **A free project pauses after 7 days with no database activity** and needs a manual unpause from the dashboard. For a link handed to AC IT and opened whenever they get to it, that means it is down exactly when it matters. **Mitigation: a Vercel Cron job** (Hobby allows a daily schedule) hitting `/actuator/health` — Boot's `db` indicator issues a real query, which both resets Supabase's 7-day timer and wakes the scaled-to-zero function. No application code needed.
+    - Neon via the Vercel Marketplace remains the alternative if the pause behaviour proves annoying.
+  - **Vercel Hobby is "non-commercial personal use only".** A student class project shown to a college IT department, with no payments and nobody paid to build it, reads as non-commercial — but it is the same *class* of question TC-119 raised about Highcharts, so it is recorded here rather than assumed. If AC IT ever wanted the demo to be an official Austin College property, that is the point to move to Pro.
   - `SPRING_PROFILES_ACTIVE=prod,demo` with real `SSTATION_DEMO_*_PASSWORD` values set as Vercel environment variables (never committed — the [TC-114](#tc-114-) guarantee still applies, and CI still asserts `admin_secret` is rejected).
   - Flyway runs cleanly on the first boot against the empty Neon database. Note Flyway takes a lock, so concurrent instances starting at once is safe.
   - **Cold start is documented, not discovered.** Production instances scale down after **5 minutes** with no traffic; the next visitor pays a full Spring Boot boot. Measure it and put the number in the README next to the demo link so a reviewer clicking a stale link doesn't think it's broken.
@@ -653,7 +660,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   - README "Live demo" link updated.
 - **Known limitations to record for AC IT:** Static IPs and Secure Compute are **not** supported for container-image functions, so this is unsuitable if AC IT ever needs IP allowlisting to reach an internal SMTP relay or database. That is a constraint on the *demo*, not on the production deploy, which stays AC IT's own infrastructure.
 - **Does not replace:** AC IT's production deploy (🏫 SMTP, real admin provisioning, hardening) — showcase only, same spirit as [TC-116](#tc-116-) before it.
-- **Depends on:** TC-113 ✅, TC-115 ✅. Needs a **Vercel account** and a Postgres, both of which are the user's to provision.
+- **Depends on:** TC-113 ✅, TC-115 ✅. Needs a **Vercel account** and a **Supabase project**, both the user's to provision.
+- **Does not block:** [TC-110](#tc-110-). The runbook AC IT actually uses can be finished without this card ever shipping.
 - **Estimate:** M.
 
 ### TC-117 📝 README + Trello hygiene after Docker/EC2
@@ -693,14 +701,18 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Superseded for current sprint by:** [TC-116](#tc-116-) unless team prefers managed TLS via App Runner.
 - **Estimate:** M.
 
-### TC-110 📝 Update DEPLOY.md to target the new stack
-- **Status:** 🔲 **In progress with Docker/EC2 sprint** — land alongside TC-113–TC-116.
-- **Why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needs a full rewrite of its own.
+### TC-110 📝 🏫 Self-hosting runbook for AC IT — **the primary handoff artifact**
+- **Status:** 🔲 **Now the highest-value remaining card.** Reprioritised 2026-09-07 when the deployment goal was clarified.
+- **Why:** **We are not operating this application.** The goal was clarified 2026-09-07: nobody is standing up a service that all of Austin College then uses. AC IT will **host it on their own servers**; everything we deploy is a demo that exists to show them it works and to get sign-off. That makes this card — the instructions AC IT follows on their own infrastructure — **the actual deliverable of the whole rewrite.** The hosted demo ([TC-122](#tc-122-)) is a sales tool for it, not the product.
+- **Also why:** [TC-035](#tc-035--🏫-austin-college-it-handoff-runbook-deploymd) was written for the Grails app. After the rewrite the runbook needs a full rewrite of its own.
 - **Acceptance criteria:**
   - Prerequisites: JDK 21 (or just "the Dockerfile, if you do Docker"), PostgreSQL 13+, SMTP relay.
   - Build: `./gradlew bootJar` or pull pre-built image from GHCR (**TC-115**).
   - **Docker:** `docker compose up` local smoke test (**TC-113**).
-  - **AWS:** EC2 t3.micro + RDS topology, security groups, Caddy TLS, env vars, cost estimate (**TC-116**); appendix for single-box compose OOM warning.
+  - **Their infrastructure, not ours.** The runbook must work for a plain VM with Docker, a VM without Docker (`java -jar`), and behind whatever reverse proxy AC IT already runs. No cloud-provider-specific instructions in the main path — the retired AWS notes in [TC-116](#tc-116-) stay an appendix at most.
+  - **A single container is a valid deployment.** For an office this size one instance is the expected shape, which means in-memory sessions are fine for them and `spring-session-jdbc` (needed for [TC-122](#tc-122-) because Vercel scales horizontally) is optional here. Say so, or they will think it is required.
+  - **First login** — already written (TC-121), keep it prominent; it is the step that most obviously blocks them.
+  - **Backups and upgrades:** where the data lives, how to dump/restore Postgres, and what happens on the next image (Flyway migrates forward on boot).
   - Same env var names as the Grails version where possible (`SSTATION_DB_URL`, `SSTATION_MAIL_HOST`, etc.) so AC IT's secrets manager doesn't need rework.
   - Migration story: Flyway auto-runs on boot.
   - Demo profile / passwords (**TC-114**); never use dev defaults on a public host.
