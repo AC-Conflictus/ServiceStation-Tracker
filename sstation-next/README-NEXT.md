@@ -58,6 +58,8 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-121 — day-one admin bootstrap for a bare `prod` boot, forced password change on that account, and the in-app password change the app previously lacked entirely
 - [x] TC-115 — CI builds the Docker image, runs it against Postgres and smoke-tests the running container, then publishes to GHCR from `main`
 - [ ] TC-122 — public demo on **Vercel** (container image on Fluid compute). Replaces the AWS/EC2 plan in TC-116, which is retired to a documented alternate
-- [ ] TC-110 / TC-111 / TC-112 — DEPLOY.md for AWS, E2E suite + sign-off, decommission Grails
+- [x] TC-110 — self-hosting runbook for AC IT (`../DEPLOY.md`): prerequisites, the Docker / `java -jar` / reverse-proxy deployment shapes, backups and upgrades, 🏫 placeholders, and the forward-headers fix so password-reset links survive TLS termination
+- [ ] TC-111 — E2E acceptance suite + stakeholder sign-off
+- [ ] TC-112 — decommission the Grails app
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.
