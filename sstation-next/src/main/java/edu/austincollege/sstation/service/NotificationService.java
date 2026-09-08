@@ -22,11 +22,17 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
  * <p>Email is best-effort:
  *
  * <ul>
- *   <li>When no SMTP sender is configured (the dev default — no {@code SSTATION_MAIL_*} env vars,
- *       so no {@link JavaMailSender} bean) the call is a no-op with a {@code log.info} line.
+ *   <li>When no SMTP relay is configured the call is a no-op with a {@code log.info} line.
  *   <li>A send failure is logged but never propagates — a flaky mail server must not fail the
  *       status change that triggered it.
  * </ul>
+ *
+ * <p>"No relay configured" is <em>not</em> the same as "no {@link JavaMailSender} bean", which is
+ * what this class used to assume. Under the {@code prod} profile {@code spring.mail.host} is bound
+ * to {@code ${SSTATION_MAIL_HOST:}} and is therefore <em>present but empty</em> when AC IT has not
+ * supplied a relay — and {@code @ConditionalOnProperty} counts that as set, so Spring builds a
+ * JavaMailSender pointed at nowhere. The bean existing meant every notification opened a doomed
+ * SMTP connection instead of logging. The host is checked directly for that reason.
  */
 @Service
 public class NotificationService {
@@ -36,14 +42,22 @@ public class NotificationService {
   private final ObjectProvider<JavaMailSender> mailSender;
   private final SpringTemplateEngine templateEngine;
   private final String fromAddress;
+  private final String mailHost;
 
   public NotificationService(
       ObjectProvider<JavaMailSender> mailSender,
       SpringTemplateEngine templateEngine,
-      @Value("${sstation.mail.from:no-reply@austincollege.edu}") String fromAddress) {
+      @Value("${sstation.mail.from:no-reply@austincollege.edu}") String fromAddress,
+      @Value("${spring.mail.host:}") String mailHost) {
     this.mailSender = mailSender;
     this.templateEngine = templateEngine;
     this.fromAddress = fromAddress;
+    this.mailHost = mailHost;
+  }
+
+  /** The sender to use, or {@code null} when no relay is configured. See the class javadoc. */
+  private JavaMailSender activeSender() {
+    return mailHost == null || mailHost.isBlank() ? null : mailSender.getIfAvailable();
   }
 
   /**
@@ -56,7 +70,7 @@ public class NotificationService {
       return;
     }
     String recipient = hour.getStudent().getAcEmail();
-    JavaMailSender sender = mailSender.getIfAvailable();
+    JavaMailSender sender = activeSender();
     if (sender == null) {
       log.info(
           "[mail disabled] would notify {} that service hour #{} is now {}",
@@ -95,7 +109,7 @@ public class NotificationService {
    * reset URL is logged so the flow is still testable locally.
    */
   public void sendPasswordReset(String toEmail, String resetUrl) {
-    JavaMailSender sender = mailSender.getIfAvailable();
+    JavaMailSender sender = activeSender();
     if (sender == null) {
       log.info("[mail disabled] password reset link for {}: {}", toEmail, resetUrl);
       return;

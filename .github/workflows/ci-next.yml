@@ -11,6 +11,11 @@ name: CI (next)
 # Path filter: this workflow only fires on changes under sstation-next/ (and to
 # itself), so a Grails-only change doesn't spin up a Gradle build and vice
 # versa. The Grails ci.yml is left unchanged and continues to build the WAR.
+#
+# Two jobs: `check` is the test gate, and `image` (TC-115) builds the container
+# and proves it *runs* — a docker build only proves the Dockerfile parses, and
+# the bug that motivated this job was an image that built fine and then never
+# reported healthy.
 # ----------------------------------------------------------------------------
 
 on:
@@ -67,3 +72,86 @@ jobs:
             sstation-next/build/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  image:
+    name: Docker image (build + smoke test)
+    permissions:
+      contents: read
+      # Needed only by the GHCR push below, which is skipped on pull requests.
+      packages: write
+    # Only worth building the image once the suite is green; a broken build
+    # would fail here for reasons that have nothing to do with packaging.
+    needs: check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: sstation-next
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: sstation-next
+          # Load into the local daemon so compose can run it; no registry involved.
+          load: true
+          tags: sstation-next:ci
+          # The Dockerfile runs a full Gradle build, so an uncached image costs
+          # minutes. Cache the layers between runs.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the stack
+        # Uses the same docker-compose.yml DEPLOY.md tells people to run, with a
+        # CI override that supplies the pre-built image and demo passwords — so
+        # the compose file's env wiring and depends_on are under test too.
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --no-build -d
+
+      - name: Smoke test the running container
+        run: ./scripts/smoke-container.sh
+        env:
+          BASE_URL: http://localhost:8080
+
+      - name: Container logs
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+
+      # ---------------------------------------------------------------------
+      # Publish (TC-115). Only from main, and only after the smoke test above
+      # has passed — the point of a registry image is that TC-116's EC2 box can
+      # `docker pull` instead of compiling a Spring Boot app on 1 GiB of RAM, so
+      # nothing unverified should be pullable.
+      #
+      # Pull requests skip this: a fork's GITHUB_TOKEN cannot write packages,
+      # and an unmerged branch has no business publishing.
+      # ---------------------------------------------------------------------
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: sstation-next
+          push: true
+          # Fully cached by the build step above, so this re-runs in seconds.
+          cache-from: type=gha
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/sstation-next:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/sstation-next:latest

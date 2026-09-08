@@ -32,8 +32,12 @@ class NotificationServiceTest {
 
   @BeforeEach
   void setUp() {
-    service =
-        new NotificationService(mailSenderProvider, templateEngine, "no-reply@austincollege.edu");
+    service = serviceWithMailHost("smtp.austincollege.edu");
+  }
+
+  private NotificationService serviceWithMailHost(String host) {
+    return new NotificationService(
+        mailSenderProvider, templateEngine, "no-reply@austincollege.edu", host);
   }
 
   @Test
@@ -74,5 +78,29 @@ class NotificationServiceTest {
     h.setStartTime(LocalDateTime.now());
     h.setStatus(Status.PENDING);
     return h;
+  }
+
+  @Test
+  void noopWhenTheConfiguredMailHostIsEmpty() {
+    // TC-115. Under prod, spring.mail.host binds to ${SSTATION_MAIL_HOST:} and is *present but
+    // empty* when AC IT has not supplied a relay — which @ConditionalOnProperty counts as set, so
+    // a JavaMailSender bean does exist. Checking only for the bean meant every notification opened
+    // a doomed SMTP connection instead of logging.
+    NotificationService noRelay = serviceWithMailHost("");
+
+    noRelay.notifyStatusChange(hour(), Status.APPROVED);
+
+    verify(mailSenderProvider, never()).getIfAvailable();
+    verify(mailSender, never()).send(any(MimeMessage.class));
+  }
+
+  @Test
+  void passwordResetIsAlsoANoopWhenTheMailHostIsEmpty() {
+    NotificationService noRelay = serviceWithMailHost("   ");
+
+    noRelay.sendPasswordReset("student@austincollege.edu", "https://app/reset-password?token=x");
+
+    verify(mailSenderProvider, never()).getIfAvailable();
+    verify(mailSender, never()).send(any(MimeMessage.class));
   }
 }

@@ -1,0 +1,19 @@
+# TC-115: CI override for docker-compose.yml.
+#
+# Points the app service at an image the workflow has already built (with a layer cache) instead
+# of rebuilding inside compose, and drops the named volume so each run starts on a virgin
+# database. Everything else — the env wiring, depends_on, the healthcheck — is inherited, so the
+# smoke test still exercises the compose file DEPLOY.md tells people to run.
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --no-build -d
+
+services:
+  db:
+    volumes: []
+
+  app:
+    image: sstation-next:ci
+    environment:
+      SSTATION_DEMO_ADMIN_PASSWORD: ci-demo-admin-pw
+      SSTATION_DEMO_STUDENT_PASSWORD: ci-demo-student-pw
+      SSTATION_DEMO_MODERATOR_PASSWORD: ci-demo-moderator-pw
