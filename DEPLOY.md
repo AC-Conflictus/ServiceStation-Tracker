@@ -265,6 +265,67 @@ seconds the new process takes to boot and run pending migrations. This shape doe
 zero-downtime, and at this scale it doesn't need to. If a migration fails, the app refuses to
 start and the log names the failed migration — restore the backup and investigate.
 
+## Reverse proxy and TLS termination
+
+AC IT almost certainly already runs a reverse proxy (nginx, Apache, IIS ARR — the app does not care
+which) that terminates TLS and proxies plain HTTP to the app. That is a supported shape; the app
+asks two things of it.
+
+**1. Terminate TLS at the proxy, not in the app.** The app listens for plain HTTP (port `8080`)
+and has no TLS configuration of its own — do not put a certificate on the container or JAR.
+
+**2. Forward the standard `X-Forwarded-*` headers.** The `prod` profile sets
+`server.forward-headers-strategy: framework`, so Spring reads these headers and uses them to know
+the app is being served over HTTPS. This matters for every absolute URL the app builds — most
+visibly the password-reset link emailed to users, which is derived from the request's scheme and
+host. Without the headers, a TLS-terminating proxy makes the app think every request arrived over
+plain HTTP, and the links come out `http://…` — unusable from outside the network. Set at minimum:
+
+| Header | Value |
+|---|---|
+| `X-Forwarded-Proto` | `https` when the client connection used TLS |
+| `X-Forwarded-Host` | the public hostname the user typed |
+| `X-Forwarded-For` | the client IP (not used for anything security-relevant today, but standard) |
+
+There is no `SSTATION_SERVER_URL` and no other app-level URL setting — the app always derives its
+public URL from the request it actually receives, which is exactly why these headers are required
+rather than optional.
+
+A minimal nginx `server` block that terminates TLS and proxies to the app on the same host:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name service-station.austincollege.edu;            # 🏫 your public hostname
+
+    ssl_certificate     /etc/nginx/tls/service-station.crt;   # 🏫 your certificate
+    ssl_certificate_key /etc/nginx/tls/service-station.key;   # 🏫 your private key
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;                     # the app (container or java -jar)
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Proto $scheme;           # https, because nginx terminated TLS
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+(`proxy_pass http://127.0.0.1:8080` assumes the app publishes port 8080 on the host — the compose
+stack's `app` service does. For Apache the equivalent is `RequestHeader set X-Forwarded-Proto
+"https"` plus `ProxyPass`/`ProxyPassReverse`; for IIS ARR the built-in server-name and protocol
+forwarding do the same. Any proxy that sends these headers works.)
+
+A quick way to confirm the headers are honoured: request a password-reset link through the public
+URL and check the emailed link is `https://…`. On a mail-disabled install the app logs it:
+`[mail disabled] password reset link for <email>: <url>`.
+
+*Verified 2026-09-08 against a locally-built image (TC-110b): with `X-Forwarded-Proto: https` and
+`X-Forwarded-Host: service-station.austincollege.edu`, the app logs the reset link as
+`https://service-station.austincollege.edu/reset-password?token=…` and redirects to the same host;
+without the headers, the same request produces `http://localhost:8080/…`.*
+
 ## Public demo — Vercel (TC-122)
 
 **Decided 2026-09-07: the public demo goes to Vercel, not AWS.** The AWS EC2 + RDS outline below is
