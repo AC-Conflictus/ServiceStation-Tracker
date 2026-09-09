@@ -23,6 +23,16 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+  # HTTP sessions live in the database, not instance memory (TC-122a). Vercel's Fluid compute may
+  # serve any request from any instance, so in-memory sessions would bounce a signed-in user to
+  # the login page at random. AC IT's single-container deploy does not need this, but it costs
+  # nothing there and unblocks running more than one instance. `initialize-schema: never` —
+  # Flyway V6 owns the session tables (the schema source of truth), so Spring Session must
+  # never try to create them itself.
+  session:
+    jdbc:
+      initialize-schema: never
+
 server:
   port: 8080
 
