@@ -34,7 +34,10 @@ spring:
       initialize-schema: never
 
 server:
-  port: 8080
+  # TC-122b: Vercel routes container traffic to whatever `PORT` says (its own default is 80), so
+  # the port cannot be pinned in the image. Everything else — compose, `java -jar`, AC IT's own
+  # deployment — leaves PORT unset and keeps 8080 exactly as before.
+  port: ${PORT:8080}
 
 # Approve/reject notification emails (TC-021 / TC-108a). The from-address is shared across
 # profiles; the SMTP server itself (spring.mail.*) is only wired in prod (below), so local dev
