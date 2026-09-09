@@ -369,19 +369,43 @@ swap, not a re-architecture. Compared with the EC2 plan it drops the VPC, securi
 TLS and a separately-billed RDS instance, and gives the JVM **1 vCPU / 2 GB** instead of a
 t3.micro's 1 GB.
 
-**Not yet implemented — see [TC-122](TRELLO_CARDS.md) for the full card.** Three items are real
-work rather than configuration, and the first one bites silently:
+**Repo-side work is done; the deployment itself is not.** See [TC-122](TRELLO_CARDS.md) for the
+full card. The three items that were real work rather than configuration:
 
-1. **Sessions must leave instance memory.** This app is session-based (Spring Security form login)
-   and currently uses in-memory Tomcat sessions. On Fluid compute any instance may serve any
-   request, so with more than one instance live a signed-in user is randomly returned to the login
-   page. Fix is `spring-session-jdbc` against the Postgres we already use.
+1. ✅ **Sessions live in the database, not instance memory** (TC-122a). This app is session-based
+   (Spring Security form login), and on Fluid compute any instance may serve any request — with
+   more than one instance live, in-memory sessions would return a signed-in user to the login page
+   at random. `spring-session-jdbc` + Flyway `V6` keep them in the Postgres the app already uses.
    **This is a Vercel constraint, not a requirement for AC IT** — a single container on a single
-   host, which is the expected shape for an office this size, is perfectly fine as-is.
-2. **`server.port` is hardcoded to `8080`** and must become `${PORT:8080}`; Vercel routes to
-   `$PORT`.
-3. **A `Dockerfile.vercel` or `vercel.json` `services` entrypoint** pointing at
-   `sstation-next/Dockerfile`, so there is no second Dockerfile to drift from the tested one.
+   host, the expected shape for an office this size, was always fine without it.
+2. ✅ **The HTTP port follows `$PORT`** (TC-122b). Vercel routes container traffic to whatever
+   `PORT` says (its default is `80`). Leaving `PORT` unset keeps `8080`, so every other caller —
+   compose, `java -jar`, AC IT's deployment — is unaffected. The image's `HEALTHCHECK` follows the
+   same variable; pinning it would mean `PORT` moved the app but not the probe.
+3. ✅ **[`vercel.json`](vercel.json) points Vercel at the existing tested Dockerfile** (TC-122c) via
+   a `services` entry (`root: sstation-next/`, `entrypoint: Dockerfile`) rather than a second
+   `Dockerfile.vercel` that could drift from the one CI smoke-tests. It also declares the daily
+   cron below.
+
+> ⚠️ **`vercel.json` has never been run against Vercel.** It is written from Vercel's documented
+> `services` schema, but nobody on this project has a Vercel account yet, so the build has not been
+> exercised even once. Treat the first deploy as the test. The most likely thing to be wrong is
+> `entrypoint: "Dockerfile"` — Vercel auto-detects `Dockerfile.vercel`, and if an explicit
+> `entrypoint` turns out to require that suffix, the fix is to add a one-line
+> `sstation-next/Dockerfile.vercel` containing `FROM` nothing more than a rename, or point
+> `entrypoint` at a renamed copy.
+
+**Still needed, and none of it is repo work** — a Vercel account with this repo linked, a Postgres
+(see below), the `SSTATION_DEMO_*_PASSWORD` values set as Vercel environment variables, `PORT=8080`
+set in the project settings if Vercel's default of `80` is not wanted, and a measured cold-start
+number for the README.
+
+### The daily cron
+
+`vercel.json` declares one cron job hitting `/actuator/health` daily. It does double duty: Boot's
+`db` health indicator issues a real query, which resets Supabase's 7-day idle-pause timer, and the
+request itself wakes the function from scale-to-zero. `/actuator/health` is public (see
+`SecurityConfig`), so the cron needs no credentials. Hobby plans allow a daily schedule.
 
 Other things worth knowing before relying on it:
 

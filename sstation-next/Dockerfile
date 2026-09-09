@@ -30,7 +30,10 @@ EXPOSE 8080
 # Sized for small hosts (e.g. AWS t3.micro) when only the app container runs.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
 
+# Follows $PORT for the same reason application.yml does (TC-122b): pinning 8080 here means
+# setting PORT moves the app but not the probe, and the container never reports healthy again.
+# HEALTHCHECK CMD runs through /bin/sh, so the expansion happens at runtime, not build time.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-  CMD wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"' || exit 1
+  CMD wget -q -O - http://127.0.0.1:${PORT:-8080}/actuator/health | grep -q '"status":"UP"' || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
