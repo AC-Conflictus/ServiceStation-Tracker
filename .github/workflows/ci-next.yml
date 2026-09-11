@@ -74,7 +74,7 @@ jobs:
           retention-days: 14
 
   image:
-    name: Docker image (build + smoke test)
+    name: Docker image (build + smoke + E2E)
     permissions:
       contents: read
       # Needed only by the GHCR push below, which is skipped on pull requests.
@@ -118,6 +118,41 @@ jobs:
         run: ./scripts/smoke-container.sh
         env:
           BASE_URL: http://localhost:8080
+
+      # -------------------------------------------------------------------
+      # End-to-end suite (TC-111). Runs here rather than in its own job so it
+      # reuses the stack the smoke test just proved healthy — a second job
+      # would have to rebuild the image and bring Postgres up all over again.
+      # Ordered after the smoke test on purpose: if the container cannot even
+      # serve /login, a browser failing to drive it tells you nothing new.
+      # -------------------------------------------------------------------
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with build cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Playwright browsers
+        run: ./gradlew playwrightInstall --no-daemon
+
+      - name: End-to-end suite (Playwright)
+        run: ./gradlew e2eTest --no-daemon --stacktrace
+        env:
+          E2E_BASE_URL: http://localhost:8080
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sstation-next-e2e-reports-${{ github.run_id }}
+          path: |
+            sstation-next/build/reports/tests/e2eTest/
+            sstation-next/build/test-results/e2eTest/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Container logs
         if: always()
