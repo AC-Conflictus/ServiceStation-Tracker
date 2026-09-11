@@ -25,6 +25,18 @@ java {
     }
 }
 
+// TC-111: the end-to-end suite lives in its own source set, deliberately outside `test`.
+//
+// Everything in `src/test` is hermetic — H2, or a Testcontainers Postgres it starts itself — so
+// `check` stays fast and runs anywhere. The E2E suite is the opposite: it drives a real browser
+// against an already-running compose stack over HTTP, so it needs Docker, a built image and a warm
+// app before it means anything. Folding it into `test` would make the unit gate depend on all
+// three. `e2eTest` is therefore a separate task that `check` does NOT depend on; CI runs it as its
+// own step once the stack is already up (see ci-next.yml).
+sourceSets {
+    create("e2eTest")
+}
+
 repositories {
     mavenCentral()
 }
@@ -78,6 +90,14 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // E2E (TC-111). Playwright's *Java* bindings on purpose: this repo has no npm/JS build at all
+    // — the frontend is vendored WebJars (TC-107) — and pulling in Node purely for tests would
+    // hand AC IT a second toolchain to ignore. JUnit/AssertJ versions come from Boot's BOM.
+    "e2eTestImplementation"("com.microsoft.playwright:playwright:1.52.0")
+    "e2eTestImplementation"("org.junit.jupiter:junit-jupiter")
+    "e2eTestImplementation"("org.assertj:assertj-core")
+    "e2eTestRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
@@ -101,6 +121,38 @@ tasks.withType<Test> {
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     systemProperty("spring.profiles.active", "dev")
 }
+
+// TC-111: `./gradlew e2eTest` against an already-running stack.
+//
+// Not wired into `check` — see the sourceSets comment above. E2E_BASE_URL points it somewhere
+// other than the compose stack's http://localhost:8080, which is also how this gets aimed at a
+// deployed demo URL rather than a local container.
+val e2eTest by
+    tasks.registering(Test::class) {
+        group = "verification"
+        description = "Playwright end-to-end suite. Requires a running app (docker compose up)."
+        testClassesDirs = sourceSets["e2eTest"].output.classesDirs
+        classpath = sourceSets["e2eTest"].runtimeClasspath
+        useJUnitPlatform()
+        shouldRunAfter(tasks.named("test"))
+
+        doFirst {
+            logger.lifecycle(
+                "e2eTest -> " + (System.getenv("E2E_BASE_URL") ?: "http://localhost:8080"))
+        }
+    }
+
+// Downloads the Playwright browser binaries and their system libraries. Run once locally; CI runs
+// it before e2eTest. Chromium only — one engine is enough to prove these flows work, and three
+// would triple the CI download for no extra signal.
+val playwrightInstall by
+    tasks.registering(JavaExec::class) {
+        group = "verification"
+        description = "Install the Playwright browser binaries needed by e2eTest."
+        classpath = sourceSets["e2eTest"].runtimeClasspath
+        mainClass.set("com.microsoft.playwright.CLI")
+        args("install", "--with-deps", "chromium")
+    }
 
 spotless {
     java {
