@@ -71,6 +71,14 @@ abstract class E2eTest {
   void openContext() {
     context = browser.newContext();
     page = context.newPage();
+
+    // Accept native dialogs — i.e. behave like a user who clicks OK.
+    //
+    // Playwright *dismisses* dialogs by default, which silently breaks anything guarded by a
+    // confirm(): the destructive forms use onsubmit="return confirm(...)", so a dismissed dialog
+    // makes the form quietly not submit and the failure surfaces much later as "the row I deleted
+    // is still there". Found exactly that way.
+    page.onDialog(dialog -> dialog.accept());
   }
 
   @AfterEach
@@ -80,13 +88,26 @@ abstract class E2eTest {
     }
   }
 
+  /**
+   * Submits the form on the current page.
+   *
+   * <p>Scoped to {@code main} deliberately. The shared layout puts a <em>Sign out</em> button in
+   * the navbar, and it is the first {@code button[type=submit]} in the DOM on every authenticated
+   * page — so a bare {@code page.click("button[type='submit']")} silently signs the test out
+   * instead of submitting anything, and the failure shows up later as "the thing I just created
+   * isn't there". Found exactly that way while writing these tests.
+   */
+  protected void submit() {
+    page.click("main button[type='submit']");
+    page.waitForLoadState();
+  }
+
   /** Signs in through the real form and waits for the resulting navigation to settle. */
   protected void signIn(String username, String password) {
     page.navigate(BASE_URL + "/login");
     page.fill("input[name='username']", username);
     page.fill("input[name='password']", password);
-    page.click("button[type='submit']");
-    page.waitForLoadState();
+    submit();
   }
 
   protected void signInAsAdmin() {
