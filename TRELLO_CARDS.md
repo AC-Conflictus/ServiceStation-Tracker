@@ -724,17 +724,23 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Estimate:** M. *(Actual: M — the forward-headers fix was most of it.)*
 
 ### TC-111 🧹 End-to-end acceptance suite + stakeholder sign-off (was: "parity test against the old app")
-- **Status:** 🔲 **Rescoped 2026-09-02.** The original card asked for a side-by-side HTML diff against the Grails app. **That is no longer achievable and should not be attempted:** TC-107 restyled every page to Bootstrap 5, and TC-108 added seven flows the Grails app never had (email notifications, bulk approve, CSV, PDF, date-range filter, event sign-up, password reset). There is no longer a comparable page to diff. Parity is now established by *feature coverage*, not by rendered output.
-- **Why:** Before declaring the rewrite done we still need machine-checked proof that the user-visible flows work in a real browser. The 119 JUnit tests cover services and controllers via MockMvc — **nothing currently drives a real browser**, and no test has ever exercised the app end-to-end over HTTP.
+- **Status:** 🟡 **Machine-checked half landed 2026-09-11; the human half is outstanding.** The Playwright suite, the CI wiring and the parity checklist are done on `feat/tc-111-e2e-suite`. What remains is **not code**: a stakeholder click-through, and a decision on the one feature regression the checklist turned up (below). Do not mark this card ✅ until both are closed.
+- **Rescoped 2026-09-02:** the original card asked for a side-by-side HTML diff against the Grails app. **That is no longer achievable and should not be attempted:** TC-107 restyled every page to Bootstrap 5, and TC-108 added seven flows the Grails app never had. There is no longer a comparable page to diff. Parity is established by *feature coverage*, not rendered output.
+- **Why:** Before declaring the rewrite done we needed machine-checked proof that the user-visible flows work in a real browser. The JUnit suite covers services and controllers via MockMvc — which never runs the real filter chain over a real socket and never executes a line of the JavaScript the pages ship.
 - **Acceptance criteria:**
-  - Playwright suite (from [TC-039](#tc-039-)) written **against `sstation-next` only** — no Grails comparison.
-  - Covers, per role: login/logout + role routing, admin dashboard KPIs render, one report of each shape, the pending-queue approve/reject round trip (and its audit entry), one CRUD create→edit→delete cycle, student self-signup, and the CSV + PDF downloads returning the right content type.
-  - Runs against the **Docker compose stack** (TC-113) so it exercises Postgres, not H2.
-  - Wired into `ci-next.yml` (headless, on PR).
-  - A **checklist mapping every Grails feature to its rewrite equivalent** — this is the real parity artifact, and it replaces the HTML diff.
-  - At least one Service Station stakeholder clicks through and signs off.
-- **Depends on:** TC-113 ✅, TC-118 (Postgres tests must actually run first).
-- **Estimate:** M–L.
+  - ✅ **Playwright suite against `sstation-next` only** — `src/e2eTest`, **26 tests**, Java bindings rather than the Node runner so the repo keeps its "no npm toolchain" property (the frontend is vendored WebJars).
+  - ✅ **Covers the listed flows per role:** login/logout + role routing for all three roles, dashboard KPIs, one report of each shape, the approve/reject round trip **and its audit entry**, a full CRUD create→edit→delete cycle, student event sign-up, and the CSV + PDF downloads.
+  - ✅ **Runs against the Docker compose stack** on Postgres, not H2. Verified against a virgin stack: 26/26.
+  - ✅ **Wired into `ci-next.yml`** — added to the existing `image` job so it reuses the container the smoke test just proved healthy, rather than rebuilding everything in a second job. Side effect worth knowing: **the GHCR push is now gated on E2E too.**
+  - ✅ **Parity checklist** — [docs/TC-111-parity-checklist.md](docs/TC-111-parity-checklist.md).
+  - 🔲 **Stakeholder click-through and sign-off.** Not startable until TC-122's demo is up (or someone runs the stack locally).
+  - 🔲 **Decide the CSV-import question** (below).
+- **⚠️ The checklist found one real regression: student CSV import was never ported.** Grails has `AcStudentController.upload()` reading `request.getFile('CSV')` into `StudentService.importStudents()`, with `uploadPage.gsp`/`uploadSuccess.gsp`. `sstation-next` has **no `MultipartFile` anywhere** — no upload endpoint, no import service; students can only be created one at a time. Verified in both directions rather than assumed: the Grails path is live code with a real service method behind it, and the rewrite's absence is a grep returning zero.
+  - **This is a question for the Service Station office, not a technical one.** If students are bulk-loaded from a registrar export each term it is a blocker and needs its own card; if it was written once and never used it should be dropped *deliberately* and recorded as dropped.
+  - If it is needed: upload form, `MultipartFile` endpoint, OpenCSV parsing (already a dependency — it powers the exports), add-or-update semantics matching `importStudents`, result page. **Estimate S–M.**
+- **Notes for whoever runs this:** `./gradlew e2eTest` needs a stack already up (`docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d`) and `./gradlew playwrightInstall` once. `check` deliberately does **not** run it — the unit gate stays hermetic.
+- **Depends on:** TC-113 ✅, TC-118 ✅.
+- **Estimate:** M–L. *(Suite: M. Sign-off: not ours to estimate.)*
 
 ### TC-118 ⚠️ The Postgres integration test silently skips — `check` is green on a no-op ✅ landed 2026-09-04
 - **Status:** ✅ **Fixed.** The Postgres-backed tests now actually run on a Docker 29 dev box, and a skipped test can no longer pass for a green build. Landed in four slices on `feat/tc-118-postgres-test`: (a) the root-cause fix, (b) a coherent Testcontainers pin, (c) the no-silent-skip gate, (d) the virgin-`prod` test. Local `check` went from **119 tests / 2 skipped** to **122 tests / 0 skipped**, matching CI for the first time.

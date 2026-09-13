@@ -59,7 +59,7 @@ Package root: `edu.austincollege.sstation`.
 - [x] TC-115 — CI builds the Docker image, runs it against Postgres and smoke-tests the running container, then publishes to GHCR from `main`
 - [ ] TC-122 — public demo on **Vercel** (container image on Fluid compute). Replaces the AWS/EC2 plan in TC-116, which is retired to a documented alternate
 - [x] TC-110 — self-hosting runbook for AC IT (`../DEPLOY.md`): prerequisites, the Docker / `java -jar` / reverse-proxy deployment shapes, backups and upgrades, 🏫 placeholders, and the forward-headers fix so password-reset links survive TLS termination
-- [ ] TC-111 — E2E acceptance suite + stakeholder sign-off
+- [~] TC-111 — **E2E suite done, sign-off outstanding.** 26 Playwright tests in `src/e2eTest` drive a real browser against the compose stack (`./gradlew e2eTest`, after `./gradlew playwrightInstall`); `check` does not run them. Plus [../docs/TC-111-parity-checklist.md](../docs/TC-111-parity-checklist.md), which found one regression: student CSV import was never ported
 - [ ] TC-112 — decommission the Grails app
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.
