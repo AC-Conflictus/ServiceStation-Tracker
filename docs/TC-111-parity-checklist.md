@@ -62,6 +62,7 @@ test that proves it works in a real browser.
 | Grails capability | Rewrite equivalent | Coverage |
 |---|---|---|
 | CRUD students | `/admin/students` (TC-106) | 🔵 |
+| **Bulk student CSV import** | `/admin/students/import` (TC-123) | 🟢 upload, bad-row reporting, re-import, and the permission change |
 | CRUD events | `/admin/events` | 🟢 full create → edit → delete cycle |
 | CRUD campus orgs (`ACGroupController`) | `/admin/campus-orgs` | 🔵 same controller shape as events |
 | CRUD community agencies (`CommOrgController`) | `/admin/agencies` | 🔵 same controller shape as events |
@@ -100,30 +101,32 @@ These have no parity obligation; they are listed so the reviewer knows what is n
 
 ## Gaps
 
-### 🔴 Student CSV import was never ported
+### ✅ Student CSV import — was missing, now ported (TC-123)
 
-The Grails app can bulk-import students from a CSV file:
+This checklist originally found one genuine feature regression: the Grails bulk student import
+(`AcStudentController.upload()` → `StudentService.importStudents()`) had no equivalent in
+`sstation-next`. **It has since been built** — `/admin/students/import`, reachable from the students
+list, with the same column layout, the same add-or-update-by-student-ID semantics, and the same
+"unknown classification becomes OTHER" behaviour.
 
-- `AcStudentController.uploadPage()` renders `acStudent/uploadPage.gsp`
-- `AcStudentController.upload()` reads `request.getFile('CSV')` and calls
-  `StudentService.importStudents(inStream)`
-- `acStudent/uploadSuccess.gsp` reports how many were added vs. updated
+Two deliberate differences, both improvements:
 
-`sstation-next` has **no equivalent**: there is no `MultipartFile` anywhere in the codebase, no
-upload endpoint, and no import service. Students can only be created one at a time through
-`/admin/students`.
+- **Invalid rows are reported rather than dropped in silence.** Grails counted only successes, so a
+  file with a dozen malformed rows looked like a clean import. Skipped rows now come back with their
+  line number and the reason.
+- **Students can no longer do it.** The Grails controller's class-level `@Secured` included
+  `ROLE_STUDENT`, so any signed-in student could overwrite the entire roster. It is now ADMIN +
+  MODERATOR, matching who can already manage students individually.
 
-**This is the one genuine feature regression in the rewrite.** It needs a decision before sign-off,
-and it is a question for the Service Station office rather than a technical one:
+> ⚠️ **One thing still needs the office's eyes.** The column layout was matched against the *Grails
+> source*, not against a real registrar export — nobody on this project has seen the actual file.
+> The importer expects, zero-indexed: `0` student ID, `1` **ignored**, `2` first name, `3` last name,
+> `4` status, `5` AC box, `6` classification, `7` **ignored**, `8` email, with the first row treated
+> as a header. **Please import one real export and confirm the columns land in the right fields** —
+> a layout mismatch imports plausible-looking garbage rather than failing, which is the worst way for
+> this to be wrong. The result page makes this easy to eyeball.
 
-1. **Do they actually use it?** If students are bulk-loaded from a registrar export each term, this
-   is a blocker and needs a card. If it was written once and never used, it can be dropped
-   deliberately and recorded as dropped.
-2. If it is needed, scope is roughly: an upload form, a `MultipartFile` endpoint, OpenCSV parsing
-   (already a dependency — it is used for exports), add-or-update semantics matching
-   `importStudents`, and a result page. Estimate S–M.
-
-Everything else in the Grails app has an equivalent.
+No other Grails capability is missing.
 
 ---
 
@@ -135,7 +138,9 @@ that requires a person who does this job clicking through it.
 **Before sign-off:**
 
 - [ ] A Service Station staff member clicks through the demo (see [DEPLOY.md](../DEPLOY.md))
-- [ ] The CSV-import question above is answered: needed, or deliberately dropped
+- [ ] **One real registrar CSV is imported** and the columns are confirmed to land in the right
+      fields (see the warning above — this is the one thing that cannot be verified without a real
+      file)
 - [ ] Anything they flag is either fixed or recorded as a known difference
 
 **Signed off by:** _______________  **Date:** ___________
