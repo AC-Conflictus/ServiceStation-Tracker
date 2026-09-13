@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -90,9 +89,21 @@ class BootstrapAdminIntegrationTest {
         mvc.perform(formLogin("/login").user("ac-it-admin").password(BOOTSTRAP_PASSWORD))
             .andExpect(authenticated())
             .andReturn();
-    MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
 
-    mvc.perform(get("/admin").session(session)).andExpect(redirectedUrl("/change-password"));
+    // Sessions live in Postgres (TC-122a), so the continuation request identifies itself the
+    // way a browser does — with the SESSION cookie the sign-in response set — rather than by a
+    // container session object, which the session filter no longer exposes. `.cookie(…)` rather
+    // than a literal Cookie header: the resolver reads request.getCookies(), which MockMvc only
+    // populates through the cookie builder.
+    String sessionCookie =
+        login.getResponse().getHeaders("Set-Cookie").stream()
+            .filter(c -> c.startsWith("SESSION="))
+            .map(c -> c.split(";", 2)[0].substring("SESSION=".length()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no SESSION cookie on the sign-in response"));
+
+    mvc.perform(get("/admin").cookie(new jakarta.servlet.http.Cookie("SESSION", sessionCookie)))
+        .andExpect(redirectedUrl("/change-password"));
   }
 
   @Test

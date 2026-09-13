@@ -35,7 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * written to yet. Hence a second container rather than a shared one: the moment these two tests
  * share a Postgres instance, "virgin" stops being true.
  *
- * <p>What a green run proves: Flyway V1–V5 apply cleanly to an empty schema, Hibernate's {@code
+ * <p>What a green run proves: Flyway V1–V6 apply cleanly to an empty schema, Hibernate's {@code
  * ddl-auto=validate} agrees with the result (the context would refuse to start otherwise), a bare
  * {@code prod} boot seeds nothing at all — so AC IT's first login is against an empty user table,
  * which is the documented and intended behaviour — and the proxy-header handling AC IT's deployment
