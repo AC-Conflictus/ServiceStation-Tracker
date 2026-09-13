@@ -12,6 +12,7 @@
         <h1 class="h3 mb-0">Students</h1>
         <div>
           <a class="btn btn-outline-secondary" th:href="@{/admin/moderators}" sec:authorize="hasRole('ADMIN')">Moderators</a>
+          <a class="btn btn-outline-secondary" th:href="@{/admin/students/import}">Import CSV</a>
           <a class="btn btn-primary" th:href="@{/admin/students/new}">+ New student</a>
         </div>
       </div>

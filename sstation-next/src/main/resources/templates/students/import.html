@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+  <head>
+    <title>Import students — Service Station Hours</title>
+  </head>
+  <body>
+    <main>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Import students from CSV</h1>
+        <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/students}">Back to students</a>
+      </div>
+
+      <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+      <div class="row">
+        <div class="col-lg-7">
+          <div class="card mb-4">
+            <div class="card-body">
+              <form th:action="@{/admin/students/import}" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                  <label class="form-label" for="file">Registrar CSV export</label>
+                  <input class="form-control" type="file" id="file" name="file" accept=".csv,text/csv" required />
+                </div>
+                <button class="btn btn-primary" type="submit">Import</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-body">
+              <h2 class="h6 card-title">Expected columns</h2>
+              <p class="small text-muted">
+                The first row is treated as a header and skipped. Students are matched on the
+                <strong>student ID</strong> in the first column — an ID already on file is updated,
+                a new one is added. Nothing is ever deleted by an import.
+              </p>
+              <ol class="small mb-2 ps-3">
+                <li>Student ID <span class="text-muted">(required)</span></li>
+                <li class="text-muted">ignored</li>
+                <li>First name <span class="text-muted">(required)</span></li>
+                <li>Last name <span class="text-muted">(required)</span></li>
+                <li>Status <span class="text-muted">(single character)</span></li>
+                <li>AC box</li>
+                <li>Classification <span class="text-muted">(FR / SO / JR / SR / OTHER)</span></li>
+                <li class="text-muted">ignored</li>
+                <li>AC email <span class="text-muted">(required)</span></li>
+              </ol>
+              <p class="small text-muted mb-0">
+                An unrecognised classification is recorded as <code>OTHER</code> rather than
+                failing the row. Rows that cannot be imported are listed after the upload with the
+                reason, and the rest still import.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
