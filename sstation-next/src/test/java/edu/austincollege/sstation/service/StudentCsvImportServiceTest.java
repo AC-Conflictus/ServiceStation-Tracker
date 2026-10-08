@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 /**
  * TC-123: the student CSV import the TC-111 parity checklist found missing.
@@ -34,6 +35,7 @@ class StudentCsvImportServiceTest {
       "acid,ignored,firstname,lastname,status,acbox,classification,ignored2,email\n";
 
   @Autowired private StudentRepository students;
+  @Autowired private TestEntityManager em;
 
   private StudentCsvImportService service;
 
@@ -129,6 +131,36 @@ class StudentCsvImportServiceTest {
 
     assertThat(students.findByAcid("AC91005")).isEmpty();
     assertThat(students.findByAcid("AC91006")).isEmpty();
+  }
+
+  @Test
+  void anInvalidRowForAStudentAlreadyOnFileLeavesTheirRecordUntouched() throws IOException {
+    importCsv(HEADER + "AC91010,x,Katherine,Johnson,A,10,JR,y,kj@austincollege.edu\n");
+    em.flush();
+    em.clear();
+
+    // Same id, but a bad email — and good rows on either side, so the import must carry on.
+    ImportResult result =
+        importCsv(
+            HEADER
+                + "AC91011,x,Before,Row,A,1,FR,y,before@austincollege.edu\n"
+                + "AC91010,x,Kathy,Changed,I,99,SR,y,not-an-email\n"
+                + "AC91012,x,After,Row,A,2,FR,y,after@austincollege.edu\n");
+
+    assertThat(result.added()).isEqualTo(2);
+    assertThat(result.updated()).isZero();
+    assertThat(result.skipped()).extracting("acid").containsExactly("AC91010");
+
+    // The student is a managed entity once loaded, so anything set on it is written at flush
+    // whether or not the row was "skipped". Flush, then read back from the database.
+    em.flush();
+    em.clear();
+    Student unchanged = students.findByAcid("AC91010").orElseThrow();
+    assertThat(unchanged.getFirstname()).isEqualTo("Katherine");
+    assertThat(unchanged.getLastname()).isEqualTo("Johnson");
+    assertThat(unchanged.getStatus()).isEqualTo('A');
+    assertThat(unchanged.getClassification()).isEqualTo(Classification.JR);
+    assertThat(unchanged.getAcEmail()).isEqualTo("kj@austincollege.edu");
   }
 
   @Test

@@ -123,26 +123,24 @@ public class StudentCsvImportService {
           continue;
         }
 
-        Optional<Student> existing = students.findByAcid(acid);
-        Student student = existing.orElseGet(Student::new);
-        student.setAcid(acid);
-        student.setFirstname(trim(row[FIRSTNAME]));
-        student.setLastname(trim(row[LASTNAME]));
-        student.setStatus(firstCharOrNull(row[STATUS]));
-        student.setAcBox(trim(row[AC_BOX]));
-        student.setClassification(parseClassification(row[CLASSIFICATION]));
-        student.setAcEmail(trim(row[AC_EMAIL]));
-
-        Optional<String> problem = firstViolation(student);
+        // Validate a detached copy first. An existing student is a managed entity, so setting a
+        // bad row onto it and then "skipping" still writes it at the next flush — where Hibernate
+        // re-validates, throws, and rolls back the whole file over one messy row.
+        Student candidate = new Student();
+        applyRow(candidate, acid, row);
+        Optional<String> problem = firstViolation(candidate);
         if (problem.isPresent()) {
           skipped.add(new SkippedRow(line, acid, problem.get()));
           continue;
         }
 
-        students.save(student);
+        Optional<Student> existing = students.findByAcid(acid);
         if (existing.isPresent()) {
+          applyRow(existing.get(), acid, row);
+          students.save(existing.get());
           updated++;
         } else {
+          students.save(candidate);
           added++;
         }
       }
@@ -152,6 +150,16 @@ public class StudentCsvImportService {
     }
 
     return new ImportResult(added, updated, skipped);
+  }
+
+  private void applyRow(Student student, String acid, String[] row) {
+    student.setAcid(acid);
+    student.setFirstname(trim(row[FIRSTNAME]));
+    student.setLastname(trim(row[LASTNAME]));
+    student.setStatus(firstCharOrNull(row[STATUS]));
+    student.setAcBox(trim(row[AC_BOX]));
+    student.setClassification(parseClassification(row[CLASSIFICATION]));
+    student.setAcEmail(trim(row[AC_EMAIL]));
   }
 
   /**
