@@ -61,13 +61,13 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
 
 ### Layout
 - `src/main/java/edu/austincollege/sstation/`
-  - `domain/` — **12 JPA entities** (`User`, `Role`, `UserRole`, `Student`, `ServiceHour`, `ServiceHourAuditLog`, `Event`, `EventSignup`, `CampusOrg`, `CommunityAgency`, `Contact`, `PasswordResetToken`) + 3 enums (`Status`, `Classification`, `SignupStatus`).
+  - `domain/` — **12 JPA entities** (`User`, `Role`, `UserRole`, `Student`, `ServiceHour`, `ServiceHourAuditLog`, `Event`, `EventSignup`, `CampusOrg`, `CommunityAgency`, `Contact`, `PasswordResetToken`) + 4 enums (`Status`, `Classification`, `SignupStatus`, `AuthSource`).
   - `repository/` — Spring Data repositories.
   - `service/` — read: `StatsService`, `ReportService`, `StudentStatsService` (+ their `*Data` record DTOs); write: `ReferenceCrudService` (detach-on-delete), `StudentCrudService`, `AuditService`; features: `NotificationService` (mail), `ReportCsvService` (OpenCSV), `StudentReportPdfService` (openhtmltopdf), `EventSignupService`, `PasswordResetService`.
-  - `security/` — `SecurityConfig`, `CustomUserDetailsService`.
+  - `security/` — `SecurityConfig`, `CustomUserDetailsService`, and the TC-124 sign-in seam: `AuthProperties` (`sstation.auth.*`), `DirectoryAuthentication` (builds the AD/LDAP provider), `DirectoryAccountMapper` (who an AC sign-in is *here*).
   - `config/` — `DevDataSeeder` (roles + 3 users from env vars) and `DemoDataSeeder` (orgs/events/agencies + random students/hours); plus `DemoAccountSeeder` (**`@Profile("demo")`**, for the container/AWS showcase — fails fast without `SSTATION_DEMO_*_PASSWORD`). `DevDataSeeder` is `dev`-only; `DemoDataSeeder` runs under **both** `dev` and `demo`.
   - `web/` — read: `HomeController` (role-routes `/`), `AdminController`, `ReportsController`, `StudentController`, `LoginController`. CRUD: `EventController`, `CampusOrgController`, `CommunityAgencyController`, `StudentAdminController`, `ModeratorController`, `HourController` (+ `ServiceHourForm`). Features: `EventSignupController`, `PasswordResetController`, `CsvDownloads`.
-- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf; all pages decorate `templates/fragments/layout.html`), `db/migration/` **`V1__initial_schema.sql` → `V5__must_change_password.sql`** (V2 audit log, V3 event signups, V4 reset tokens, V5 forced password change). Frontend assets are vendored via WebJars (no `static/` blobs), served at `/webjars/**`.
+- `src/main/resources/` — `application.yml`, `templates/` (Thymeleaf; all pages decorate `templates/fragments/layout.html`), `db/migration/` **`V1__initial_schema.sql` → `V7__directory_accounts.sql`** (V2 audit log, V3 event signups, V4 reset tokens, V5 forced password change, **V6 spring-session — on PR #15's branch only, not yet on `main`**, V7 `users.auth_source`). Frontend assets are vendored via WebJars (no `static/` blobs), served at `/webjars/**`.
 - `Dockerfile`, `docker-compose.yml` / `.dev.yml` / `.ec2.yml`, `.env.example` — container packaging (TC-113/TC-114). See [DEPLOY.md](DEPLOY.md).
 
 ### What's ported (Lane 7 progress, all verified `./gradlew check` green + live)
@@ -120,6 +120,14 @@ The parallel rewrite lives in [sstation-next/](sstation-next/). It is **not yet 
   1. **`button[type='submit']` matches the navbar's Sign out first** on every authenticated page, so a naive "submit the form" silently signs you out and the failure surfaces later as "the thing I created isn't there". Use `submit()`, which scopes to `main`.
   2. **Playwright dismisses dialogs by default**, and the destructive forms guard on `onsubmit="return confirm(...)"` — so Delete quietly does nothing. The base class accepts dialogs.
   3. **`button:has-text('Approve')` also matches the bulk "Approve selected"** control (TC-108b), which alerts when no rows are checked. Use `tbody button:text-is('Approve')`.
+- **The shipped login is a placeholder; AC credentials are the real one (TC-124).** `SSTATION_AUTH_MODE=directory` checks AC user names/passwords against AC's directory (AD or LDAP) through the same form; `local` (default) is the app's own accounts. Things that are easy to break:
+  - **Local is checked before the directory, on purpose.** `ProviderManager` stops at an `InternalAuthenticationServiceException` (directory unreachable) instead of trying the next provider, so reversing the order locks out the break-glass admin during an outage.
+  - **`CustomUserDetailsService` throws `UsernameNotFoundException` for `DIRECTORY` accounts** — that is what guarantees no locally stored password can ever open an AC account. Reset and change-password refuse them too.
+  - **Refusals after a successful directory bind are `DirectoryAccountException` (an `AccountStatusException`)** so `ProviderManager` stops there and never falls through to a local check. A same-name local account is *refused*, never merged.
+  - **Roles are computed at each sign-in, not stored**: STUDENT if linked, MODERATOR if the linked student's `isModerator` is set, `user_roles`, plus optional directory groups. A sign-in with no role is refused and creates no row.
+  - **Boot's `LdapAutoConfiguration` is excluded** in `application.yml`. With `spring-security-ldap` on the classpath it builds a context source for `localhost:389`, and its health indicator then drags `/actuator/health` DOWN — the same failure as the mail indicator (TC-115).
+  - **`AuthProperties` applies its defaults in compact constructors, not `@DefaultValue`**, because a *set-but-empty* variable (compose passes unset ones through as `""`) is "present" to Spring and the annotation default never applies.
+  - **Only the `ldap` type has been exercised** (in-memory UnboundID server in `DirectoryLoginIntegrationTest`, and live). `active-directory` is configured but has never met a real domain controller.
 - **Password-reset tokens are stored SHA-256-hashed, single-use, 1-hour TTL**, and `requestReset` deliberately reveals nothing about whether an account exists. Keep that property if you touch `PasswordResetService`.
 
 ## High-level architecture (the Grails app)
@@ -243,7 +251,10 @@ The full prioritized backlog lives in [TRELLO_CARDS.md](TRELLO_CARDS.md). Quick 
 - TC-121 day-one admin bootstrap + in-app password change ✅ — landed 2026-09-05
 - TC-115 CI Docker image build + container smoke test + GHCR publish ✅ — landed 2026-09-06
 - TC-110 self-hosting runbook (DEPLOY.md) + reverse-proxy/forward-headers fix ✅ — landed 2026-09-08
-- **Next:** TC-122 (Vercel demo — TC-116/AWS retired to documented alternate) → TC-111 → TC-112.
+- TC-111 E2E suite (Playwright, 26→31 tests, in CI) + parity checklist ✅ — merged 2026-09-11; card stays 🟡 until a stakeholder signs off
+- TC-123 student CSV import ✅ — merged 2026-10-07 (incl. a review fix: one bad row for an existing student no longer aborts the file)
+- TC-124 sign in with AC credentials (`SSTATION_AUTH_MODE=directory`, AD/LDAP) ✅ — built 2026-10-08 on `feat/tc-124-ac-credentials-login`
+- **Next:** TC-122 (Vercel demo, PR #15 — waiting on manual deploy steps) → TC-111 stakeholder sign-off → TC-112.
 
 ## Pointers for working in this repo
 

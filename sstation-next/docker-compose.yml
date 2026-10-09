@@ -35,6 +35,21 @@ services:
       # NotificationService checks the host string, and the mail health indicator is disabled
       # by default so an unreachable relay can't hold /actuator/health DOWN.
       SSTATION_MAIL_HOST: ""
+      # Sign-in (TC-124). "local" until AC IT points the app at their directory — see
+      # "Signing in with AC credentials" in ../DEPLOY.md. Unset values pass through as empty,
+      # which the app treats as "use the default".
+      SSTATION_AUTH_MODE: ${SSTATION_AUTH_MODE:-local}
+      SSTATION_AUTH_PASSWORD_HELP_URL: ${SSTATION_AUTH_PASSWORD_HELP_URL:-}
+      SSTATION_DIRECTORY_TYPE: ${SSTATION_DIRECTORY_TYPE:-}
+      SSTATION_DIRECTORY_URL: ${SSTATION_DIRECTORY_URL:-}
+      SSTATION_DIRECTORY_DOMAIN: ${SSTATION_DIRECTORY_DOMAIN:-}
+      SSTATION_DIRECTORY_SEARCH_BASE: ${SSTATION_DIRECTORY_SEARCH_BASE:-}
+      SSTATION_DIRECTORY_USER_SEARCH_FILTER: ${SSTATION_DIRECTORY_USER_SEARCH_FILTER:-}
+      SSTATION_DIRECTORY_MANAGER_DN: ${SSTATION_DIRECTORY_MANAGER_DN:-}
+      SSTATION_DIRECTORY_MANAGER_PASSWORD: ${SSTATION_DIRECTORY_MANAGER_PASSWORD:-}
+      SSTATION_DIRECTORY_EMAIL_DOMAIN: ${SSTATION_DIRECTORY_EMAIL_DOMAIN:-}
+      SSTATION_DIRECTORY_ADMIN_GROUP: ${SSTATION_DIRECTORY_ADMIN_GROUP:-}
+      SSTATION_DIRECTORY_MODERATOR_GROUP: ${SSTATION_DIRECTORY_MODERATOR_GROUP:-}
     depends_on:
       db:
         condition: service_healthy

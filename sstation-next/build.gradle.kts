@@ -49,6 +49,9 @@ dependencies {
 
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
+    // AC credentials (TC-124): sign-in checked against AC's directory over LDAP / Active Directory
+    // when SSTATION_AUTH_MODE=directory. Inert in the default "local" mode.
+    implementation("org.springframework.security:spring-security-ldap")
 
     // Mail — approve/reject notifications (TC-021 / TC-108a). JavaMailSender is only
     // auto-configured when spring.mail.host is set (prod), so dev stays a no-op.
@@ -87,6 +90,8 @@ dependencies {
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    // In-memory LDAP server standing in for AC's directory in the TC-124 tests.
+    testImplementation("com.unboundid:unboundid-ldapsdk")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

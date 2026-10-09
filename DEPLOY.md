@@ -121,7 +121,17 @@ The published image is only ever one that passed the smoke test: the publish ste
 | `SSTATION_MAIL_FROM` | All | From address; default `no-reply@austincollege.edu` |
 | `SSTATION_DEV_*_PASSWORD` | `dev` | Override seeded dev passwords |
 | `SSTATION_BOOTSTRAP_ADMIN_PASSWORD` | bare `prod` | **Required on a first boot against an empty database** — creates the first administrator (TC-121). Minimum 8 characters. Ignored once any account exists. |
-| `SSTATION_BOOTSTRAP_ADMIN_USERNAME` | bare `prod` | Username for that account; default `admin` |
+| `SSTATION_BOOTSTRAP_ADMIN_USERNAME` | bare `prod` | Username for that account; default `admin`. In directory mode, pick one that is **not** an AC user name (e.g. `sstation-admin`) — see below |
+| `SSTATION_AUTH_MODE` | All | `local` (default — accounts stored in this app; the placeholder) or `directory` (AC user names and passwords). See [Signing in with AC credentials](#signing-in-with-ac-credentials-tc-124) |
+| `SSTATION_AUTH_PASSWORD_HELP_URL` | `directory` | Where "Forgot your AC password?" links to 🏫. Blank shows "Contact Austin College IT" |
+| `SSTATION_DIRECTORY_TYPE` | `directory` | `active-directory` (default) or `ldap` |
+| `SSTATION_DIRECTORY_URL` | `directory` | e.g. `ldaps://dc1.austincollege.edu:636` 🏫. Space-separate several for failover |
+| `SSTATION_DIRECTORY_DOMAIN` | `active-directory` | UPN suffix, e.g. `austincollege.edu` 🏫 |
+| `SSTATION_DIRECTORY_SEARCH_BASE` | `directory` | Where user entries live 🏫. Required for `ldap`; optional for AD |
+| `SSTATION_DIRECTORY_USER_SEARCH_FILTER` | `ldap` | Default `(uid={0})`; `{0}` is the user name |
+| `SSTATION_DIRECTORY_MANAGER_DN` / `_PASSWORD` | `ldap` | Optional service account to search as 🏫 |
+| `SSTATION_DIRECTORY_EMAIL_DOMAIN` | `directory` | Default `austincollege.edu`. Used to find a student record when the directory entry has no `mail` |
+| `SSTATION_DIRECTORY_ADMIN_GROUP` / `_MODERATOR_GROUP` | `directory` | Optional group DNs (as they appear in `memberOf`) that grant ADMIN / MODERATOR 🏫 |
 
 🏫 = a value **AC IT supplies**; there is no default for it anywhere. Anything without a 🏫 is
 either optional or has a safe default.
@@ -150,14 +160,14 @@ every credential, which looks like a broken deployment rather than an empty one.
 **1. Set the bootstrap variables before the first start:**
 
 ```bash
-SSTATION_BOOTSTRAP_ADMIN_USERNAME=ac-it-admin      # optional, defaults to "admin"
+SSTATION_BOOTSTRAP_ADMIN_USERNAME=sstation-admin   # optional, defaults to "admin" — not an AC user name
 SSTATION_BOOTSTRAP_ADMIN_PASSWORD='<a strong one-time password>'
 ```
 
 On startup you will see, at WARN level:
 
 ```
-[bootstrap] created the first administrator 'ac-it-admin'. This password came from an
+[bootstrap] created the first administrator 'sstation-admin'. This password came from an
 environment variable and is single-use: you will be required to change it at first sign-in.
 ```
 
@@ -175,7 +185,10 @@ its job. Leaving it set is not dangerous — the runner is gated on the `users` 
 so it will never run again or resurrect a deleted admin — but there is no reason to keep a
 credential in a compose file or unit file.
 
-**4. Create the real accounts** from the admin UI (`/admin/students`, `/admin/moderators`).
+**4. Turn on AC sign-in** ([next section](#signing-in-with-ac-credentials-tc-124)). That is how
+everyone else gets an account: students on their first sign-in, staff through a directory group.
+In `local` mode the app has no screen for creating accounts — local accounts are for the
+bootstrap admin and break-glass access, not for the student body.
 
 ### Break-glass: creating an admin by SQL
 
@@ -214,6 +227,101 @@ above, which is what they are for.
 
 *Verified against PostgreSQL 16 on 2026-09-05: hash generated with the command above, both
 statements applied, and the resulting account signed in and was sent to `/change-password`.*
+
+## Signing in with AC credentials (TC-124)
+
+**The login the app ships with is a placeholder.** Students and staff are meant to sign in the
+way they already do at Austin College — the same user name and password as AC Self-Service — and
+that is AC IT's to connect. It is configuration, not code: no rebuild, no fork.
+
+The sign-in page already follows Self-Service's flow (one card, **User name** / **Password**, one
+button). Switching to `directory` mode changes what checks the password, not what people see.
+
+### What AC IT decides
+
+| Question | Set |
+|---|---|
+| Active Directory, or another LDAP server? | `SSTATION_DIRECTORY_TYPE=active-directory` (default) or `ldap` |
+| Which server? Use `ldaps://` (port 636) — the password crosses the wire. | `SSTATION_DIRECTORY_URL` 🏫 |
+| AD: the UPN suffix people sign in with | `SSTATION_DIRECTORY_DOMAIN` 🏫 |
+| LDAP: where users live, and how to find one | `SSTATION_DIRECTORY_SEARCH_BASE`, `SSTATION_DIRECTORY_USER_SEARCH_FILTER` 🏫 |
+| LDAP: does searching need a service account? | `SSTATION_DIRECTORY_MANAGER_DN` / `_PASSWORD` 🏫 |
+| Which groups are Service Station admins / moderators? (optional) | `SSTATION_DIRECTORY_ADMIN_GROUP` / `_MODERATOR_GROUP` 🏫 |
+| Where should "Forgot your AC password?" go? | `SSTATION_AUTH_PASSWORD_HELP_URL` 🏫 |
+
+Then set `SSTATION_AUTH_MODE=directory` and restart. A minimal Active Directory setup is three
+lines:
+
+```bash
+SSTATION_AUTH_MODE=directory
+SSTATION_DIRECTORY_URL=ldaps://dc1.austincollege.edu:636
+SSTATION_DIRECTORY_DOMAIN=austincollege.edu
+```
+
+Active Directory needs **no service account**: the app binds as `user@domain` with the password
+the person typed, and reads only their own entry. If a required value is missing the app **refuses
+to start** and names the variable, rather than starting and rejecting every password.
+
+**LDAPS and your certificate.** If the directory's certificate comes from AC's internal CA, Java
+will not trust it and every sign-in will report *temporarily unavailable*. Give the JVM a
+truststore containing that CA — for the container, mount it and point at it:
+
+```bash
+JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=/certs/ac-truststore.jks -Djavax.net.ssl.trustStorePassword=<...>
+```
+
+### What happens when someone signs in
+
+The directory only answers *"is this really jdoe?"*. Everything else stays in Service Station, so
+AC IT never has to model its roles unless they want to:
+
+- **First sign-in creates the account.** Nobody pre-creates student logins. The person's student
+  record is found by email — the directory's `mail` attribute, or `<user name>@austincollege.edu`
+  — and linked to the account. Import students first (`/admin/students/import`); a student whose
+  record is imported later is linked on their next sign-in.
+- **Roles** are: STUDENT if linked to a student record; MODERATOR if an admin promoted that
+  student on `/admin/moderators`; ADMIN / MODERATOR from the optional groups, re-checked at every
+  sign-in, so removing someone from the group takes effect the next time they sign in.
+- **A valid AC account with no student record and no group is refused**, with *"Your AC account
+  worked, but it isn't set up in Service Station yet. Ask the Service Station office to add
+  you."* No account is created for them.
+- `jdoe`, `JDoe` and `jdoe@austincollege.edu` are the same person and the same account.
+
+**Local accounts keep working alongside**, and are checked *first* — so the bootstrap admin and
+any break-glass account still sign in while the directory is down. Two rules keep the two kinds
+apart:
+
+- An AC account can **never** be opened with a password stored in this app, and the reset and
+  change-password pages refuse AC accounts (their password is AC IT's).
+- An AC sign-in **never takes over** a local account with the same user name — it is refused
+  instead. That is why the bootstrap admin should not be named after a real AC user.
+
+### Checking it works
+
+1. Sign in as a student whose record has been imported → their dashboard, with their hours.
+2. Sign in as a member of the admin group (if you set one) → the admin dashboard.
+3. Sign in as an AC account that is neither → the *"isn't set up in Service Station yet"* message.
+4. Sign in with a wrong password → *"Sign in failed. Please check your user name and password."*
+5. Sign in as the local bootstrap admin → still works.
+
+The log records each first sign-in (`Created Service Station account for AC user 'jdoe' linked to
+student AC50000`) and each refusal, with the reason. *Sign-in is temporarily unavailable* means the
+directory could not be reached; the log line `Sign-in unavailable` has the cause — almost always
+the URL, a firewall, or the certificate above.
+
+### If AC IT would rather use single sign-on
+
+If AC prefers a redirect to a Microsoft (Entra ID) or SAML sign-in page instead of a form, that is
+**not built** — but it is a contained change: a second filter chain in `SecurityConfig` using
+Spring Security's OAuth2/SAML support, reusing `DirectoryAccountMapper`'s first-sign-in rules.
+Self-Service itself uses a form, which is why this does too.
+
+*Verified 2026-10-08 with the `ldap` type against a stand-in LDAP server — in the test suite
+(`DirectoryLoginIntegrationTest`, including a directory outage) and live: student first sign-in
+and dashboard, mixed-case and `@austincollege.edu` user names, admin group, unknown AC account, and
+the local break-glass admin.* **Not yet verified against a real Active Directory.** The
+`active-directory` type is Spring Security's own provider, configured but never pointed at a real
+domain controller — the first real test of it is AC IT's, using the checklist above.
 
 ## Backups and upgrades
 

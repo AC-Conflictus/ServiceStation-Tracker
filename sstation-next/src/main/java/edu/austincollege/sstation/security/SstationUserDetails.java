@@ -18,6 +18,9 @@ public class SstationUserDetails extends User {
 
   private final boolean mustChangePassword;
 
+  /** TC-124: signed in with AC credentials, so the password is not ours to change or reset. */
+  private final boolean directoryAccount;
+
   public SstationUserDetails(
       String username,
       String password,
@@ -36,9 +39,29 @@ public class SstationUserDetails extends User {
         accountNonLocked,
         authorities);
     this.mustChangePassword = mustChangePassword;
+    this.directoryAccount = false;
+  }
+
+  /**
+   * A principal for someone who signed in with AC credentials (TC-124). The password field is left
+   * empty: it was checked by the directory and is not held here.
+   */
+  public static SstationUserDetails forDirectoryAccount(
+      String username, Collection<? extends GrantedAuthority> authorities) {
+    return new SstationUserDetails(username, authorities);
+  }
+
+  private SstationUserDetails(String username, Collection<? extends GrantedAuthority> authorities) {
+    super(username, "", true, true, true, true, authorities);
+    this.mustChangePassword = false;
+    this.directoryAccount = true;
   }
 
   public boolean isMustChangePassword() {
     return mustChangePassword;
+  }
+
+  public boolean isDirectoryAccount() {
+    return directoryAccount;
   }
 }

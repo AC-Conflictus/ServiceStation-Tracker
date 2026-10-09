@@ -1,15 +1,27 @@
 package edu.austincollege.sstation.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.austincollege.sstation.repository.StudentRepository;
+import edu.austincollege.sstation.repository.UserRepository;
+import edu.austincollege.sstation.repository.UserRoleRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
@@ -20,6 +32,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.access.RequestMatcherDelegatingAccessDeniedHandler;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.DelegatingAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -36,18 +49,25 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
  *       {@code @PreAuthorize}.
  * </ul>
  *
- * <p>🏫 SSO seam: if AC IT runs a SAML/OIDC IdP, add the relevant starter and a second {@code
- * SecurityFilterChain} here; the form-login chain below can stay for local/admin accounts.
+ * <p>🏫 Sign-in seam (TC-124): {@code SSTATION_AUTH_MODE=directory} checks AC user names and
+ * passwords against AC's directory (LDAP / Active Directory) through the same form, alongside the
+ * local accounts. If AC IT would rather redirect to a SAML/OIDC identity provider, that is a second
+ * {@code SecurityFilterChain} here, and {@link DirectoryAccountMapper}'s first-sign-in rules are
+ * the part to reuse.
  */
 @Configuration
 @EnableMethodSecurity
+@EnableConfigurationProperties(AuthProperties.class)
 public class SecurityConfig {
 
   /** Used to render JSON error bodies for API callers (TC-120). */
   private final ObjectMapper json;
 
-  public SecurityConfig(ObjectMapper json) {
+  private final AuthProperties auth;
+
+  public SecurityConfig(ObjectMapper json, AuthProperties auth) {
     this.json = json;
+    this.auth = auth;
   }
 
   /**
@@ -59,8 +79,63 @@ public class SecurityConfig {
     return PasswordEncoderFactories.createDelegatingPasswordEncoder();
   }
 
+  /** Decides who an AC sign-in is in this app (TC-124). Only consulted in directory mode. */
   @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+  public DirectoryAccountMapper directoryAccountMapper(
+      UserRepository users, UserRoleRepository userRoles, StudentRepository students) {
+    return new DirectoryAccountMapper(
+        users, userRoles, students, passwordEncoder(), auth.directory());
+  }
+
+  /**
+   * TC-124: local accounts always; AC credentials too in directory mode.
+   *
+   * <p><b>Local is checked first, deliberately.</b> If AC's directory is unreachable, Spring
+   * Security stops at the directory provider's error instead of trying the next one — so with the
+   * order reversed, an outage would lock out the bootstrap admin and break-glass accounts at
+   * exactly the moment someone needs them. Checking local first costs nothing for AC users: the
+   * local check refuses directory accounts outright (see {@link CustomUserDetailsService}).
+   */
+  private AuthenticationManager authenticationManager(
+      CustomUserDetailsService localAccounts, DirectoryAccountMapper directoryAccounts) {
+    DaoAuthenticationProvider local = new DaoAuthenticationProvider(passwordEncoder());
+    local.setUserDetailsService(localAccounts);
+    List<AuthenticationProvider> providers = new ArrayList<>(List.of(local));
+    if (auth.directoryMode()) {
+      providers.add(DirectoryAuthentication.provider(auth.directory(), directoryAccounts));
+    }
+    return new ProviderManager(providers);
+  }
+
+  /**
+   * Each refusal gets its own message on the sign-in page. Only {@code ?error} is shown for a wrong
+   * password — the others happen <em>after</em> the directory has accepted the password, so saying
+   * why reveals nothing an attacker could use.
+   */
+  private static AuthenticationFailureHandler failureHandler() {
+    return (request, response, ex) -> {
+      String outcome = "error";
+      if (ex instanceof DirectoryAccountException refused) {
+        outcome =
+            refused.reason() == DirectoryAccountException.Reason.NOT_REGISTERED
+                ? "notRegistered"
+                : "conflict";
+      } else if (ex instanceof InternalAuthenticationServiceException) {
+        // The directory (or the database) could not be reached — not the user's fault.
+        LoggerFactory.getLogger(SecurityConfig.class).error("Sign-in unavailable", ex);
+        outcome = "unavailable";
+      }
+      response.sendRedirect(request.getContextPath() + "/login?" + outcome);
+    };
+  }
+
+  @Bean
+  public SecurityFilterChain filterChain(
+      HttpSecurity http,
+      CustomUserDetailsService localAccounts,
+      DirectoryAccountMapper directoryAccounts)
+      throws Exception {
+    http.authenticationManager(authenticationManager(localAccounts, directoryAccounts));
     http.authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -80,7 +155,7 @@ public class SecurityConfig {
             form ->
                 form.loginPage("/login")
                     .defaultSuccessUrl("/", true)
-                    .failureUrl("/login?error")
+                    .failureHandler(failureHandler())
                     .permitAll())
         .logout(
             logout ->

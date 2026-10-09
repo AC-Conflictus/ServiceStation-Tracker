@@ -53,6 +53,9 @@ public class PasswordResetService {
   public void requestReset(String email, String resetUrlBase) {
     users
         .findByStudentAcEmail(email)
+        // TC-124: an AC account has no password here to reset; it belongs to AC IT. Same silent
+        // no-op as an unknown address, so the response still says nothing about who exists.
+        .filter(user -> !user.isDirectoryAccount())
         .ifPresent(
             user -> {
               String rawToken = newToken();
