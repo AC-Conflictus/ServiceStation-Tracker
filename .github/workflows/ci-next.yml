@@ -179,6 +179,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Image names must be lowercase, and the owner here is "AC-Conflictus".
+      # Expressions have no lower(), so do it in the shell.
+      - name: Image name
+        id: image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: echo "name=ghcr.io/${OWNER,,}/sstation-next" >> "$GITHUB_OUTPUT"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
       - name: Push image to GHCR
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v6
@@ -188,5 +197,5 @@ jobs:
           # Fully cached by the build step above, so this re-runs in seconds.
           cache-from: type=gha
           tags: |
-            ghcr.io/${{ github.repository_owner }}/sstation-next:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/sstation-next:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:latest
