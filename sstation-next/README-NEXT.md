@@ -60,6 +60,7 @@ Package root: `edu.austincollege.sstation`.
 - [ ] TC-122 — public demo on **Vercel** (container image on Fluid compute). Replaces the AWS/EC2 plan in TC-116, which is retired to a documented alternate
 - [x] TC-110 — self-hosting runbook for AC IT (`../DEPLOY.md`): prerequisites, the Docker / `java -jar` / reverse-proxy deployment shapes, backups and upgrades, 🏫 placeholders, and the forward-headers fix so password-reset links survive TLS termination
 - [x] TC-123 — student CSV import (`/admin/students/import`), closing the one parity gap the checklist found. Reports bad rows instead of dropping them, and is no longer reachable by students the way the Grails original was
+- [x] TC-124 — sign in with **AC credentials** (`SSTATION_AUTH_MODE=directory`, Active Directory or LDAP), configured by AC IT with `SSTATION_DIRECTORY_*`; first sign-in creates and links the student's account. The local login stays as the placeholder and break-glass path. See "Signing in with AC credentials" in `../DEPLOY.md`
 - [~] TC-111 — **E2E suite done, sign-off outstanding.** 31 Playwright tests in `src/e2eTest` drive a real browser against the compose stack (`./gradlew e2eTest`, after `./gradlew playwrightInstall`); `check` does not run them. Plus [../docs/TC-111-parity-checklist.md](../docs/TC-111-parity-checklist.md). Remaining: a stakeholder click-through, and importing one real registrar CSV to confirm the column layout
 - [ ] TC-112 — decommission the Grails app
 

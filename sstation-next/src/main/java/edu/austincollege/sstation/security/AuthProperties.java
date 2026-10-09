@@ -20,8 +20,21 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param directory where and how to reach AC's directory. Only read in directory mode.
  */
 @ConfigurationProperties(prefix = "sstation.auth")
-public record AuthProperties(
-    @DefaultValue("local") Mode mode, String passwordHelpUrl, @DefaultValue Directory directory) {
+public record AuthProperties(Mode mode, String passwordHelpUrl, @DefaultValue Directory directory) {
+
+  /**
+   * Defaults are applied here rather than with {@code @DefaultValue}, because a variable that is
+   * <em>set but empty</em> ({@code SSTATION_AUTH_MODE=} in an env file, or a compose file passing
+   * an unset variable through) is not "missing" to Spring, so an annotation default never applies.
+   * This repo has been bitten by exactly that once already, with the mail host (TC-115).
+   */
+  public AuthProperties {
+    mode = mode == null ? Mode.LOCAL : mode;
+    directory =
+        directory == null
+            ? new Directory(null, null, null, null, null, null, null, null, null, null)
+            : directory;
+  }
 
   public enum Mode {
     LOCAL,
@@ -55,16 +68,27 @@ public record AuthProperties(
    * @param moderatorGroup optional: the same, for MODERATOR.
    */
   public record Directory(
-      @DefaultValue("active-directory") String type,
+      String type,
       String url,
       String domain,
       String searchBase,
-      @DefaultValue("(uid={0})") String userSearchFilter,
+      String userSearchFilter,
       String managerDn,
       String managerPassword,
-      @DefaultValue("austincollege.edu") String emailDomain,
+      String emailDomain,
       String adminGroup,
       String moderatorGroup) {
+
+    /** Blank means "use the default", for the reason given on {@link AuthProperties}. */
+    public Directory {
+      type = orDefault(type, "active-directory");
+      userSearchFilter = orDefault(userSearchFilter, "(uid={0})");
+      emailDomain = orDefault(emailDomain, "austincollege.edu");
+    }
+
+    private static String orDefault(String value, String fallback) {
+      return value == null || value.isBlank() ? fallback : value.trim();
+    }
 
     public boolean activeDirectory() {
       return "active-directory".equalsIgnoreCase(type);
