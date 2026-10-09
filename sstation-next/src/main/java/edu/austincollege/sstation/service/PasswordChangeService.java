@@ -21,6 +21,7 @@ public class PasswordChangeService {
   /** Why a change was refused. {@link #OK} is the only success. */
   public enum Result {
     OK(null),
+    MANAGED_BY_AC("Your password is your Austin College password. Change it with AC IT, not here."),
     WRONG_CURRENT_PASSWORD("That isn't your current password."),
     SAME_AS_CURRENT("Choose a password you haven't already been using."),
     TOO_WEAK(null);
@@ -55,6 +56,12 @@ public class PasswordChangeService {
   @Transactional
   public Result change(String username, String currentPassword, String newPassword) {
     User user = users.findByUsername(username).orElseThrow();
+
+    // TC-124: checked before anything else, so the answer is "not here" rather than a misleading
+    // "that isn't your current password".
+    if (user.isDirectoryAccount()) {
+      return Result.MANAGED_BY_AC;
+    }
 
     if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPassword())) {
       return Result.WRONG_CURRENT_PASSWORD;

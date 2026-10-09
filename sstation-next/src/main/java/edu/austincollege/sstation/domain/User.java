@@ -2,6 +2,8 @@ package edu.austincollege.sstation.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -62,6 +64,14 @@ public class User {
    */
   @Column(name = "must_change_password", nullable = false)
   private boolean mustChangePassword = false;
+
+  /**
+   * TC-124: who owns this account's password. {@link AuthSource#DIRECTORY} accounts are created on
+   * first sign-in with AC credentials and never accept a password stored here.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "auth_source", nullable = false, length = 20)
+  private AuthSource authSource = AuthSource.LOCAL;
 
   /** The real FK that the Grails app lacked (TC-009). Null for non-student accounts. */
   @ManyToOne(fetch = FetchType.LAZY)
@@ -133,6 +143,18 @@ public class User {
 
   public void setMustChangePassword(boolean mustChangePassword) {
     this.mustChangePassword = mustChangePassword;
+  }
+
+  public AuthSource getAuthSource() {
+    return authSource;
+  }
+
+  public void setAuthSource(AuthSource authSource) {
+    this.authSource = authSource;
+  }
+
+  public boolean isDirectoryAccount() {
+    return authSource == AuthSource.DIRECTORY;
   }
 
   public Student getStudent() {

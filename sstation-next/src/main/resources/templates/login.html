@@ -28,6 +28,21 @@
               <div th:if="${param.error}" class="alert alert-danger py-2" role="alert">
                 Sign in failed. Please check your user name and password.
               </div>
+              <!--
+                TC-124: these three only happen after AC's directory has accepted the password (or
+                could not be reached), so saying why gives nothing away.
+              -->
+              <div th:if="${param.notRegistered}" class="alert alert-warning py-2" role="alert">
+                Your AC account worked, but it isn't set up in Service Station yet. Ask the Service
+                Station office to add you.
+              </div>
+              <div th:if="${param.conflict}" class="alert alert-warning py-2" role="alert">
+                That user name belongs to a separate Service Station account. Sign in with that account's
+                own password, or ask the Service Station office for help.
+              </div>
+              <div th:if="${param.unavailable}" class="alert alert-warning py-2" role="alert">
+                Sign in is temporarily unavailable. Please try again in a few minutes.
+              </div>
               <div th:if="${param.logout}" class="alert alert-success py-2" role="status">
                 You have been signed out.
               </div>

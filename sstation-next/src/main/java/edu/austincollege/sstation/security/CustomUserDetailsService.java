@@ -34,6 +34,13 @@ public class CustomUserDetailsService implements UserDetailsService {
             .findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("No user: " + username));
 
+    // TC-124: an AC account's password lives in AC's directory. Treating it as unknown here (not
+    // as a wrong password) means the local check can never open it — whatever value happens to be
+    // in its password column — and the sign-in moves on to the directory.
+    if (user.isDirectoryAccount()) {
+      throw new UsernameNotFoundException("Directory account, not checked locally: " + username);
+    }
+
     List<SimpleGrantedAuthority> authorities =
         userRoles.findAuthoritiesByUser(user).stream().map(SimpleGrantedAuthority::new).toList();
 

@@ -56,7 +56,10 @@ class LoginPageTest {
   @TestPropertySource(
       properties = {
         "sstation.auth.mode=directory",
-        "sstation.auth.password-help-url=https://help.example.edu/password"
+        "sstation.auth.password-help-url=https://help.example.edu/password",
+        // Complete enough to start; nothing here signs in, so the directory is never contacted.
+        "sstation.auth.directory.url=ldaps://dc.example.edu:636",
+        "sstation.auth.directory.domain=example.edu"
       })
   class DirectoryModeWithHelpUrl {
 
@@ -76,7 +79,12 @@ class LoginPageTest {
   @Nested
   @SpringBootTest
   @AutoConfigureMockMvc
-  @TestPropertySource(properties = "sstation.auth.mode=directory")
+  @TestPropertySource(
+      properties = {
+        "sstation.auth.mode=directory",
+        "sstation.auth.directory.url=ldaps://dc.example.edu:636",
+        "sstation.auth.directory.domain=example.edu"
+      })
   class DirectoryModeWithoutHelpUrl {
 
     @Autowired private MockMvc mvc;

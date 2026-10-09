@@ -35,6 +35,11 @@ public class ChangePasswordController {
   public String form(Model model, Authentication auth) {
     model.addAttribute("minLength", PasswordPolicy.MIN_LENGTH);
     model.addAttribute(
+        "directoryAccount",
+        auth != null
+            && auth.getPrincipal() instanceof SstationUserDetails user
+            && user.isDirectoryAccount());
+    model.addAttribute(
         "mustChange",
         auth != null
             && auth.getPrincipal() instanceof SstationUserDetails user

@@ -24,7 +24,7 @@ public class LoginController {
 
   @GetMapping("/login")
   public String login(Model model) {
-    model.addAttribute("directoryMode", auth.directory());
+    model.addAttribute("directoryMode", auth.directoryMode());
     model.addAttribute("passwordHelpUrl", auth.passwordHelpUrl());
     return "login";
   }

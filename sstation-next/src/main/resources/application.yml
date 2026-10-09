@@ -23,6 +23,13 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+  # TC-124 builds its own directory connection, only in directory mode. Boot's LDAP
+  # auto-configuration would otherwise create one pointed at localhost:389 the moment
+  # spring-security-ldap is on the classpath, and its health indicator would then fail to connect
+  # and drag /actuator/health to DOWN — the same trap the mail health indicator sets (TC-115).
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+
   # Student CSV import (TC-123). Boot's default cap is 1 MB per file, which a full registrar
   # export can plausibly exceed — and the failure mode is an exception page rather than a useful
   # message, so the limit is raised well past any realistic roster. 5 MB is roughly 50,000 rows.
@@ -47,6 +54,18 @@ sstation:
   auth:
     mode: ${SSTATION_AUTH_MODE:local}
     password-help-url: ${SSTATION_AUTH_PASSWORD_HELP_URL:}
+    # 🏫 Only read when mode is "directory". Every value comes from AC IT.
+    directory:
+      type: ${SSTATION_DIRECTORY_TYPE:active-directory}
+      url: ${SSTATION_DIRECTORY_URL:}
+      domain: ${SSTATION_DIRECTORY_DOMAIN:}
+      search-base: ${SSTATION_DIRECTORY_SEARCH_BASE:}
+      user-search-filter: ${SSTATION_DIRECTORY_USER_SEARCH_FILTER:(uid={0})}
+      manager-dn: ${SSTATION_DIRECTORY_MANAGER_DN:}
+      manager-password: ${SSTATION_DIRECTORY_MANAGER_PASSWORD:}
+      email-domain: ${SSTATION_DIRECTORY_EMAIL_DOMAIN:austincollege.edu}
+      admin-group: ${SSTATION_DIRECTORY_ADMIN_GROUP:}
+      moderator-group: ${SSTATION_DIRECTORY_MODERATOR_GROUP:}
 
 management:
   endpoints:
