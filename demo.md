@@ -97,7 +97,7 @@ local convenience. Override them by exporting e.g. `SSTATION_DEV_ADMIN_PASSWORD=
   chart against it, instead of only ever showing "this year."
 - **Event sign-up** — as `student`, visit **`/student/events`** to sign up for an upcoming event.
   As an admin, open an event's **Roster** to see who signed up.
-- **Password reset** — *Forgot password?* on the login page. Tokens are single-use, hashed with
+- **Password reset** — *Forgot your password?* on the login page (local accounts only). Tokens are single-use, hashed with
   SHA-256 before storage, and expire in an hour. The confirmation message is identical whether or
   not the account exists, so it can't be used to enumerate users.
 - **Email notifications** — approve or reject an hour and the student is emailed. ⚠️ **In local dev

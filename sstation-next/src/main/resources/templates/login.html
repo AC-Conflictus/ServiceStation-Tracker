@@ -8,38 +8,74 @@
   </head>
   <body>
     <main>
+      <!--
+        Follows AC Self-Service's sign-in flow (TC-124): one card, user name + password, one button,
+        and a failure message that never says which of the two was wrong. Styled with this app's
+        theme rather than Ellucian's.
+      -->
       <div class="row justify-content-center">
-        <div class="col-md-5">
+        <div class="col-sm-10 col-md-7 col-lg-5">
           <div class="card shadow-sm">
-            <div class="card-body">
-              <h1 class="h4 card-title mb-3">Sign in</h1>
+            <div class="card-body p-4">
+              <h1 class="h4 card-title mb-1">Sign in</h1>
+              <p class="text-muted small mb-4" th:if="${directoryMode}">
+                Use your Austin College user name and password.
+              </p>
+              <p class="text-muted small mb-4" th:unless="${directoryMode}">
+                Sign in with your Service Station account.
+              </p>
 
-              <div th:if="${param.error}" class="alert alert-danger py-2">
-                Invalid username or password.
+              <div th:if="${param.error}" class="alert alert-danger py-2" role="alert">
+                Sign in failed. Please check your user name and password.
               </div>
-              <div th:if="${param.logout}" class="alert alert-success py-2">
+              <div th:if="${param.logout}" class="alert alert-success py-2" role="status">
                 You have been signed out.
               </div>
-              <div th:if="${param.reset}" class="alert alert-success py-2">
+              <div th:if="${param.reset}" class="alert alert-success py-2" role="status">
                 Your password has been reset. Please sign in.
               </div>
-              <div th:if="${param.changed}" class="alert alert-success py-2">
+              <div th:if="${param.changed}" class="alert alert-success py-2" role="status">
                 Your password has been changed. Sign in again with your new password.
               </div>
 
               <form th:action="@{/login}" method="post">
                 <div class="mb-3">
-                  <label class="form-label">Username</label>
-                  <input type="text" name="username" class="form-control" autofocus required />
+                  <label class="form-label" for="username">User name</label>
+                  <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    class="form-control"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    autofocus
+                    required />
                 </div>
-                <div class="mb-3">
-                  <label class="form-label">Password</label>
-                  <input type="password" name="password" class="form-control" required />
+                <div class="mb-4">
+                  <label class="form-label" for="password">Password</label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-control"
+                    autocomplete="current-password"
+                    required />
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Sign in</button>
               </form>
-              <p class="mt-3 mb-0 text-center">
-                <a th:href="@{/forgot-password}">Forgot password?</a>
+
+              <!-- Local accounts reset here; AC passwords belong to AC IT, so send people there. -->
+              <p class="mt-3 mb-0 text-center small" th:unless="${directoryMode}">
+                <a th:href="@{/forgot-password}">Forgot your password?</a>
+              </p>
+              <p class="mt-3 mb-0 text-center small" th:if="${directoryMode}">
+                <a th:if="${passwordHelpUrl != null and !passwordHelpUrl.isBlank()}" th:href="${passwordHelpUrl}"
+                  >Forgot your AC password?</a
+                >
+                <span th:unless="${passwordHelpUrl != null and !passwordHelpUrl.isBlank()}" class="text-muted"
+                  >Forgot your AC password? Contact Austin College IT.</span
+                >
               </p>
             </div>
           </div>

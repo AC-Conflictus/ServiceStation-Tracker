@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
  */
 @Configuration
 @EnableMethodSecurity
+@EnableConfigurationProperties(AuthProperties.class)
 public class SecurityConfig {
 
   /** Used to render JSON error bodies for API callers (TC-120). */

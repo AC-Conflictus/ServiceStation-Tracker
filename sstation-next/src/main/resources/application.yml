@@ -41,6 +41,13 @@ sstation:
   mail:
     from: ${SSTATION_MAIL_FROM:no-reply@austincollege.edu}
 
+  # How people sign in (TC-124). 🏫 "local" (accounts in this app's database) is a placeholder;
+  # "directory" checks AC user names and passwords against AC's directory. See DEPLOY.md,
+  # "Signing in with AC credentials".
+  auth:
+    mode: ${SSTATION_AUTH_MODE:local}
+    password-help-url: ${SSTATION_AUTH_PASSWORD_HELP_URL:}
+
 management:
   endpoints:
     web:
