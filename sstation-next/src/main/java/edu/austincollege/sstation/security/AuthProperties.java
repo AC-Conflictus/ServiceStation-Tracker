@@ -1,5 +1,6 @@
 package edu.austincollege.sstation.security;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -18,9 +19,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param passwordHelpUrl 🏫 where "Forgot your password?" sends people in directory mode, since
  *     their password belongs to AC IT, not to this app. Blank shows a plain "contact AC IT" line.
  * @param directory where and how to reach AC's directory. Only read in directory mode.
+ * @param signIn how many failed sign-ins a user name gets before it is slowed down (TC-125). Read
+ *     in both modes.
  */
 @ConfigurationProperties(prefix = "sstation.auth")
-public record AuthProperties(Mode mode, String passwordHelpUrl, @DefaultValue Directory directory) {
+public record AuthProperties(
+    Mode mode,
+    String passwordHelpUrl,
+    @DefaultValue Directory directory,
+    @DefaultValue SignIn signIn) {
 
   /**
    * Defaults are applied here rather than with {@code @DefaultValue}, because a variable that is
@@ -34,6 +41,7 @@ public record AuthProperties(Mode mode, String passwordHelpUrl, @DefaultValue Di
         directory == null
             ? new Directory(null, null, null, null, null, null, null, null, null, null)
             : directory;
+    signIn = signIn == null ? new SignIn(null, null, null) : signIn;
   }
 
   public enum Mode {
@@ -92,6 +100,42 @@ public record AuthProperties(Mode mode, String passwordHelpUrl, @DefaultValue Di
 
     public boolean activeDirectory() {
       return "active-directory".equalsIgnoreCase(type);
+    }
+  }
+
+  /**
+   * Failed sign-ins allowed per user name (TC-125). Counting by user name is what keeps repeated
+   * guesses away from AC's directory, which locks an account after its own number of failures.
+   *
+   * <p>🏫 Keep {@code blockAfter} below AC's Active Directory lockout threshold, so this app stops
+   * a guesser before AD locks the real student out of every AC system.
+   *
+   * @param captchaAfter failures before a CAPTCHA is required. Without CAPTCHA keys configured, the
+   *     user name is blocked at this point instead.
+   * @param blockAfter failures before the user name is blocked even with a solved CAPTCHA.
+   * @param window failures older than this stop counting, and a block lasts this long.
+   */
+  public record SignIn(Integer captchaAfter, Integer blockAfter, Duration window) {
+
+    /** Blank means "use the default", for the reason given on {@link AuthProperties}. */
+    public SignIn {
+      captchaAfter = captchaAfter == null ? 3 : captchaAfter;
+      blockAfter = blockAfter == null ? 5 : blockAfter;
+      window = window == null ? Duration.ofMinutes(15) : window;
+      if (captchaAfter < 1
+          || blockAfter <= captchaAfter
+          || window.isNegative()
+          || window.isZero()) {
+        throw new IllegalStateException(
+            "Sign-in limits need SSTATION_SIGNIN_CAPTCHA_AFTER >= 1, SSTATION_SIGNIN_BLOCK_AFTER"
+                + " greater than it, and a positive SSTATION_SIGNIN_WINDOW (got "
+                + captchaAfter
+                + ", "
+                + blockAfter
+                + ", "
+                + window
+                + ")");
+      }
     }
   }
 }

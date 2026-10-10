@@ -7,6 +7,7 @@ import edu.austincollege.sstation.repository.UserRoleRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -87,6 +89,13 @@ public class SecurityConfig {
         users, userRoles, students, passwordEncoder(), auth.directory());
   }
 
+  /** Failed sign-ins per user name (TC-125). */
+  @Bean
+  public SignInLimiter signInLimiter() {
+    return new SignInLimiter(
+        auth.signIn(), false, auth.directory().emailDomain(), Clock.systemUTC());
+  }
+
   /**
    * TC-124: local accounts always; AC credentials too in directory mode.
    *
@@ -97,25 +106,36 @@ public class SecurityConfig {
    * local check refuses directory accounts outright (see {@link CustomUserDetailsService}).
    */
   private AuthenticationManager authenticationManager(
-      CustomUserDetailsService localAccounts, DirectoryAccountMapper directoryAccounts) {
+      CustomUserDetailsService localAccounts,
+      DirectoryAccountMapper directoryAccounts,
+      SignInLimiter limiter) {
     DaoAuthenticationProvider local = new DaoAuthenticationProvider(passwordEncoder());
     local.setUserDetailsService(localAccounts);
     List<AuthenticationProvider> providers = new ArrayList<>(List.of(local));
     if (auth.directoryMode()) {
       providers.add(DirectoryAuthentication.provider(auth.directory(), directoryAccounts));
     }
-    return new ProviderManager(providers);
+    // TC-125: the limit is checked before either provider, so a blocked user name never reaches
+    // AC's directory and cannot push the real account toward an AD lockout.
+    return new LimitedAuthenticationManager(new ProviderManager(providers), limiter);
   }
 
   /**
    * Each refusal gets its own message on the sign-in page. Only {@code ?error} is shown for a wrong
    * password — the others happen <em>after</em> the directory has accepted the password, so saying
    * why reveals nothing an attacker could use.
+   *
+   * <p>TC-125: a wrong password that used up the last attempt says so straight away, rather than
+   * letting the person type a correct password into a block they were never told about.
    */
-  private static AuthenticationFailureHandler failureHandler() {
+  private static AuthenticationFailureHandler failureHandler(SignInLimiter limiter) {
     return (request, response, ex) -> {
       String outcome = "error";
-      if (ex instanceof DirectoryAccountException refused) {
+      if (ex instanceof SignInLimitException
+          || (ex instanceof BadCredentialsException
+              && limiter.check(request.getParameter("username")) == SignInLimiter.Status.BLOCKED)) {
+        outcome = "blocked";
+      } else if (ex instanceof DirectoryAccountException refused) {
         outcome =
             refused.reason() == DirectoryAccountException.Reason.NOT_REGISTERED
                 ? "notRegistered"
@@ -133,9 +153,10 @@ public class SecurityConfig {
   public SecurityFilterChain filterChain(
       HttpSecurity http,
       CustomUserDetailsService localAccounts,
-      DirectoryAccountMapper directoryAccounts)
+      DirectoryAccountMapper directoryAccounts,
+      SignInLimiter limiter)
       throws Exception {
-    http.authenticationManager(authenticationManager(localAccounts, directoryAccounts));
+    http.authenticationManager(authenticationManager(localAccounts, directoryAccounts, limiter));
     http.authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -155,7 +176,7 @@ public class SecurityConfig {
             form ->
                 form.loginPage("/login")
                     .defaultSuccessUrl("/", true)
-                    .failureHandler(failureHandler())
+                    .failureHandler(failureHandler(limiter))
                     .permitAll())
         .logout(
             logout ->

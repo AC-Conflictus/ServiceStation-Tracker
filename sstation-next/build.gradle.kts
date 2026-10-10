@@ -52,6 +52,9 @@ dependencies {
     // AC credentials (TC-124): sign-in checked against AC's directory over LDAP / Active Directory
     // when SSTATION_AUTH_MODE=directory. Inert in the default "local" mode.
     implementation("org.springframework.security:spring-security-ldap")
+    // Sign-in rate limiting (TC-125): failed attempts per user name, held in a size-capped,
+    // self-expiring in-memory cache. Version managed by Spring Boot's BOM.
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     // Mail — approve/reject notifications (TC-021 / TC-108a). JavaMailSender is only
     // auto-configured when spring.mail.host is set (prod), so dev stays a no-op.

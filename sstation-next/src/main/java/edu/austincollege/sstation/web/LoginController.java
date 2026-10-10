@@ -1,6 +1,7 @@
 package edu.austincollege.sstation.web;
 
 import edu.austincollege.sstation.security.AuthProperties;
+import edu.austincollege.sstation.security.SignInLimiter;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,15 +18,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class LoginController {
 
   private final AuthProperties auth;
+  private final SignInLimiter limiter;
 
-  public LoginController(AuthProperties auth) {
+  public LoginController(AuthProperties auth, SignInLimiter limiter) {
     this.auth = auth;
+    this.limiter = limiter;
   }
 
   @GetMapping("/login")
   public String login(Model model) {
     model.addAttribute("directoryMode", auth.directoryMode());
     model.addAttribute("passwordHelpUrl", auth.passwordHelpUrl());
+    model.addAttribute("blockMinutes", limiter.window().toMinutes());
     return "login";
   }
 }
