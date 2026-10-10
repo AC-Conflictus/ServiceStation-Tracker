@@ -132,6 +132,10 @@ The published image is only ever one that passed the smoke test: the publish ste
 | `SSTATION_DIRECTORY_MANAGER_DN` / `_PASSWORD` | `ldap` | Optional service account to search as 🏫 |
 | `SSTATION_DIRECTORY_EMAIL_DOMAIN` | `directory` | Default `austincollege.edu`. Used to find a student record when the directory entry has no `mail` |
 | `SSTATION_DIRECTORY_ADMIN_GROUP` / `_MODERATOR_GROUP` | `directory` | Optional group DNs (as they appear in `memberOf`) that grant ADMIN / MODERATOR 🏫 |
+| `SSTATION_SIGNIN_CAPTCHA_AFTER` | All | Default `3`. Failed sign-ins for one user name before a CAPTCHA is required (or, without Turnstile keys, before the name is blocked). See [Sign-in limits](#sign-in-limits-tc-125) |
+| `SSTATION_SIGNIN_BLOCK_AFTER` | All | Default `5`. Failures before the name is blocked even with a solved CAPTCHA. 🏫 Keep it **below AC's Active Directory lockout threshold** |
+| `SSTATION_SIGNIN_WINDOW` | All | Default `15m`. Failures older than this stop counting, and a block lasts this long |
+| `SSTATION_TURNSTILE_SITE_KEY` / `_SECRET_KEY` | All | Optional Cloudflare Turnstile keys 🏫. Both or neither — half a pair fails at startup |
 
 🏫 = a value **AC IT supplies**; there is no default for it anywhere. Anything without a 🏫 is
 either optional or has a safe default.
@@ -322,6 +326,62 @@ and dashboard, mixed-case and `@austincollege.edu` user names, admin group, unkn
 the local break-glass admin.* **Not yet verified against a real Active Directory.** The
 `active-directory` type is Spring Security's own provider, configured but never pointed at a real
 domain controller — the first real test of it is AC IT's, using the checklist above.
+
+## Sign-in limits (TC-125)
+
+Every failed sign-in is counted against the **user name** that was typed. That matters most in
+directory mode: each wrong password here is also a wrong password at AC's Active Directory, which
+locks the account after its own number of failures. Without a limit, anyone could lock a student
+out of every AC system by typing their user name on this sign-in page a few times. The limit is
+checked **before** the password, so an attempt it refuses never reaches the directory.
+
+With the defaults:
+
+| Failures for one user name within 15 minutes | With Turnstile keys | Without keys |
+|---|---|---|
+| 1–2 | Normal sign-in | Normal sign-in |
+| 3 | A CAPTCHA appears, and is required before the password is checked | **Blocked for 15 minutes** |
+| 5 | **Blocked for 15 minutes**, even with the CAPTCHA solved | — |
+
+- A successful sign-in clears the count. A block simply runs out; there is nothing to unlock.
+- Only **wrong passwords** count. An AC account that isn't registered here, a disabled account, or
+  the directory being unreachable does not push anyone toward a block.
+- The same counter covers every spelling of a name: `JDoe`, `jdoe` and `jdoe@austincollege.edu`.
+- Local accounts, including the bootstrap admin, are limited the same way.
+- Counters are kept **in memory**: they reset when the app restarts, and if you ever run more
+  than one copy of the app, each copy counts separately. A single container is the intended setup.
+
+🏫 **Two things to decide:**
+
+1. **Your AD lockout threshold.** Set `SSTATION_SIGNIN_BLOCK_AFTER` below it (with Turnstile), or
+   `SSTATION_SIGNIN_CAPTCHA_AFTER` below it (without). The default of 5 is under almost any
+   policy; Microsoft's security baseline is 10.
+2. **Whether to use the CAPTCHA.** It needs a free Cloudflare account: in the Cloudflare dashboard,
+   open **Turnstile**, add a widget for the app's hostname, and copy its **site key** and **secret
+   key** into `SSTATION_TURNSTILE_SITE_KEY` / `SSTATION_TURNSTILE_SECRET_KEY`. Things to know:
+   - The app must be able to make outbound HTTPS calls to `challenges.cloudflare.com` to confirm
+     each solved CAPTCHA. If it can't reach Cloudflare, the attempt is **refused** with "the
+     security check is temporarily unavailable" — so a Cloudflare outage can't become a way
+     around the CAPTCHA. Only user names that already have three failures are affected.
+   - The browser loads Cloudflare's script **only** on the sign-in page shown after a third failure.
+     An ordinary sign-in never contacts Cloudflare. It is the one third-party script in the app,
+     which otherwise serves every asset itself.
+   - Without keys, the app logs `no Turnstile keys, so a user name is blocked after 3 failures` at
+     startup. With them, it logs `Turnstile CAPTCHA after 3 failures, blocked after 5`.
+
+### Checking it works
+
+1. Sign in with a wrong password three times for one user name.
+   - Without keys: the third try says *"Too many sign-in attempts for that user name"*, and even
+     the right password is refused until the 15 minutes are up.
+   - With keys: the third try shows the CAPTCHA. Solve it and the right password works.
+2. Another user name is unaffected throughout.
+3. The log has `Sign-in for 'jdoe' blocked for 15 minutes after 3 failed attempts`.
+
+*Verified 2026-10-09: in the test suite (counting rules against a controllable clock, the CAPTCHA
+gate, a stand-in for Cloudflare including an outage, and the real filter chain), and live against
+Cloudflare's real verification endpoint with its official test keys, including the widget in a
+browser.*
 
 ## Backups and upgrades
 
