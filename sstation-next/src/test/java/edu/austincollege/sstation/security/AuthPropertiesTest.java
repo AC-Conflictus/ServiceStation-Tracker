@@ -88,4 +88,27 @@ class AuthPropertiesTest {
         .rootCause()
         .hasMessageContaining("SSTATION_SIGNIN_WINDOW");
   }
+
+  @Test
+  void turnstileIsOffWithoutKeysAndRefusesHalfAPair() {
+    assertThat(bind(Map.of()).turnstile().enabled()).isFalse();
+    assertThat(
+            bind(Map.of(
+                    "sstation.auth.turnstile.site-key", "",
+                    "sstation.auth.turnstile.secret-key", ""))
+                .turnstile()
+                .enabled())
+        .isFalse();
+    assertThatThrownBy(() -> bind(Map.of("sstation.auth.turnstile.site-key", "0x4AAA")))
+        .rootCause()
+        .hasMessageContaining("SSTATION_TURNSTILE_SECRET_KEY");
+  }
+
+  @Test
+  void theTurnstileSecretNeverAppearsInItsToString() {
+    AuthProperties.Turnstile turnstile =
+        new AuthProperties.Turnstile("site-key", "very-secret", null);
+
+    assertThat(turnstile.toString()).contains("site-key").doesNotContain("very-secret");
+  }
 }

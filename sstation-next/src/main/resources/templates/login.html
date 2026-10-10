@@ -48,6 +48,18 @@
                 Too many sign-in attempts for that user name. Please wait
                 <span th:text="${blockMinutes}">15</span> minutes and try again.
               </div>
+              <div th:if="${param.captcha != null and param.error == null}" class="alert alert-warning py-2" role="alert">
+                For your security, please complete the check below and sign in again.
+              </div>
+              <div th:if="${param.captcha != null and param.error != null}" class="alert alert-warning py-2" role="status">
+                For your security, please also complete the check below.
+              </div>
+              <div th:if="${param.captchaFailed}" class="alert alert-danger py-2" role="alert">
+                The security check didn't go through. Please complete it and sign in again.
+              </div>
+              <div th:if="${param.captchaUnavailable}" class="alert alert-warning py-2" role="alert">
+                The security check is temporarily unavailable. Please try again in a few minutes.
+              </div>
               <div th:if="${param.logout}" class="alert alert-success py-2" role="status">
                 You have been signed out.
               </div>
@@ -82,6 +94,15 @@
                     autocomplete="current-password"
                     required />
                 </div>
+                <!--
+                  TC-125: Cloudflare Turnstile, only once a failure has asked for it and only if keys
+                  are configured. The widget adds a cf-turnstile-response field to this form.
+                -->
+                <th:block
+                  th:if="${!turnstileSiteKey.isEmpty() and (param.captcha != null or param.captchaFailed != null or param.captchaUnavailable != null)}">
+                  <div class="cf-turnstile mb-3" th:attr="data-sitekey=${turnstileSiteKey}"></div>
+                  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                </th:block>
                 <button type="submit" class="btn btn-primary w-100">Sign in</button>
               </form>
 

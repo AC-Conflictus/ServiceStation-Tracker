@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import edu.austincollege.sstation.security.CaptchaVerifier.Result;
 import edu.austincollege.sstation.security.SignInLimiter.Status;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ class LimitedAuthenticationManagerTest {
           "austincollege.edu",
           Clock.systemUTC());
   private final LimitedAuthenticationManager manager =
-      new LimitedAuthenticationManager(passwords, limiter);
+      new LimitedAuthenticationManager(passwords, limiter, (token, ip) -> Result.UNAVAILABLE);
 
   private static Authentication attempt() {
     return UsernamePasswordAuthenticationToken.unauthenticated("jdoe", "guess");

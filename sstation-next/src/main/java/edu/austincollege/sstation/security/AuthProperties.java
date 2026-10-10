@@ -21,13 +21,16 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param directory where and how to reach AC's directory. Only read in directory mode.
  * @param signIn how many failed sign-ins a user name gets before it is slowed down (TC-125). Read
  *     in both modes.
+ * @param turnstile 🏫 the Cloudflare Turnstile CAPTCHA shown after repeated failures (TC-125).
+ *     Without keys, a user name is blocked where it would have been asked for the CAPTCHA.
  */
 @ConfigurationProperties(prefix = "sstation.auth")
 public record AuthProperties(
     Mode mode,
     String passwordHelpUrl,
     @DefaultValue Directory directory,
-    @DefaultValue SignIn signIn) {
+    @DefaultValue SignIn signIn,
+    @DefaultValue Turnstile turnstile) {
 
   /**
    * Defaults are applied here rather than with {@code @DefaultValue}, because a variable that is
@@ -42,6 +45,7 @@ public record AuthProperties(
             ? new Directory(null, null, null, null, null, null, null, null, null, null)
             : directory;
     signIn = signIn == null ? new SignIn(null, null, null) : signIn;
+    turnstile = turnstile == null ? new Turnstile(null, null, null) : turnstile;
   }
 
   public enum Mode {
@@ -136,6 +140,42 @@ public record AuthProperties(
                 + window
                 + ")");
       }
+    }
+  }
+
+  /**
+   * 🏫 Cloudflare Turnstile keys, created free in a Cloudflare account under Turnstile. The site
+   * key is public (it is sent to the browser); the secret key must stay on the server.
+   *
+   * @param siteKey shown in the sign-in page's CAPTCHA widget.
+   * @param secretKey sent, with the solved token, to Cloudflare to confirm the CAPTCHA.
+   * @param verifyUrl Cloudflare's verification endpoint. Only tests change it.
+   */
+  public record Turnstile(String siteKey, String secretKey, String verifyUrl) {
+
+    public Turnstile {
+      siteKey = siteKey == null ? "" : siteKey.trim();
+      secretKey = secretKey == null ? "" : secretKey.trim();
+      verifyUrl =
+          verifyUrl == null || verifyUrl.isBlank()
+              ? "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+              : verifyUrl.trim();
+      if (siteKey.isEmpty() != secretKey.isEmpty()) {
+        // Half a pair would either show a widget nobody can verify, or verify a widget never shown.
+        throw new IllegalStateException(
+            "Set both SSTATION_TURNSTILE_SITE_KEY and SSTATION_TURNSTILE_SECRET_KEY, or neither."
+                + " See 'Sign-in limits' in DEPLOY.md.");
+      }
+    }
+
+    public boolean enabled() {
+      return !siteKey.isEmpty();
+    }
+
+    /** Keeps the secret out of logs and error messages. */
+    @Override
+    public String toString() {
+      return "Turnstile[siteKey=" + siteKey + ", secretKey=" + (enabled() ? "****" : "") + "]";
     }
   }
 }

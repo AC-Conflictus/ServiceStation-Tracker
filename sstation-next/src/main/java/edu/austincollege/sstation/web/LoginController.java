@@ -30,6 +30,9 @@ public class LoginController {
     model.addAttribute("directoryMode", auth.directoryMode());
     model.addAttribute("passwordHelpUrl", auth.passwordHelpUrl());
     model.addAttribute("blockMinutes", limiter.window().toMinutes());
+    // TC-125: empty unless Turnstile keys are configured, in which case the page shows the widget
+    // only after a failure asked for it — Cloudflare is never loaded for an ordinary sign-in.
+    model.addAttribute("turnstileSiteKey", auth.turnstile().siteKey());
     return "login";
   }
 }

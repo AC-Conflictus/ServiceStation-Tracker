@@ -92,8 +92,34 @@ public class SecurityConfig {
   /** Failed sign-ins per user name (TC-125). */
   @Bean
   public SignInLimiter signInLimiter() {
+    AuthProperties.SignIn limits = auth.signIn();
+    if (auth.turnstile().enabled()) {
+      LoggerFactory.getLogger(SecurityConfig.class)
+          .info(
+              "Sign-in limits: Turnstile CAPTCHA after {} failures, blocked after {}, for {}"
+                  + " minutes",
+              limits.captchaAfter(),
+              limits.blockAfter(),
+              limits.window().toMinutes());
+    } else {
+      LoggerFactory.getLogger(SecurityConfig.class)
+          .info(
+              "Sign-in limits: no Turnstile keys, so a user name is blocked after {} failures,"
+                  + " for {} minutes",
+              limits.captchaAfter(),
+              limits.window().toMinutes());
+    }
     return new SignInLimiter(
-        auth.signIn(), false, auth.directory().emailDomain(), Clock.systemUTC());
+        limits, auth.turnstile().enabled(), auth.directory().emailDomain(), Clock.systemUTC());
+  }
+
+  /**
+   * Confirms a solved CAPTCHA with Cloudflare (TC-125). Without keys no CAPTCHA is ever asked for,
+   * so this is never called.
+   */
+  @Bean
+  public CaptchaVerifier captchaVerifier() {
+    return new TurnstileVerifier(auth.turnstile());
   }
 
   /**
@@ -108,7 +134,8 @@ public class SecurityConfig {
   private AuthenticationManager authenticationManager(
       CustomUserDetailsService localAccounts,
       DirectoryAccountMapper directoryAccounts,
-      SignInLimiter limiter) {
+      SignInLimiter limiter,
+      CaptchaVerifier captcha) {
     DaoAuthenticationProvider local = new DaoAuthenticationProvider(passwordEncoder());
     local.setUserDetailsService(localAccounts);
     List<AuthenticationProvider> providers = new ArrayList<>(List.of(local));
@@ -117,7 +144,7 @@ public class SecurityConfig {
     }
     // TC-125: the limit is checked before either provider, so a blocked user name never reaches
     // AC's directory and cannot push the real account toward an AD lockout.
-    return new LimitedAuthenticationManager(new ProviderManager(providers), limiter);
+    return new LimitedAuthenticationManager(new ProviderManager(providers), limiter, captcha);
   }
 
   /**
@@ -131,10 +158,22 @@ public class SecurityConfig {
   private static AuthenticationFailureHandler failureHandler(SignInLimiter limiter) {
     return (request, response, ex) -> {
       String outcome = "error";
-      if (ex instanceof SignInLimitException
-          || (ex instanceof BadCredentialsException
-              && limiter.check(request.getParameter("username")) == SignInLimiter.Status.BLOCKED)) {
-        outcome = "blocked";
+      if (ex instanceof SignInLimitException limited) {
+        outcome =
+            switch (limited.reason()) {
+              case BLOCKED -> "blocked";
+              case CAPTCHA_REQUIRED -> "captcha";
+              case CAPTCHA_FAILED -> "captchaFailed";
+              case CAPTCHA_UNAVAILABLE -> "captchaUnavailable";
+            };
+      } else if (ex instanceof BadCredentialsException) {
+        outcome =
+            switch (limiter.check(request.getParameter("username"))) {
+              case BLOCKED -> "blocked";
+              // Show the CAPTCHA with the "wrong password" message, so the next try can succeed.
+              case CAPTCHA_REQUIRED -> "error&captcha";
+              case ALLOWED -> "error";
+            };
       } else if (ex instanceof DirectoryAccountException refused) {
         outcome =
             refused.reason() == DirectoryAccountException.Reason.NOT_REGISTERED
@@ -154,9 +193,11 @@ public class SecurityConfig {
       HttpSecurity http,
       CustomUserDetailsService localAccounts,
       DirectoryAccountMapper directoryAccounts,
-      SignInLimiter limiter)
+      SignInLimiter limiter,
+      CaptchaVerifier captcha)
       throws Exception {
-    http.authenticationManager(authenticationManager(localAccounts, directoryAccounts, limiter));
+    http.authenticationManager(
+        authenticationManager(localAccounts, directoryAccounts, limiter, captcha));
     http.authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -177,6 +218,8 @@ public class SecurityConfig {
                 form.loginPage("/login")
                     .defaultSuccessUrl("/", true)
                     .failureHandler(failureHandler(limiter))
+                    // TC-125: carries the solved CAPTCHA token, if any, to the limiter.
+                    .authenticationDetailsSource(SignInDetails::new)
                     .permitAll())
         .logout(
             logout ->

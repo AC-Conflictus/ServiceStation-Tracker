@@ -11,7 +11,13 @@ public class SignInLimitException extends AuthenticationException {
   /** Why the attempt was refused. Each maps to its own message on the sign-in page. */
   public enum Reason {
     /** Too many recent failures for this user name. */
-    BLOCKED
+    BLOCKED,
+    /** This user name needs a CAPTCHA and the form did not carry one. */
+    CAPTCHA_REQUIRED,
+    /** The CAPTCHA was missing, expired or wrong. */
+    CAPTCHA_FAILED,
+    /** The CAPTCHA could not be checked because the CAPTCHA service was unreachable. */
+    CAPTCHA_UNAVAILABLE
   }
 
   private final Reason reason;
