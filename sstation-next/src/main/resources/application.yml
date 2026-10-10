@@ -66,6 +66,17 @@ sstation:
       email-domain: ${SSTATION_DIRECTORY_EMAIL_DOMAIN:austincollege.edu}
       admin-group: ${SSTATION_DIRECTORY_ADMIN_GROUP:}
       moderator-group: ${SSTATION_DIRECTORY_MODERATOR_GROUP:}
+    # Failed sign-ins per user name (TC-125), in both modes. 🏫 Keep block-after below AC's AD
+    # lockout threshold. Window is a duration: 15m, 1h, ...
+    sign-in:
+      captcha-after: ${SSTATION_SIGNIN_CAPTCHA_AFTER:3}
+      block-after: ${SSTATION_SIGNIN_BLOCK_AFTER:5}
+      window: ${SSTATION_SIGNIN_WINDOW:15m}
+    # 🏫 Cloudflare Turnstile CAPTCHA after captcha-after failures. Both keys, or neither; with
+    # neither, the name is blocked at captcha-after instead.
+    turnstile:
+      site-key: ${SSTATION_TURNSTILE_SITE_KEY:}
+      secret-key: ${SSTATION_TURNSTILE_SECRET_KEY:}
 
 management:
   endpoints:

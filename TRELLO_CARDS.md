@@ -825,8 +825,8 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Fixed in review (2026-10-07, `6d5e120`):** an invalid row for a student *already on file* was applied to the managed entity before validation, so Hibernate re-validated it at the next flush, threw, and rolled back the **whole file with a 500** — the opposite of "skipped rows are reported". Each row is now validated on a detached copy first. Regression test + live check; 21 tests total.
 - **Estimate:** S–M. *(Actual: S–M.)*
 
-### TC-124 🔒 🏫 Sign in with AC credentials — the shipped login is a placeholder ✅ landed 2026-10-08 (PR pending)
-- **Status:** ✅ **Built** on `feat/tc-124-ac-credentials-login`, in three slices (a page, b directory sign-in, c handoff docs). **Not yet verified against a real Active Directory** — that first test is AC IT's.
+### TC-124 🔒 🏫 Sign in with AC credentials — the shipped login is a placeholder ✅ merged 2026-10-08 (PR #18)
+- **Status:** ✅ **Merged** (PR #18), built in three slices (a page, b directory sign-in, c handoff docs). **Not yet verified against a real Active Directory** — that first test is AC IT's.
 - **Why:** Students and staff will sign in the way they do everywhere else at Austin College — their AC user name and password, as on AC Self-Service (Ellucian Colleague, a form-based login) — and AC IT owns that. The app's own accounts were only ever a stand-in. Also, **nothing outside the seeders could create an account at all**: a real student had no way to get a login.
 - **What it does:**
   - **(a)** The sign-in page follows Self-Service's flow — one card, **User name** / **Password**, one button, a failure message that doesn't say which field was wrong — in this app's Bootstrap theme. `SSTATION_AUTH_MODE=local|directory`; in directory mode "forgot password" points at AC IT (`SSTATION_AUTH_PASSWORD_HELP_URL`), never our own reset flow.
@@ -835,6 +835,19 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
 - **Safety properties, each mutation-tested:** local accounts are checked **first**, so the bootstrap/break-glass admin survives a directory outage; an AC account can **never** be opened with a locally stored password; an AC sign-in **never takes over** a same-name local account; reset and change-password refuse AC accounts; a half-set config **fails at startup** naming the variable; set-but-empty variables mean "default", not "nothing"; Boot's LDAP auto-config is excluded so `/actuator/health` stays UP.
 - **Verified:** `./gradlew check` 198/198, zero skips — 15 integration tests against an in-memory LDAP server through the real filter chain (incl. an outage), plus unit tests on config and startup validation; 10 deliberate sabotages, 9 caught, the 10th shown equivalent (transaction rollback); live `bootRun` in directory mode against a stand-in directory.
 - **Open for AC IT (🏫):** AD vs LDAP, server URL, domain/search base, optional groups, password-help URL, and whether they would rather redirect to Entra ID/SAML instead of a form (documented, not built).
+- **Estimate:** M.
+
+### TC-125 🔒 🏫 Sign-in limits — stop the sign-in page being a way to lock students out of AD ✅ built 2026-10-09
+- **Status:** ✅ **Built** on `feat/tc-125-sign-in-rate-limiting`, in three slices (a counting and blocking, b Turnstile CAPTCHA, c docs).
+- **Why:** TC-124 made every wrong password here a wrong password at AC's Active Directory, which locks the account after its own number of failures. With no limit, anyone could lock a student out of **every** AC system by typing their user name on our page. Local accounts, including the bootstrap admin, had no brute-force protection either.
+- **Decisions (made by the dev, 2026-10-09):** count failures **per user name**; a **Cloudflare Turnstile CAPTCHA** after 3, with a **hard block** after 5 even when it's solved; counters **in memory** (Caffeine, size-capped); **without keys, block at 3**; if Cloudflare can't be reached, **refuse** (fail closed). Rejected: per-IP counting (campus NAT puts a building behind one address; noted as a possible addition), a growing delay, a database or Redis store (load on every failure, or a whole new service for IT), Bucket4j (built for request rates, not failed sign-ins), reCAPTCHA/hCaptcha (privacy, puzzles) and self-hosted ALTCHA (proof-of-work raises cost but doesn't prove a human, so a script could still reach the AD lockout).
+- **What it does:**
+  - **(a)** `SignInLimiter` counts wrong passwords per user name (case and `@austincollege.edu` folded) inside a sliding window; `LimitedAuthenticationManager` checks it **before** the local and directory providers, so a refused attempt never reaches AD. Only `BadCredentialsException` counts: refusals after a correct password, an unreachable directory, or an already-locked account do not. A success clears the count. `SSTATION_SIGNIN_CAPTCHA_AFTER` / `_BLOCK_AFTER` / `_WINDOW` (3 / 5 / 15m), empty = default, impossible combinations fail at startup.
+  - **(b)** With `SSTATION_TURNSTILE_SITE_KEY` + `_SECRET_KEY`, the third failure shows the widget and the token is confirmed server-side with Cloudflare before the password is checked. Missing or rejected CAPTCHAs don't count as failures (no password was tried). The widget and Cloudflare's script load **only** after a failure asked for them. Half a key pair fails at startup; the secret stays out of `toString`.
+  - **(c)** "Sign-in limits" in [DEPLOY.md](DEPLOY.md); compose and `.env.example` pass the variables through.
+- **Found by mutation testing:** two wrong passwords submitted together could both pass the check, and the second would **replace the block the first had just set** with a fresh count. Fixed, with a test.
+- **Verified:** `check` green with zero skips (35 new tests: the counting rules against a controllable clock, the CAPTCHA gate, a stand-in Cloudflare including an outage, and the real filter chain in both modes); 21 deliberate sabotages, all caught after the race fix; live with and without keys, against Cloudflare's real endpoint using its official test keys, including the widget in a browser. The E2E wrong-password test moved off the admin account (CI's smoke script already spends one of its attempts), and a new E2E test checks the block.
+- **Open for AC IT (🏫):** their AD lockout threshold (set the limits below it), and whether to create Turnstile keys and allow outbound HTTPS to `challenges.cloudflare.com`.
 - **Estimate:** M.
 
 ### TC-112 🧹 Decommission the Grails app
@@ -887,6 +900,8 @@ When TC-035 lands, this section should be expanded into a checklist AC IT can ti
 - 🏫 Postgres host / port / DB name / user / password.
 - 🏫 Public hostname + TLS cert.
 - 🏫 Initial admin account (created post-deploy, not seeded).
+- 🏫 AD account-lockout threshold, so the sign-in limits sit below it (TC-125).
+- 🏫 Cloudflare Turnstile site key + secret key, if they want the CAPTCHA (TC-125).
 - 🏫 Log aggregation endpoint, if any.
 - 🏫 Backup schedule for Postgres.
 - 🏫 Whether AC IT wants to host the Grails 2.4.4 distribution zip internally (for the wrapper, if we keep it).

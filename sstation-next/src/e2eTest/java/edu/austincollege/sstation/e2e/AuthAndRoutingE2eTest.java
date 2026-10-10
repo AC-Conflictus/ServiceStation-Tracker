@@ -55,10 +55,25 @@ class AuthAndRoutingE2eTest extends E2eTest {
   @Test
   @DisplayName("a wrong password is rejected")
   void wrongPasswordIsRejected() {
-    signIn(ADMIN_USER, "definitely-not-the-password");
+    // Not the admin: TC-125 blocks a user name after three failures, and the admin already takes
+    // one from devPasswordIsRejected and one from CI's smoke script before this suite starts.
+    signIn(STUDENT_USER, "definitely-not-the-password");
 
     assertThat(page.url()).contains("/login");
     assertThat(page.url()).contains("error");
+  }
+
+  @Test
+  @DisplayName("repeated wrong passwords block the user name for a while")
+  void repeatedFailuresBlockTheUserName() {
+    // TC-125. A name no other test uses, because the block outlives this test. No CAPTCHA is
+    // configured on the CI stack, so the third failure blocks.
+    for (int i = 0; i < 3; i++) {
+      signIn("e2e-sign-in-limit-probe", "wrong-" + i);
+    }
+
+    assertThat(page.url()).contains("blocked");
+    assertThat(page.textContent("main")).contains("Too many sign-in attempts");
   }
 
   @Test
