@@ -111,4 +111,23 @@ class AuthPropertiesTest {
 
     assertThat(turnstile.toString()).contains("site-key").doesNotContain("very-secret");
   }
+
+  @Test
+  void theDirectoryServiceAccountPasswordNeverAppearsInAnyToString() {
+    AuthProperties auth =
+        bind(
+            Map.of(
+                "sstation.auth.directory.manager-dn", "cn=svc-sstation,ou=service",
+                "sstation.auth.directory.manager-password", "very-secret",
+                "sstation.auth.turnstile.site-key", "site-key",
+                "sstation.auth.turnstile.secret-key", "also-secret"));
+
+    // The whole config, as it would appear if anything ever logged it.
+    assertThat(auth.toString())
+        .contains("cn=svc-sstation,ou=service")
+        .contains("managerPassword=****")
+        .doesNotContain("very-secret")
+        .doesNotContain("also-secret");
+    assertThat(bind(Map.of()).directory().toString()).contains("managerPassword=,");
+  }
 }

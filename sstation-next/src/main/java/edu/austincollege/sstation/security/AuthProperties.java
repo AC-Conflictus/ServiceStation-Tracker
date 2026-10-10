@@ -105,6 +105,36 @@ public record AuthProperties(
     public boolean activeDirectory() {
       return "active-directory".equalsIgnoreCase(type);
     }
+
+    /**
+     * Keeps the service-account password out of logs and error messages. A record's generated
+     * {@code toString} prints every field, and {@link AuthProperties}'s own includes this one.
+     */
+    @Override
+    public String toString() {
+      boolean hasPassword = managerPassword != null && !managerPassword.isEmpty();
+      return "Directory[type="
+          + type
+          + ", url="
+          + url
+          + ", domain="
+          + domain
+          + ", searchBase="
+          + searchBase
+          + ", userSearchFilter="
+          + userSearchFilter
+          + ", managerDn="
+          + managerDn
+          + ", managerPassword="
+          + (hasPassword ? "****" : "")
+          + ", emailDomain="
+          + emailDomain
+          + ", adminGroup="
+          + adminGroup
+          + ", moderatorGroup="
+          + moderatorGroup
+          + "]";
+    }
   }
 
   /**
