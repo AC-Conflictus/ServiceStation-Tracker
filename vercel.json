@@ -3,7 +3,8 @@
   "services": {
     "app": {
       "root": "sstation-next/",
-      "entrypoint": "Dockerfile"
+      "entrypoint": "Dockerfile",
+      "runtime": "container"
     }
   },
   "rewrites": [

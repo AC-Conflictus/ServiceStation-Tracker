@@ -59,7 +59,7 @@ dependencies {
     // HTTP sessions in the database, not instance memory (TC-122a). Vercel's Fluid compute may
     // serve any request from any instance, so in-memory Tomcat sessions would bounce a signed-in
     // user to the login page at random — the failure that looks like flakiness and wastes a day.
-    // One dependency, one migration (V6), no application-code change. AC IT's single-container
+    // One dependency, one migration (V8), no application-code change. AC IT's single-container
     // deploy does not need it, but it costs nothing and unblocks running >1 instance.
     implementation("org.springframework.session:spring-session-jdbc")
 

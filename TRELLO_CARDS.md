@@ -645,7 +645,7 @@ We have ~12 weeks of runway before handing the project to AC IT. That's enough f
   3. **A `Dockerfile.vercel` at the repo root.** Our existing `Dockerfile` lives in `sstation-next/` and is the multi-stage build we already smoke-test in CI. Either add a thin root-level `Dockerfile.vercel` or use `vercel.json` `services` with `root: sstation-next/` and `entrypoint`. Prefer the latter — it avoids a second Dockerfile drifting from the tested one.
 
 - **Acceptance criteria:**
-  - Sessions survive an instance change (`spring-session-jdbc` + Flyway `V6`), verified by signing in and exercising the app across enough requests to hit more than one instance.
+  - Sessions survive an instance change (`spring-session-jdbc` + Flyway `V8`), verified by signing in and exercising the app across enough requests to hit more than one instance.
   - `server.port` honours `$PORT`.
   - Vercel project linked to this repo; container build green on push.
   - Postgres provisioned. **Supabase free tier is workable** (verified against their docs 2026-09-07) — 500 MB is far more than a demo's seed data — **but three specifics decide whether it works on the first try:**

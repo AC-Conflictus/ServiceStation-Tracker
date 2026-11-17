@@ -11,8 +11,7 @@
 >
 > **A single container is a valid deployment.** For an office this size, one instance of the app
 > is the expected shape — one host, one app process (container or `java -jar`), one Postgres. The
-> app keeps its HTTP sessions in memory, which is fine for that; there is nothing to cluster and no
-> shared session store to stand up. The horizontal-scaling work mentioned in
+> app stores HTTP sessions in the same Postgres database; no separate session service is needed. The horizontal-scaling work mentioned in
 > [TC-122](#public-demo--vercel-tc-122) (`spring-session-jdbc`) is a constraint of the Vercel
 > showcase, **not** something AC IT's deployment needs.
 
@@ -430,7 +429,7 @@ the dump was taken from; there is no manual migration step on restore.
 ### Upgrading
 
 Flyway migrations are the app's business: **pending migrations apply automatically on boot** — the
-schema history ships in the app (`V1`–`V5` today; future changes just add `V6`, `V7`, …). There is
+schema history ships in the app (through `V8` today; future changes add higher versions). There is
 no manual migration command to run.
 
 To upgrade:
@@ -543,7 +542,7 @@ full card. The three items that were real work rather than configuration:
 1. ✅ **Sessions live in the database, not instance memory** (TC-122a). This app is session-based
    (Spring Security form login), and on Fluid compute any instance may serve any request — with
    more than one instance live, in-memory sessions would return a signed-in user to the login page
-   at random. `spring-session-jdbc` + Flyway `V6` keep them in the Postgres the app already uses.
+   at random. `spring-session-jdbc` + Flyway `V8` keep them in the Postgres the app already uses.
    **This is a Vercel constraint, not a requirement for AC IT** — a single container on a single
    host, the expected shape for an office this size, was always fine without it.
 2. ✅ **The HTTP port follows `$PORT`** (TC-122b). Vercel routes container traffic to whatever
@@ -557,11 +556,13 @@ full card. The three items that were real work rather than configuration:
 
 > ⚠️ **`vercel.json` has never been run against Vercel.** It is written from Vercel's documented
 > `services` schema, but nobody on this project has a Vercel account yet, so the build has not been
-> exercised even once. Treat the first deploy as the test. The most likely thing to be wrong is
-> `entrypoint: "Dockerfile"` — Vercel auto-detects `Dockerfile.vercel`, and if an explicit
-> `entrypoint` turns out to require that suffix, the fix is to add a one-line
-> `sstation-next/Dockerfile.vercel` containing `FROM` nothing more than a rename, or point
-> `entrypoint` at a renamed copy.
+> exercised even once. Treat the first deploy as the test. The service explicitly sets
+> `runtime: "container"`, following [Vercel’s configuration](https://vercel.com/kb/guide/vercel-services).
+
+Use local authentication for the demo (`SSTATION_AUTH_MODE=local`, the default). TC-125 sign-in
+limits are per instance and reset on restart; shared sessions do not share these counters.
+Keep directory authentication on AC IT’s single-instance deployment until distributed rate
+limiting is designed and verified.
 
 **Still needed, and none of it is repo work** — a Vercel account with this repo linked, a Postgres
 (see below), the `SSTATION_DEMO_*_PASSWORD` values set as Vercel environment variables, `PORT=8080`
