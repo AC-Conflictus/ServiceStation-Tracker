@@ -2,7 +2,13 @@ package edu.austincollege.sstation.web;
 
 import edu.austincollege.sstation.service.StudentCsvImportService;
 import edu.austincollege.sstation.service.StudentCsvImportService.ImportResult;
+import jakarta.servlet.http.HttpSession;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.Serializable;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -34,26 +40,66 @@ public class StudentImportController {
     this.importer = importer;
   }
 
+  private static final String PENDING = StudentImportController.class.getName() + ".pending";
+  private static final Duration PREVIEW_LIFETIME = Duration.ofMinutes(15);
+
+  // Spring Session serializes session attributes into the shared database.
+  private record PendingUpload(String token, byte[] bytes, Instant expires)
+      implements Serializable {}
+
   @GetMapping
-  public String form() {
+  public String form(HttpSession session) {
+    session.removeAttribute(PENDING);
     return "students/import";
   }
 
   @PostMapping
-  public String upload(@RequestParam("file") MultipartFile file, Model model) {
+  public String upload(@RequestParam("file") MultipartFile file, Model model, HttpSession session) {
+    session.removeAttribute(PENDING);
     if (file == null || file.isEmpty()) {
       model.addAttribute("error", "Choose a CSV file to upload.");
       return "students/import";
     }
-
     try {
-      ImportResult result = importer.importFrom(file.getInputStream());
-      model.addAttribute("result", result);
-      return "students/import-result";
+      byte[] bytes = file.getBytes();
+      var preview = importer.preview(new ByteArrayInputStream(bytes));
+      String token = UUID.randomUUID().toString();
+      if (preview.validCount() > 0) {
+        session.setAttribute(
+            PENDING, new PendingUpload(token, bytes, Instant.now().plus(PREVIEW_LIFETIME)));
+      }
+      model.addAttribute("preview", preview);
+      model.addAttribute("token", token);
+      return "students/import-preview";
     } catch (IOException unreadable) {
-      // The import is @Transactional, so a file that fails partway leaves nothing behind.
       model.addAttribute("error", unreadable.getMessage());
       return "students/import";
     }
+  }
+
+  @PostMapping("/confirm")
+  public String confirm(@RequestParam("token") String token, Model model, HttpSession session) {
+    PendingUpload pending = (PendingUpload) session.getAttribute(PENDING);
+    if (pending == null
+        || !pending.token().equals(token)
+        || Instant.now().isAfter(pending.expires())) {
+      model.addAttribute("error", "This preview is no longer available. Upload the CSV again.");
+      return "students/import";
+    }
+    session.removeAttribute(PENDING);
+    try {
+      ImportResult result = importer.importFrom(new ByteArrayInputStream(pending.bytes()));
+      model.addAttribute("result", result);
+      return "students/import-result";
+    } catch (IOException unreadable) {
+      model.addAttribute("error", "The file could not be imported. Upload it again.");
+      return "students/import";
+    }
+  }
+
+  @PostMapping("/cancel")
+  public String cancel(HttpSession session) {
+    session.removeAttribute(PENDING);
+    return "redirect:/admin/students/import";
   }
 }

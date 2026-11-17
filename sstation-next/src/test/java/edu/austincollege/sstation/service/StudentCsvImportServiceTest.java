@@ -51,6 +51,28 @@ class StudentCsvImportServiceTest {
   }
 
   @Test
+  void previewShowsMappedWarningsAndDuplicateUpdatesWithoutWriting() throws IOException {
+    String csv =
+        HEADER
+            + "AC91999,x,Preview,Only,Active,100,Junior,y,preview@example.invalid\n"
+            + "AC91999,x,Later,Row,A,101,GRAD,y,later@example.invalid\n"
+            + "AC91998,x,Bad,Email,A,102,FR,y,invalid\n";
+    var preview = service.preview(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)));
+    assertThat(preview.added()).isEqualTo(1);
+    assertThat(preview.updated()).isEqualTo(1);
+    assertThat(preview.skipped()).isEqualTo(1);
+    assertThat(preview.rows().get(0).student().getClassification()).isEqualTo(Classification.OTHER);
+    assertThat(preview.rows().get(0).warning()).contains("OTHER", "first character");
+    assertThat(preview.rows().get(1).warning()).contains("Duplicate student ID");
+    assertThat(students.findByAcid("AC91999")).isEmpty();
+    var result = importCsv(csv);
+    assertThat(result.added()).isEqualTo(1);
+    assertThat(result.updated()).isEqualTo(1);
+    assertThat(result.skipped()).hasSize(1);
+    assertThat(students.findByAcid("AC91999").orElseThrow().getFirstname()).isEqualTo("Later");
+  }
+
+  @Test
   void addsANewStudentAndMapsEveryColumnToTheRightField() throws IOException {
     ImportResult result =
         importCsv(

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+<head><title>Preview student import — Service Station Hours</title></head>
+<body><main>
+  <h1 class="h3 mb-3">Preview student import</h1>
+  <p class="alert alert-info">Nothing has been saved. Review the mapped fields below. To correct values,
+    cancel and upload a corrected CSV. Confirm imports valid rows only; skipped rows are not saved.</p>
+  <p><strong th:text="${preview.added}">0</strong> to add,
+    <strong th:text="${preview.updated}">0</strong> to update,
+    <strong th:text="${preview.skipped}">0</strong> to skip.</p>
+  <p class="text-muted">Counts reflect the roster now; confirmation checks the roster again.
+    Updates replace the fields shown here. Later valid rows with the same student ID overwrite earlier rows.
+    This preview expires after 15 minutes. A new upload replaces the previous preview in this session.</p>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>Line</th><th>Action</th><th>Student ID</th><th>First name</th><th>Last name</th>
+        <th>Status</th><th>AC box</th><th>Classification</th><th>Email</th><th>Warnings / skipped reason</th></tr></thead>
+      <tbody><tr th:each="row : ${preview.rows}">
+        <td th:text="${row.line}"></td><td th:text="${row.action}"></td>
+        <td th:text="${row.student.acid}"></td><td th:text="${row.student.firstname}"></td>
+        <td th:text="${row.student.lastname}"></td><td th:text="${row.student.status}"></td>
+        <td th:text="${row.student.acBox}"></td><td th:text="${row.student.classification}"></td>
+        <td th:text="${row.student.acEmail}"></td><td><span th:text="${row.warning}"></span> <span th:text="${row.error}"></span></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="d-flex gap-2">
+    <form th:if="${preview.validCount() > 0}" th:action="@{/admin/students/import/confirm}" method="post">
+      <input type="hidden" name="token" th:value="${token}" />
+      <button type="submit" class="btn btn-primary">Confirm import of valid rows</button>
+    </form>
+    <form th:action="@{/admin/students/import/cancel}" method="post">
+      <button type="submit" class="btn btn-outline-secondary">Cancel and choose another file</button>
+    </form>
+  </div>
+</main></body></html>
