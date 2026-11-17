@@ -6,12 +6,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
 
 /**
  * A service event (e.g. "Great Day of Service", "JanServe"). Ported from Grails {@code Event}; all
- * fields are required, matching the original constraints.
+ * original descriptive/contact fields are required; the default site schedule is optional.
  */
 @Entity
 @Table(name = "events")
@@ -41,6 +44,34 @@ public class Event {
   @Email
   @Column(nullable = false)
   private String contactEmail;
+
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  private LocalDateTime startsAt;
+
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  private LocalDateTime endsAt;
+
+  @AssertTrue(message = "Set both start and end, with end after start, or leave both blank.")
+  public boolean isScheduleValid() {
+    return startsAt == null && endsAt == null
+        || startsAt != null && endsAt != null && endsAt.isAfter(startsAt);
+  }
+
+  public LocalDateTime getStartsAt() {
+    return startsAt;
+  }
+
+  public void setStartsAt(LocalDateTime value) {
+    startsAt = value;
+  }
+
+  public LocalDateTime getEndsAt() {
+    return endsAt;
+  }
+
+  public void setEndsAt(LocalDateTime value) {
+    endsAt = value;
+  }
 
   public Long getId() {
     return id;

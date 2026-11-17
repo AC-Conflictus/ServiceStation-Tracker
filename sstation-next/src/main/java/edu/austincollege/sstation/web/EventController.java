@@ -62,6 +62,7 @@ public class EventController {
     Event event = events.findById(id).orElseThrow();
     model.addAttribute("event", event);
     model.addAttribute("heading", "Edit " + event.getName());
+    model.addAttribute("eventId", id);
     return "events/form";
   }
 
@@ -72,11 +73,14 @@ public class EventController {
       BindingResult binding,
       Model model,
       RedirectAttributes flash) {
+    model.addAttribute("eventId", id);
     if (binding.hasErrors()) {
       model.addAttribute("heading", "Edit event");
       return "events/form";
     }
     Event existing = events.findById(id).orElseThrow();
+    existing.setStartsAt(event.getStartsAt());
+    existing.setEndsAt(event.getEndsAt());
     existing.setName(event.getName());
     existing.setDescription(event.getDescription());
     existing.setContact(event.getContact());

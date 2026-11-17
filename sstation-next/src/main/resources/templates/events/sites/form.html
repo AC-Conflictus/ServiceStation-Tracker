@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}"><head><title>Edit event site — Service Station Hours</title></head><body><main>
+<h1 class="h3" th:text="${siteId == null ? 'New site' : 'Edit site'}"></h1><p th:text="${event.name}"></p>
+<p class="text-muted">Leave both override times blank to use the event schedule. Times are local to Austin College. Individual signup limits are managed in the form counter, not here.</p>
+<form class="col-lg-8" th:object="${site}" method="post" th:action="${siteId == null} ? @{/admin/events/{event}/sites(event=${event.id})} : @{/admin/events/{event}/sites/{id}(event=${event.id},id=${siteId})}">
+<div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}"><ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul></div>
+<div class="mb-3"><label class="form-label" for="name">Nonprofit / site name (required)</label><input class="form-control" type="text" th:field="*{name}" /></div>
+<div class="mb-3"><label class="form-label" for="location">Location / address (required)</label><input class="form-control" type="text" th:field="*{location}" /></div>
+<div class="mb-3"><label class="form-label" for="registrationUrl">Registration form link (optional HTTPS URL)</label><input class="form-control" type="url" th:field="*{registrationUrl}" /></div>
+<div class="mb-3"><label class="form-label" for="displayOrder">Display order (0 or higher)</label><input class="form-control" type="number" th:field="*{displayOrder}" /></div>
+<div class="mb-3"><label class="form-label" for="startsAt">Site start override (optional)</label><input class="form-control" type="datetime-local" th:field="*{startsAt}" /></div>
+<div class="mb-3"><label class="form-label" for="endsAt">Site end override (optional)</label><input class="form-control" type="datetime-local" th:field="*{endsAt}" /></div>
+<div class="mb-3"><label class="form-label" for="description">What volunteers will do</label><textarea class="form-control" rows="3" th:field="*{description}"></textarea></div>
+<div class="mb-3"><label class="form-label" for="requirements">Requirements / what to bring</label><textarea class="form-control" rows="3" th:field="*{requirements}"></textarea></div>
+<button class="btn btn-primary" type="submit">Save site</button> <a class="btn btn-outline-secondary" th:href="@{/admin/events/{event}/sites(event=${event.id})}">Cancel</a></form></main></body></html>

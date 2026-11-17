@@ -26,6 +26,8 @@
               <td th:text="${e.contactPhone}">Phone</td>
               <td th:text="${e.contactEmail}">Email</td>
               <td class="text-end text-nowrap">
+                <a xmlns:sec="http://www.thymeleaf.org/extras/spring-security" sec:authorize="hasRole('ADMIN')"
+                   class="btn btn-sm btn-outline-primary" th:href="@{/admin/events/{id}/sites(id=${e.id})}">Sites</a>
                 <a class="btn btn-sm btn-outline-info" th:href="@{/admin/events/{id}/roster(id=${e.id})}">Roster</a>
                 <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/events/{id}/edit(id=${e.id})}">Edit</a>
                 <form

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+<head><title>Event sites — Service Station Hours</title></head><body><main>
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="h3" th:text="${event.name + ' — sites'}">Event sites</h1>
+<a class="btn btn-primary" th:href="@{/admin/events/{id}/sites/new(id=${event.id})}">New site</a></div>
+<p class="alert alert-info">Sites are not shown to students yet. Students still use event signup. Availability is not connected.</p>
+<p class="text-muted">Set the default schedule on the event; sites with no override use that schedule.</p>
+<div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Order</th><th>Nonprofit / site</th><th>Location</th><th>Registration link</th><th>Actions</th></tr></thead>
+<tbody><tr th:each="site : ${sites}"><td th:text="${site.displayOrder}"></td><td th:text="${site.name}"></td><td th:text="${site.location}"></td><td th:text="${#strings.isEmpty(site.registrationUrl) ? 'Not configured' : 'Configured'}"></td><td class="text-nowrap">
+<a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/events/{event}/sites/{id}/edit(event=${event.id},id=${site.id})}">Edit</a>
+<form class="d-inline" method="post" th:action="@{/admin/events/{event}/sites/{id}/delete(event=${event.id},id=${site.id})}" onsubmit="return confirm('Remove this site from this event?');"><button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+</td></tr><tr th:if="${sites.isEmpty()}"><td colspan="5">No sites configured yet.</td></tr></tbody></table></div>
+<a th:href="@{/admin/events}">Back to events</a>
+</main></body></html>
