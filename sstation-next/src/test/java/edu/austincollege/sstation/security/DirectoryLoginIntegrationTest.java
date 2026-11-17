@@ -22,6 +22,7 @@ import edu.austincollege.sstation.domain.User;
 import edu.austincollege.sstation.repository.PasswordResetTokenRepository;
 import edu.austincollege.sstation.repository.StudentRepository;
 import edu.austincollege.sstation.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -29,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -136,21 +136,20 @@ class DirectoryLoginIntegrationTest {
 
     @Test
     void aStudentsFirstAcSignInCreatesTheirAccountAndLinksTheirRecord() throws Exception {
-      MockHttpSession session =
-          (MockHttpSession)
-              mvc.perform(formLogin("/login").user("ada").password("ada-ac-pass"))
-                  .andExpect(authenticated().withUsername("ada").withRoles("STUDENT"))
-                  .andExpect(redirectedUrl("/"))
-                  .andReturn()
-                  .getRequest()
-                  .getSession();
+      Cookie session =
+          mvc.perform(formLogin("/login").user("ada").password("ada-ac-pass"))
+              .andExpect(authenticated().withUsername("ada").withRoles("STUDENT"))
+              .andExpect(redirectedUrl("/"))
+              .andReturn()
+              .getResponse()
+              .getCookie("SESSION");
 
       User ada = users.findByUsername("ada").orElseThrow();
       assertThat(ada.getAuthSource()).isEqualTo(AuthSource.DIRECTORY);
       assertThat(users.findStudentByUsername("ada").orElseThrow().getAcid()).isEqualTo("AC70001");
 
       // The dashboard reads the student through the FK, not by matching email strings.
-      mvc.perform(get("/student").session(session))
+      mvc.perform(get("/student").cookie(session))
           .andExpect(status().isOk())
           .andExpect(content().string(org.hamcrest.Matchers.containsString("Ada")));
     }
@@ -254,14 +253,13 @@ class DirectoryLoginIntegrationTest {
 
     @Test
     void anAcAccountIsToldItsPasswordBelongsToAcIt() throws Exception {
-      MockHttpSession session =
-          (MockHttpSession)
-              mvc.perform(formLogin("/login").user("ada").password("ada-ac-pass"))
-                  .andReturn()
-                  .getRequest()
-                  .getSession();
+      Cookie session =
+          mvc.perform(formLogin("/login").user("ada").password("ada-ac-pass"))
+              .andReturn()
+              .getResponse()
+              .getCookie("SESSION");
 
-      mvc.perform(get("/change-password").session(session))
+      mvc.perform(get("/change-password").cookie(session))
           .andExpect(status().isOk())
           .andExpect(
               content()
