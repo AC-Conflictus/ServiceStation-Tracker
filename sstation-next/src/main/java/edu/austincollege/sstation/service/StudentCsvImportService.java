@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -82,74 +83,112 @@ public class StudentCsvImportService {
     }
   }
 
-  /**
-   * Imports students, adding or updating by {@code acid}.
-   *
-   * <p>Transactional as a whole: a file that blows up halfway through leaves no half-applied import
-   * behind. Individual <em>invalid rows</em> are not failures — they are skipped and reported,
-   * which is what makes a 500-row registrar export usable when three rows are messy.
-   */
+  /** Mapped values shown before any student is saved. */
+  public record PreviewRow(int line, Student student, String action, String warning, String error) {
+    public boolean valid() {
+      return error.isEmpty();
+    }
+  }
+
+  public record ImportPreview(List<PreviewRow> rows, long added, long updated, long skipped) {
+    public long validCount() {
+      return added + updated;
+    }
+  }
+
+  /** Parse and validate without mutating managed students or saving anything. */
+  @Transactional(readOnly = true)
+  public ImportPreview preview(InputStream csv) throws IOException {
+    List<PreviewRow> rows = parse(csv);
+    Set<String> seen = new HashSet<>();
+    List<PreviewRow> preview = new ArrayList<>();
+    long added = 0;
+    long updated = 0;
+    for (PreviewRow row : rows) {
+      if (!row.valid()) {
+        preview.add(row);
+        continue;
+      }
+      String acid = row.student().getAcid();
+      boolean duplicate = !seen.add(acid);
+      boolean update = duplicate || students.findByAcid(acid).isPresent();
+      if (update) updated++;
+      else added++;
+      String warning = row.warning();
+      if (duplicate)
+        warning += " Duplicate student ID in this file; later valid rows overwrite earlier values.";
+      preview.add(
+          new PreviewRow(row.line(), row.student(), update ? "Update" : "Add", warning.trim(), ""));
+    }
+    return new ImportPreview(preview, added, updated, rows.size() - added - updated);
+  }
+
+  /** Revalidate the reviewed file and apply valid rows in order, in one transaction. */
   @Transactional
   public ImportResult importFrom(InputStream csv) throws IOException {
     int added = 0;
     int updated = 0;
     List<SkippedRow> skipped = new ArrayList<>();
+    for (PreviewRow row : parse(csv)) {
+      Student candidate = row.student();
+      if (!row.valid()) {
+        skipped.add(new SkippedRow(row.line(), candidate.getAcid(), row.error()));
+        continue;
+      }
+      Optional<Student> existing = students.findByAcid(candidate.getAcid());
+      if (existing.isPresent()) {
+        Student target = existing.get();
+        target.setFirstname(candidate.getFirstname());
+        target.setLastname(candidate.getLastname());
+        target.setStatus(candidate.getStatus());
+        target.setAcBox(candidate.getAcBox());
+        target.setClassification(candidate.getClassification());
+        target.setAcEmail(candidate.getAcEmail());
+        students.save(target);
+        updated++;
+      } else {
+        students.save(candidate);
+        added++;
+      }
+    }
+    return new ImportResult(added, updated, skipped);
+  }
 
+  private List<PreviewRow> parse(InputStream csv) throws IOException {
+    List<PreviewRow> parsed = new ArrayList<>();
     try (Reader reader = new BufferedReader(new InputStreamReader(csv, StandardCharsets.UTF_8));
         CSVReader rows = new CSVReader(reader)) {
-
       String[] row;
       int line = 0;
       while ((row = rows.readNext()) != null) {
         line++;
-        if (line == 1) {
-          continue; // header row, as in the Grails original
-        }
-        if (isBlank(row)) {
-          continue; // trailing newline at the end of the file
-        }
-        if (row.length < REQUIRED_COLUMNS) {
-          skipped.add(
-              new SkippedRow(
-                  line,
-                  row.length > ACID ? row[ACID] : "",
-                  "expected at least " + REQUIRED_COLUMNS + " columns, found " + row.length));
-          continue;
-        }
-
-        String acid = trim(row[ACID]);
-        if (acid.isEmpty()) {
-          skipped.add(new SkippedRow(line, "", "no student id in the first column"));
-          continue;
-        }
-
-        // Validate a detached copy first. An existing student is a managed entity, so setting a
-        // bad row onto it and then "skipping" still writes it at the next flush — where Hibernate
-        // re-validates, throws, and rolls back the whole file over one messy row.
+        if (line == 1 || isBlank(row)) continue;
         Student candidate = new Student();
-        applyRow(candidate, acid, row);
-        Optional<String> problem = firstViolation(candidate);
-        if (problem.isPresent()) {
-          skipped.add(new SkippedRow(line, acid, problem.get()));
-          continue;
-        }
-
-        Optional<Student> existing = students.findByAcid(acid);
-        if (existing.isPresent()) {
-          applyRow(existing.get(), acid, row);
-          students.save(existing.get());
-          updated++;
+        candidate.setAcid(row.length > 0 ? trim(row[ACID]) : "");
+        String error = "";
+        String warning = "";
+        if (row.length < REQUIRED_COLUMNS) {
+          error = "expected at least " + REQUIRED_COLUMNS + " columns, found " + row.length;
         } else {
-          students.save(candidate);
-          added++;
+          applyRow(candidate, trim(row[ACID]), row);
+          error =
+              candidate.getAcid().isEmpty()
+                  ? "no student id in the first column"
+                  : firstViolation(candidate).orElse("");
+          if (candidate.getClassification() == Classification.OTHER
+              && !trim(row[CLASSIFICATION]).equalsIgnoreCase("OTHER")) {
+            warning = "Blank or unrecognised classification mapped to OTHER.";
+          }
+          if (trim(row[STATUS]).length() > 1) warning += " Status uses only the first character.";
         }
+        parsed.add(
+            new PreviewRow(line, candidate, error.isEmpty() ? "" : "Skip", warning.trim(), error));
       }
     } catch (CsvValidationException malformed) {
       throw new IOException(
           "The file could not be read as CSV: " + malformed.getMessage(), malformed);
     }
-
-    return new ImportResult(added, updated, skipped);
+    return parsed;
   }
 
   private void applyRow(Student student, String acid, String[] row) {

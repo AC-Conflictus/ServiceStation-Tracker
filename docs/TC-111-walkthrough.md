@@ -44,7 +44,7 @@ never edit real office records during this walkthrough.
 | W8 | Student signs in; opens `/student` and `/student/report`; downloads CSV and PDF | Own totals and hours appear; downloads open and describe the same student | |
 | W9 | Student signs up at `/student/events`; admin checks that event’s roster | Sign-up appears on roster; repeat sign-up does not create a duplicate | |
 | W10 | Student visits `/admin` and `/admin/students/import` directly; then signs out | Access denied; signed-out pages require login | |
-| W11 | Admin uploads a synthetic registrar CSV at `/admin/students/import`, then uploads it again | First upload adds records; second updates by student ID without duplicates; invalid rows have reasons | |
+| W11 | Admin previews a synthetic registrar CSV at `/admin/students/import`, confirms valid rows, then repeats | Preview saves nothing and shows mapped fields/warnings; confirmation adds records; re-import updates without duplicates; invalid rows have reasons | |
 
 For W11, create a local UTF-8 file using the example below. These are invented records.
 On a fresh database expect **1 added, 0 updated, 1 skipped**; on re-import expect
@@ -80,7 +80,7 @@ approved private location; only sanitized findings belong in project issues.
 1. Before upload, compare the original export’s positions with the table below. The first row is
    always skipped; UTF-8 and at least nine columns are expected. If the layout differs, stop and
    record a sanitized mapping issue rather than importing into a live roster.
-2. As admin, upload the real export at `/admin/students/import`. Record added/updated/skipped counts
+2. As admin, preview the real export at `/admin/students/import`. Inspect the mapped values and warnings before confirming valid rows. Record added/updated/skipped counts
    and reason categories, without copying row values. A successful import is not proof of mapping.
    First-run updates can reflect duplicate IDs in the file or collisions with seeded fake IDs
    (`AC50000`–`AC59999`); investigate them instead of assuming every first-run row was added.

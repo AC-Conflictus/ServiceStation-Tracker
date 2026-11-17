@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
@@ -47,13 +48,59 @@ class StudentImportControllerTest {
 
   @Test
   @WithMockUser(roles = "ADMIN")
-  void uploadingACsvImportsTheStudents() throws Exception {
-    mvc.perform(multipart("/admin/students/import").file(csvFile(CSV)).with(csrf()))
-        .andExpect(status().isOk())
-        .andExpect(view().name("students/import-result"))
-        .andExpect(model().attributeExists("result"));
-
+  void uploadingACsvPreviewsWithoutSavingAndRequiresConfirmation() throws Exception {
+    var response =
+        mvc.perform(multipart("/admin/students/import").file(csvFile(CSV)).with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(view().name("students/import-preview"))
+            .andExpect(model().attributeExists("preview"))
+            .andReturn();
+    assertThat(students.findByAcid("AC92001")).isEmpty();
+    String token = (String) response.getModelAndView().getModel().get("token");
+    var cookie = response.getResponse().getCookie("SESSION");
+    mvc.perform(
+            post("/admin/students/import/confirm")
+                .cookie(cookie)
+                .param("token", token)
+                .with(csrf()))
+        .andExpect(view().name("students/import-result"));
     assertThat(students.findByAcid("AC92001")).isPresent();
+    mvc.perform(
+            post("/admin/students/import/confirm")
+                .cookie(cookie)
+                .param("token", token)
+                .with(csrf()))
+        .andExpect(view().name("students/import"))
+        .andExpect(model().attributeExists("error"));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void cancelAndReplacementInvalidateOldPreviews() throws Exception {
+    var first =
+        mvc.perform(multipart("/admin/students/import").file(csvFile(CSV)).with(csrf()))
+            .andReturn();
+    String token = (String) first.getModelAndView().getModel().get("token");
+    var cookie = first.getResponse().getCookie("SESSION");
+    mvc.perform(multipart("/admin/students/import").file(csvFile(CSV)).cookie(cookie).with(csrf()))
+        .andExpect(view().name("students/import-preview"));
+    mvc.perform(
+            post("/admin/students/import/confirm")
+                .cookie(cookie)
+                .param("token", token)
+                .with(csrf()))
+        .andExpect(model().attributeExists("error"));
+    mvc.perform(post("/admin/students/import/cancel").cookie(cookie).with(csrf()))
+        .andExpect(status().is3xxRedirection());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void confirmationNeedsItsSessionTokenAndCsrf() throws Exception {
+    mvc.perform(post("/admin/students/import/confirm").param("token", "invented").with(csrf()))
+        .andExpect(model().attributeExists("error"));
+    mvc.perform(post("/admin/students/import/confirm").param("token", "invented"))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -71,6 +118,8 @@ class StudentImportControllerTest {
     // ROLE_STUDENT, so any signed-in student could overwrite the whole roster. Deliberately
     // not ported — this test is the guard against someone "restoring parity" by loosening it.
     mvc.perform(get("/admin/students/import")).andExpect(status().isForbidden());
+    mvc.perform(post("/admin/students/import/confirm").param("token", "x").with(csrf()))
+        .andExpect(status().isForbidden());
     mvc.perform(multipart("/admin/students/import").file(csvFile(CSV)).with(csrf()))
         .andExpect(status().isForbidden());
   }

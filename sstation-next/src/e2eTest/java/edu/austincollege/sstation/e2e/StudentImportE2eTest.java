@@ -31,6 +31,37 @@ class StudentImportE2eTest extends E2eTest {
         "input[type='file']",
         new FilePayload("students.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8)));
     submit();
+    assertThat(page.textContent("main"))
+        .contains("Preview student import", "Nothing has been saved");
+    page.getByText(
+            "Confirm import of valid rows",
+            new com.microsoft.playwright.Page.GetByTextOptions().setExact(true))
+        .click();
+  }
+
+  @Test
+  void previewCanBeCancelledWithoutChangingTheRoster() {
+    String acid = uniqueAcid();
+    signInAsAdmin();
+    page.navigate(url("/admin/students/import"));
+    page.setInputFiles(
+        "input[type='file']",
+        new FilePayload(
+            "students.csv",
+            "text/csv",
+            (HEADER + acid + ",x,Preview,Cancelled,Active,901,Junior,y,preview@example.invalid\n")
+                .getBytes(StandardCharsets.UTF_8)));
+    submit();
+    assertThat(page.textContent("main"))
+        .contains("Preview student import", "OTHER", "first character", acid);
+    var roster = context.newPage();
+    roster.navigate(url("/admin/students"));
+    assertThat(roster.textContent("main")).doesNotContain(acid);
+    roster.close();
+    page.getByText("Cancel and choose another file").click();
+    assertThat(page.url()).endsWith("/admin/students/import");
+    page.navigate(url("/admin/students"));
+    assertThat(page.textContent("main")).doesNotContain(acid);
   }
 
   @Test

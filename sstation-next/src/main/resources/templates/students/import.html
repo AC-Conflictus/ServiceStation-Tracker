@@ -24,7 +24,7 @@
                   <label class="form-label" for="file">Registrar CSV export</label>
                   <input class="form-control" type="file" id="file" name="file" accept=".csv,text/csv" required />
                 </div>
-                <button class="btn btn-primary" type="submit">Import</button>
+                <button class="btn btn-primary" type="submit">Preview import</button>
               </form>
             </div>
           </div>
@@ -35,6 +35,7 @@
             <div class="card-body">
               <h2 class="h6 card-title">Expected columns</h2>
               <p class="small text-muted">
+                Upload to review mapped fields and warnings before confirming. Nothing is saved until you confirm.
                 The first row is treated as a header and skipped. Students are matched on the
                 <strong>student ID</strong> in the first column — an ID already on file is updated,
                 a new one is added. Nothing is ever deleted by an import.
