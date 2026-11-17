@@ -624,3 +624,9 @@ Target cost: under ~$25/month (EC2 + RDS, no ALB) where free tier applies.
 ## Legacy Grails app
 
 The Grails 2.4.4 WAR deploy path is unchanged under [sstation/](sstation/). See [CLAUDE.md](CLAUDE.md).
+
+### Optional Google Forms site availability
+
+For GDS/GreenServe individual-site counters, configure `SSTATION_SITE_SYNC_MASTER_SECRET` and follow
+[the connection and copied-form rollout guide](docs/SITE-AVAILABILITY-SYNC.md). Leaving it blank
+disables receiving and provisioning. This does not deploy or change live office forms.

@@ -11,16 +11,18 @@
   <p th:text="${event.description}"></p>
   <p class="alert alert-info">These forms are for individual registration. Early group signup is handled separately by the office.
     Opening a form does not reserve a place. Complete the site's form to register; the form confirms whether places remain.</p>
-  <p class="small text-muted">All times are local to Austin College. Availability counts are currently unavailable; check the site's form for current availability.</p>
+  <p class="small text-muted">All event times are local to Austin College. Counts are current for 10 minutes after an update. Refresh this page for newer counts. The site’s form confirms final availability.</p>
   <div th:if="${sites.isEmpty()}" class="card card-body">
     <h2 class="h5">Sites are being prepared</h2><p class="mb-0">Check back soon for nonprofit sites and registration links.</p>
   </div>
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
     <div class="col" th:each="site : ${sites}">
-      <article class="card h-100" th:with="start=${site.startsAt != null ? site.startsAt : event.startsAt},end=${site.endsAt != null ? site.endsAt : event.endsAt}">
+      <article class="card h-100" th:with="start=${site.startsAt != null ? site.startsAt : event.startsAt},end=${site.endsAt != null ? site.endsAt : event.endsAt},status=${availability[site.id]}"
+               th:attr="data-fresh-until=${status.freshUntil()},data-stale-detail=${status.staleDetail()}">
         <div class="card-body d-flex flex-column">
           <h2 class="h5 card-title" th:text="${site.name}">Nonprofit site</h2>
-          <span class="badge text-bg-secondary align-self-start mb-3">Availability unavailable</span>
+          <span data-availability-label="" class="badge align-self-start mb-2" th:classappend="${status.state == 'OPEN' ? 'text-bg-success' : (status.blocked ? 'text-bg-danger' : 'text-bg-secondary')}" th:text="${status.label}">Availability unavailable</span>
+          <p data-availability-detail="" class="small text-muted" th:text="${status.detail}"></p>
           <p class="mb-2"><strong>Location:</strong> <span th:text="${site.location}"></span></p>
           <p th:if="${start != null and end != null}" class="mb-3"><strong>When:</strong>
             <span th:text="${#temporals.format(start, 'EEE, MMM d, yyyy h:mm a')}"></span> –
@@ -31,13 +33,15 @@
             <h3 class="h6">Requirements / what to bring</h3><p style="white-space: pre-line" th:text="${site.requirements}"></p>
           </div>
           <div class="mt-auto">
-            <a th:unless="${#strings.isEmpty(site.registrationUrl)}" class="btn btn-primary w-100"
-               th:href="${site.registrationUrl}" target="_blank" rel="noopener noreferrer">Open registration form</a>
+            <a th:unless="${#strings.isEmpty(site.registrationUrl)}" th:hidden="${status.blocked}" data-registration-link="" class="btn btn-primary w-100"
+               th:href="${site.registrationUrl}" target="_blank" rel="noopener noreferrer" th:text="${status.state == 'STALE' ? 'Check registration form' : 'Open registration form'}">Open registration form</a>
+            <button th:unless="${#strings.isEmpty(site.registrationUrl)}" th:hidden="${!status.blocked}" data-registration-blocked="" class="btn btn-outline-secondary w-100" disabled="disabled" th:text="${status.label}"></button>
             <button th:if="${#strings.isEmpty(site.registrationUrl)}" class="btn btn-outline-secondary w-100" disabled="disabled">Registration coming soon</button>
-            <p th:unless="${#strings.isEmpty(site.registrationUrl)}" class="small text-muted mt-2 mb-0">Opens an external form in a new tab.</p>
+            <p th:if="${!#strings.isEmpty(site.registrationUrl) and !status.blocked}" class="small text-muted mt-2 mb-0">Opens an external form in a new tab.</p>
           </div>
         </div>
       </article>
     </div>
   </div>
+  <script th:src="@{/js/site-availability.js}" defer="defer"></script>
 </main></body></html>

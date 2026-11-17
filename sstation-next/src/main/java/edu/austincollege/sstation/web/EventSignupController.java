@@ -8,6 +8,7 @@ import edu.austincollege.sstation.repository.EventRepository;
 import edu.austincollege.sstation.repository.EventSiteRepository;
 import edu.austincollege.sstation.repository.UserRepository;
 import edu.austincollege.sstation.service.EventSignupService;
+import edu.austincollege.sstation.service.SiteAvailabilityService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -34,16 +35,19 @@ public class EventSignupController {
   private final EventRepository events;
   private final UserRepository users;
   private final EventSiteRepository sites;
+  private final SiteAvailabilityService availability;
 
   public EventSignupController(
       EventSignupService signups,
       EventRepository events,
       UserRepository users,
-      EventSiteRepository sites) {
+      EventSiteRepository sites,
+      SiteAvailabilityService availability) {
     this.signups = signups;
     this.events = events;
     this.users = users;
     this.sites = sites;
+    this.availability = availability;
   }
 
   // ----- student side -----
@@ -74,7 +78,9 @@ public class EventSignupController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     if (!event.isSiteRegistration()) return "redirect:/student/events";
     model.addAttribute("event", event);
-    model.addAttribute("sites", sites.findByEventIdOrderByDisplayOrderAscNameAsc(eventId));
+    var eventSites = sites.findByEventIdOrderByDisplayOrderAscNameAsc(eventId);
+    model.addAttribute("sites", eventSites);
+    model.addAttribute("availability", availability.views(eventSites));
     return "student/event-sites";
   }
 

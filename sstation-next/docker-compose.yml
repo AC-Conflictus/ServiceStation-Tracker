@@ -34,6 +34,7 @@ services:
       # JavaMailSender off — a present-but-empty spring.mail.host still builds one (TC-115).
       # NotificationService checks the host string, and the mail health indicator is disabled
       # by default so an unreachable relay can't hold /actuator/health DOWN.
+      SSTATION_SITE_SYNC_MASTER_SECRET: ${SSTATION_SITE_SYNC_MASTER_SECRET:-}
       SSTATION_MAIL_HOST: ""
       # Sign-in (TC-124). "local" until AC IT points the app at their directory — see
       # "Signing in with AC credentials" in ../DEPLOY.md. Unset values pass through as empty,
