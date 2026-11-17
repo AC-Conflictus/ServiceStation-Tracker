@@ -54,8 +54,9 @@ the master hides all counts immediately. No participant records or internal sign
   No form IDs, responses, participant names/emails, or secrets belong in the payload.
 - Observations older than 10 minutes or more than 60 seconds in the future are rejected. Sync the
   server clock. Atomic conditional database updates prevent delayed/duplicate observations or requests
-  using a rotated key from replacing current data. Authenticated superseded/duplicate updates inside
-  the time window receive 204 without mutation. Only HTTP 204 acknowledges a valid delivery.
+  using a rotated key from replacing current data. Timestamps are normalized to database microsecond
+  precision before comparison; observations within the same microsecond are treated as duplicates.
+  Authenticated superseded/duplicate updates inside the time window receive 204 without mutation. Only HTTP 204 acknowledges a valid delivery.
 - Missing/bad signatures and unknown/revoked keys return 401; invalid schema/time returns 400;
   oversized bodies 413, wrong content type 415, and disabled sync 503. Responses do not echo credentials.
   Delivery failures preserve the previous observation; the next trigger sends a fresh one.

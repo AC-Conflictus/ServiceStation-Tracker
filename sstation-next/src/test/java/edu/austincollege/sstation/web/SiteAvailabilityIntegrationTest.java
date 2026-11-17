@@ -105,7 +105,12 @@ class SiteAvailabilityIntegrationTest {
   @Test
   void signedAnonymousUpdatesAreIsolatedOrderedAndNeverCreateSignups() throws Exception {
     var connection = service.connect(site.getId());
-    Instant now = Instant.now().minusSeconds(1);
+    // Force sub-microsecond precision even on hosts whose clock only returns microseconds.
+    Instant now =
+        Instant.now()
+            .minusSeconds(1)
+            .truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
+            .plusNanos(123);
     send(body(connection, 8, 5, true, now), connection.secret())
         .andExpect(status().isNoContent())
         .andExpect(content().string(""));

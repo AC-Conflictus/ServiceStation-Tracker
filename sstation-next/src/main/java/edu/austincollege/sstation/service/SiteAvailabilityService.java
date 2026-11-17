@@ -125,7 +125,10 @@ public class SiteAvailabilityService {
           || node.path("remaining").intValue() > node.path("capacity").intValue()
           || !node.path("acceptingResponses").isBoolean()
           || !node.path("observedAt").isTextual()) throw invalid();
-      Instant observedAt = Instant.parse(node.path("observedAt").textValue());
+      // Match the database timestamp precision before both comparison and persistence.
+      Instant observedAt =
+          Instant.parse(node.path("observedAt").textValue())
+              .truncatedTo(java.time.temporal.ChronoUnit.MICROS);
       Instant now = clock.instant();
       if (observedAt.isBefore(now.minus(FRESHNESS)) || observedAt.isAfter(now.plusSeconds(60)))
         throw invalid();
