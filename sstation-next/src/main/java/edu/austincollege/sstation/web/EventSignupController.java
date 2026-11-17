@@ -5,11 +5,13 @@ import edu.austincollege.sstation.domain.EventSignup;
 import edu.austincollege.sstation.domain.SignupStatus;
 import edu.austincollege.sstation.domain.Student;
 import edu.austincollege.sstation.repository.EventRepository;
+import edu.austincollege.sstation.repository.EventSiteRepository;
 import edu.austincollege.sstation.repository.UserRepository;
 import edu.austincollege.sstation.service.EventSignupService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -30,12 +33,17 @@ public class EventSignupController {
   private final EventSignupService signups;
   private final EventRepository events;
   private final UserRepository users;
+  private final EventSiteRepository sites;
 
   public EventSignupController(
-      EventSignupService signups, EventRepository events, UserRepository users) {
+      EventSignupService signups,
+      EventRepository events,
+      UserRepository users,
+      EventSiteRepository sites) {
     this.signups = signups;
     this.events = events;
     this.users = users;
+    this.sites = sites;
   }
 
   // ----- student side -----
@@ -57,11 +65,28 @@ public class EventSignupController {
     return "student/events";
   }
 
+  @GetMapping("/student/events/{eventId}")
+  @PreAuthorize("hasRole('STUDENT')")
+  public String eventSites(@PathVariable Long eventId, Model model) {
+    Event event =
+        events
+            .findById(eventId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    if (!event.isSiteRegistration()) return "redirect:/student/events";
+    model.addAttribute("event", event);
+    model.addAttribute("sites", sites.findByEventIdOrderByDisplayOrderAscNameAsc(eventId));
+    return "student/event-sites";
+  }
+
   @PostMapping("/student/events/{eventId}/signup")
   @PreAuthorize("hasRole('STUDENT')")
   public String signUp(@PathVariable Long eventId, Authentication auth, RedirectAttributes flash) {
     Optional<Student> student = currentStudent(auth);
     Event event = events.findById(eventId).orElseThrow();
+    if (event.isSiteRegistration()) {
+      flash.addFlashAttribute("message", "Choose a site and register through its form.");
+      return "redirect:/student/events/" + eventId;
+    }
     if (student.isEmpty()) {
       flash.addFlashAttribute("message", "Your login isn't linked to a student profile.");
     } else if (signups.signUp(student.get(), event)) {

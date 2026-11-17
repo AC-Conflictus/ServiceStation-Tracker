@@ -42,7 +42,7 @@ never edit real office records during this walkthrough.
 | W6 | Admin manages a disposable campus org and agency | Create/edit works; deletion detaches references rather than deleting associated hours | |
 | W7 | Moderator signs in; opens `/reports` and `/admin/students`; visits `/admin` directly | Reports and student management available; admin dashboard denied; no approve/reject controls | |
 | W8 | Student signs in; opens `/student` and `/student/report`; downloads CSV and PDF | Own totals and hours appear; downloads open and describe the same student | |
-| W9 | Student signs up at `/student/events`; admin checks that event’s roster | Sign-up appears on roster; repeat sign-up does not create a duplicate | |
+| W9 | Student signs up for an ordinary event at `/student/events`; admin checks that event’s roster | Sign-up appears on roster; repeat sign-up does not create a duplicate | |
 | W10 | Student visits `/admin` and `/admin/students/import` directly; then signs out | Access denied; signed-out pages require login | |
 | W11 | Admin uploads a synthetic registrar CSV at `/admin/students/import`, then uploads it again | First upload adds records; second updates by student ID without duplicates; invalid rows have reasons | |
 
@@ -55,6 +55,12 @@ acid,ignored,firstname,lastname,status,acbox,classification,ignored2,email
 REVIEW001,,Office,Example,A,999,JR,,office-review@example.invalid
 REVIEW002,,Invalid,Example,A,998,FR,,not-an-email
 ```
+
+For a site-registration event such as GDS/GreenServe, also open **View sites**, check location,
+requirements and default/override times, and verify that configured form links open separately.
+A missing link must show “Registration coming soon”; availability is currently unavailable.
+Opening an external form does not add anyone to the in-app attendance roster. Use synthetic forms
+for a walkthrough; do not submit to a live nonprofit signup form as a test.
 
 ## Private real registrar-file check
 

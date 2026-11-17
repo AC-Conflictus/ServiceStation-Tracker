@@ -1,5 +1,6 @@
 package edu.austincollege.sstation.web;
 
+import edu.austincollege.sstation.domain.EventRegistrationMode;
 import edu.austincollege.sstation.domain.EventSite;
 import edu.austincollege.sstation.repository.EventRepository;
 import edu.austincollege.sstation.repository.EventSiteRepository;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-/** ADMIN-only setup; student site browsing is introduced in the next slice. */
+/** ADMIN-only site setup and choice of event registration workflow. */
 @Controller
 @RequestMapping("/admin/events/{eventId}/sites")
 @PreAuthorize("hasRole('ADMIN')")
@@ -58,6 +59,18 @@ public class EventSiteController {
     event(eventId, model);
     model.addAttribute("sites", sites.findByEventIdOrderByDisplayOrderAscNameAsc(eventId));
     return "events/sites/list";
+  }
+
+  @PostMapping("/registration")
+  public String registration(
+      @PathVariable Long eventId, @RequestParam EventRegistrationMode registrationMode) {
+    var event =
+        events
+            .findById(eventId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    event.setRegistrationMode(registrationMode);
+    events.save(event);
+    return "redirect:/admin/events/" + eventId + "/sites";
   }
 
   @GetMapping("/new")

@@ -31,10 +31,10 @@ public class EventSignupService {
     this.audit = audit;
   }
 
-  /** Signs a student up for an event. No-op (returns false) if they already signed up. */
+  /** Direct signup only. No-op for site-form events or an existing signup. */
   @Transactional
   public boolean signUp(Student student, Event event) {
-    if (signups.existsByStudentAndEvent(student, event)) {
+    if (event.isSiteRegistration() || signups.existsByStudentAndEvent(student, event)) {
       return false;
     }
     signups.save(new EventSignup(student, event, LocalDateTime.now(), SignupStatus.SIGNED_UP));

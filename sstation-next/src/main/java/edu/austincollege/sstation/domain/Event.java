@@ -2,6 +2,8 @@ package edu.austincollege.sstation.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -9,6 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -44,6 +47,23 @@ public class Event {
   @Email
   @Column(nullable = false)
   private String contactEmail;
+
+  @NotNull
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private EventRegistrationMode registrationMode = EventRegistrationMode.DIRECT;
+
+  public EventRegistrationMode getRegistrationMode() {
+    return registrationMode;
+  }
+
+  public void setRegistrationMode(EventRegistrationMode mode) {
+    registrationMode = mode;
+  }
+
+  public boolean isSiteRegistration() {
+    return registrationMode == EventRegistrationMode.SITE_FORMS;
+  }
 
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private LocalDateTime startsAt;
