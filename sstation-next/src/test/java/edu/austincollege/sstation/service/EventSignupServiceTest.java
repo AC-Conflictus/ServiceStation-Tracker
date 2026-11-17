@@ -45,6 +45,17 @@ class EventSignupServiceTest {
   }
 
   @Test
+  void siteFormEventsCannotCreateAnInternalSignup() {
+    event.setRegistrationMode(edu.austincollege.sstation.domain.EventRegistrationMode.SITE_FORMS);
+    events.save(event);
+    assertThat(service.signUp(sam, event)).isFalse();
+    assertThat(signups.findByStudent(sam)).isEmpty();
+    event.setRegistrationMode(edu.austincollege.sstation.domain.EventRegistrationMode.DIRECT);
+    events.save(event);
+    assertThat(service.signUp(sam, event)).isTrue();
+  }
+
+  @Test
   void signUpIsIdempotentPerStudentAndEvent() {
     assertThat(service.signUp(sam, event)).isTrue();
     assertThat(service.signUp(sam, event)).isFalse(); // already signed up

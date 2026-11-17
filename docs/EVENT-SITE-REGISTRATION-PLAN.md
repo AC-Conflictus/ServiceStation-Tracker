@@ -1,6 +1,6 @@
 # GDS and GreenServe: registration by nonprofit site
 
-Status: decisions settled, implementation slice 1 in progress, 2026-11-17. No live Google Forms changed.
+Status: admin setup merged in [PR #26](https://github.com/AC-Conflictus/ServiceStation-Tracker/pull/26); student browsing (slice 2) in progress, 2026-11-17. No live Google Forms changed.
 
 ## Product goal and confirmed decisions
 
@@ -81,7 +81,7 @@ existing signup mode after migration.
 | PR | Scope | Proof and completion boundary |
 | --- | --- | --- |
 | 1 — Site setup | Migration/entities and admin-only site CRUD under an event; event time defaults/site overrides; optional form link. Keep existing student registration unchanged until PR2 exposes the mode switch. | Upgrade existing database; validate location/time/link input (capacity remains owned by the counter); verify admin permissions and site/event ownership; browser create/edit/remove with synthetic sites. |
-| 2 — Student site browsing | Enable site-based registration mode, event detail with 30+ site cards/list, location/requirements/time, registration-link placeholder and full/unavailable states. Reject legacy direct-signup POSTs for site-mode events. | Desktop/mobile browsing, missing link, full site, empty site list, ordinary signup regression, and no internal signup created by external navigation. Before sync, clearly show availability unavailable. |
+| 2 — Student site browsing | Enable site-based registration mode, event detail with 30+ site cards/list, location/requirements/time, registration-link placeholder and unavailable state (full-state display follows live counts in PR4). Reject legacy direct-signup POSTs for site-mode events. | Desktop/mobile browsing, missing link, unavailable counts, empty site list, ordinary signup regression, and no internal signup created by external navigation. Before sync, clearly show availability unavailable. |
 | 3 — Counter bridge | Separate PR in GoogleFormAutoCounter: extract reusable site/capacity config and publish aggregate updates without changing working registration rules. Document installation and use a disposable form first. | Synthetic submissions update counts; one response consumes one individual place; signed update contract has deterministic tests; secrets/participant data never included. Live installation is a separate rollout step. |
 | 4 — Availability integration | App receiver and admin mapping/configuration; authenticate updates, validate bounds and site ownership, reject outdated observations, expose freshness and error states. | Contract tests with PR3 payloads; fake/stale/unauthorized updates; full and reopened/closed states; browser availability display. Real Google integration still needs a test deployment. |
 
@@ -110,3 +110,17 @@ reviewed deployment plan. Keep PRs open for user merge decisions.
 In-app group reservations, participant synchronization, attendance imports, automated hour creation
 from Google Forms, waitlist management, and general UI polish are separate follow-ups. UI ideas
 are tracked in [UI-IMPROVEMENTS.md](UI-IMPROVEMENTS.md).
+
+## Using site registration (slice 2)
+
+An admin opens Events → Sites and selects “Choose a nonprofit site and open its individual form”.
+The default remains direct signup for every existing event. Site events show “View sites” to
+students; ordinary events keep “Sign up”. Event editors who are moderators cannot change this mode,
+including by posting a mode value through the ordinary event form.
+
+The student page uses a responsive site-card grid, site order, descriptions, locations, requirements,
+and either site-specific times or the event default. Blank links are disabled placeholders.
+Configured links open in a new tab. Neither viewing a site nor opening a form creates an internal
+signup or attendance entry. Existing internal signups are retained when an admin changes the mode.
+The old direct-signup endpoint refuses site events. Counts remain explicitly unavailable until PR4;
+no fabricated full/empty counts are shown and the external form remains the final authority.

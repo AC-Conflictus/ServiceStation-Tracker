@@ -8,7 +8,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +29,13 @@ public class EventController {
   public EventController(EventRepository events, ReferenceCrudService crud) {
     this.events = events;
     this.crud = crud;
+  }
+
+  // Event editors include moderators; registration mode is changed only by the admin site action.
+  @InitBinder("event")
+  void bindFields(WebDataBinder binder) {
+    binder.setAllowedFields(
+        "name", "description", "contact", "contactPhone", "contactEmail", "startsAt", "endsAt");
   }
 
   @GetMapping

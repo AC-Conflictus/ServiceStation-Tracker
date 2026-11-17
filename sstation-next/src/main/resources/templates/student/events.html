@@ -11,7 +11,7 @@
       <h1 class="h3 mb-3">Events</h1>
       <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
       <div th:unless="${hasProfile}" class="alert alert-warning">
-        Your login isn't linked to a student profile yet, so you can't sign up.
+        Your login isn't linked to a student profile. In-app signup is unavailable; contact the office.
       </div>
 
       <div class="table-responsive">
@@ -21,12 +21,17 @@
           </thead>
           <tbody>
             <tr th:each="e : ${events}">
-              <td th:text="${e.name}">Event</td>
+              <td>
+                <a th:if="${e.siteRegistration}" th:href="@{/student/events/{id}(id=${e.id})}" th:text="${e.name}">Event sites</a>
+                <span th:unless="${e.siteRegistration}" th:text="${e.name}">Event</span>
+              </td>
               <td th:text="${e.description}">Description</td>
               <td class="text-end text-nowrap">
-                <span th:if="${mine.containsKey(e.id)}" class="badge text-bg-secondary"
+                <a th:if="${e.siteRegistration}" class="btn btn-sm btn-primary"
+                   th:href="@{/student/events/{id}(id=${e.id})}">View sites</a>
+                <span th:if="${!e.siteRegistration and mine.containsKey(e.id)}" class="badge text-bg-secondary"
                       th:text="${mine.get(e.id).displayName}">Signed up</span>
-                <form th:unless="${mine.containsKey(e.id)}"
+                <form th:if="${!e.siteRegistration and !mine.containsKey(e.id)}"
                       th:action="@{/student/events/{id}/signup(id=${e.id})}" method="post" class="d-inline">
                   <button type="submit" class="btn btn-sm btn-primary" th:disabled="${!hasProfile}">Sign up</button>
                 </form>

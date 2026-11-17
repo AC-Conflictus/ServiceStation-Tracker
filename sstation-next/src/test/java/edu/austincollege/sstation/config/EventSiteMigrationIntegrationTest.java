@@ -33,9 +33,11 @@ class EventSiteMigrationIntegrationTest {
           .load()
           .migrate();
       try (var rows =
-          sql.executeQuery("SELECT id,starts_at,ends_at FROM events WHERE name='Existing event'")) {
+          sql.executeQuery(
+              "SELECT id,starts_at,ends_at,registration_mode FROM events WHERE name='Existing event'")) {
         assertThat(rows.next()).isTrue();
         long id = rows.getLong("id");
+        assertThat(rows.getString("registration_mode")).isEqualTo("DIRECT");
         assertThat(rows.getObject("starts_at")).isNull();
         assertThat(rows.getObject("ends_at")).isNull();
         sql.executeUpdate(
