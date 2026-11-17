@@ -66,3 +66,26 @@ Package root: `edu.austincollege.sstation`.
 - [ ] TC-112 — decommission the Grails app
 
 See [../demo.md](../demo.md) for a full local run + click-through walkthrough.
+
+### Office and password browser checks
+
+The E2E suite also covers student/hour edits, moderator flags, and password reset/change.
+Use the disposable test stack (never a production instance):
+
+```bash
+docker build -t sstation-next:ci .
+docker compose -f docker-compose.yml -f docker-compose.ci.yml up --no-build -d
+./scripts/smoke-container.sh
+./gradlew playwrightInstall
+./gradlew e2eTest
+# Stop the test stack and remove its test database when finished:
+docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+```
+
+The CI override runs [Mailpit](https://mailpit.axllent.org/docs/api-v1/) as a test-only SMTP sink;
+production compose is unchanged. Its API/UI is bound to `127.0.0.1:8025`, and SMTP to
+`127.0.0.1:1025` for local development. No relay, forwarding, or persistent mailbox is configured.
+`E2E_MAILPIT_URL` overrides the test API URL (default `http://127.0.0.1:8025`). The password test
+requests a real email for the seeded `student` account, follows the link, checks single-use,
+changes the password, and restores the configured demo password in cleanup. Run against a fresh
+stack if a test is interrupted; do not run other visitors or parallel test suites against it.

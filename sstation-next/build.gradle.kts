@@ -110,6 +110,7 @@ dependencies {
     // — the frontend is vendored WebJars (TC-107) — and pulling in Node purely for tests would
     // hand AC IT a second toolchain to ignore. JUnit/AssertJ versions come from Boot's BOM.
     "e2eTestImplementation"("com.microsoft.playwright:playwright:1.52.0")
+    "e2eTestImplementation"("com.google.code.gson:gson")
     "e2eTestImplementation"("org.junit.jupiter:junit-jupiter")
     "e2eTestImplementation"("org.assertj:assertj-core")
     "e2eTestRuntimeOnly"("org.junit.platform:junit-platform-launcher")
