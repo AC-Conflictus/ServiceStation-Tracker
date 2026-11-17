@@ -36,11 +36,18 @@ class OfficeManagementE2eTest extends E2eTest {
     page.navigate(url("/admin/moderators"));
     Locator candidate = page.locator("tr").filter(new Locator.FilterOptions().setHasText(id));
     candidate.getByText("Promote", new Locator.GetByTextOptions().setExact(true)).click();
-    assertThat(candidate.getByText("Demote").count()).isEqualTo(1);
+    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(
+            candidate.getByText("Demote"))
+        .hasCount(1);
     page.reload();
     candidate.getByText("Demote").click();
+    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(
+            candidate.getByText("Promote"))
+        .hasCount(1);
     page.reload();
-    assertThat(candidate.getByText("Promote").count()).isEqualTo(1);
+    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(
+            candidate.getByText("Promote"))
+        .hasCount(1);
 
     page.navigate(url("/admin/hours/new"));
     page.selectOption(
