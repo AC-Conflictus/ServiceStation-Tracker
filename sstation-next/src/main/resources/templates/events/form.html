@@ -13,7 +13,7 @@
         <div class="col-lg-7">
           <form
             th:object="${event}"
-            th:action="${event.id == null} ? @{/admin/events} : @{/admin/events/{id}(id=${event.id})}"
+            th:action="${eventId == null} ? @{/admin/events} : @{/admin/events/{id}(id=${eventId})}"
             method="post">
             <div class="mb-3">
               <label class="form-label">Name</label>
@@ -45,6 +45,17 @@
                      th:classappend="${#fields.hasErrors('contactEmail')} ? 'is-invalid'" />
               <div class="invalid-feedback" th:if="${#fields.hasErrors('contactEmail')}" th:errors="*{contactEmail}"></div>
             </div>
+            <fieldset class="mb-3">
+              <legend class="h6">Default schedule (optional, Austin College local time)</legend>
+              <p class="text-muted small">Site schedules can override these times. Leave both blank if not decided.</p>
+              <label for="startsAt" class="form-label">Start</label>
+              <input type="datetime-local" class="form-control mb-2" th:field="*{startsAt}" />
+              <label for="endsAt" class="form-label">End</label>
+              <input type="datetime-local" class="form-control" th:field="*{endsAt}" />
+              <div class="text-danger" th:if="${#fields.hasErrors('scheduleValid')}" th:errors="*{scheduleValid}"></div>
+              <div class="text-danger" th:if="${#fields.hasErrors('startsAt')}" th:errors="*{startsAt}"></div>
+              <div class="text-danger" th:if="${#fields.hasErrors('endsAt')}" th:errors="*{endsAt}"></div>
+            </fieldset>
             <button type="submit" class="btn btn-primary">Save</button>
             <a class="btn btn-outline-secondary" th:href="@{/admin/events}">Cancel</a>
           </form>
