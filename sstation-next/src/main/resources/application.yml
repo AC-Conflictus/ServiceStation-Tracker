@@ -58,6 +58,9 @@ server:
 # profiles; the SMTP server itself (spring.mail.*) is only wired in prod (below), so local dev
 # has no JavaMailSender and notifications fall back to a log line.
 sstation:
+  site-sync:
+    master-secret: ${SSTATION_SITE_SYNC_MASTER_SECRET:}
+
   mail:
     from: ${SSTATION_MAIL_FROM:no-reply@austincollege.edu}
 

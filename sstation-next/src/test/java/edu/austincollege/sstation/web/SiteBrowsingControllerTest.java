@@ -79,7 +79,7 @@ class SiteBrowsingControllerTest {
             xpath(
                     "//a[@href='https://forms.gle/example'][@target='_blank'][@rel='noopener noreferrer']")
                 .exists())
-        .andExpect(xpath("//article//button[@disabled]").nodeCount(30))
+        .andExpect(xpath("//article//button[@disabled and not(@hidden)]").nodeCount(30))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("10:30 AM")))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("9:00 AM")))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("Closed-toe shoes")))

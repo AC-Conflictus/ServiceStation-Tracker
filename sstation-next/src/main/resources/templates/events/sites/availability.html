@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: page(~{::title}, ~{::main})}">
+<head><title>Connect site availability — Service Station Hours</title></head><body><main>
+<h1 class="h3" th:text="${site.name + ' — availability'}"></h1>
+<p>Connect this site's individual Google Form counter. Its limit must already exclude early group allocations.</p>
+<p th:unless="${syncEnabled}" class="alert alert-warning">Availability sync is not configured. Ask your deployment administrator to configure the site sync master secret.</p>
+<div th:if="${connection}" class="card card-body border-warning mb-3">
+<h2 class="h5">Copy these settings now</h2>
+<p>This new connection replaces any previous connection and clears its counts. These credentials appear only in this response. Copy them into this site's Apps Script Project Settings → Script Properties. Do not share them or place them in a form link.</p>
+<dl><dt>SSTATION_SITE_KEY</dt><dd><code id="sync-site-key" th:text="${connection.siteKey}"></code></dd>
+<dt>SSTATION_SYNC_SECRET</dt><dd><code id="sync-secret" th:text="${connection.secret}" style="overflow-wrap:anywhere"></code></dd>
+<dt>SSTATION_SYNC_URL</dt><dd>Use your website's public HTTPS address followed by <code>/api/site-availability</code>.</dd></dl>
+<p class="mb-0">Verify the connection on a disposable copied form with synthetic responses before changing a live office form.</p>
+</div>
+<p th:unless="${connection}" th:text="${availability.label}"></p>
+<p class="small text-muted" th:unless="${connection}" th:text="${availability.detail}"></p>
+<form th:if="${syncEnabled}" method="post" th:action="@{/admin/events/{e}/sites/{s}/availability/connect(e=${eventId},s=${site.id})}"
+      onsubmit="return confirm('Create a new connection? This revokes the old credentials and clears availability counts.');">
+<button class="btn btn-primary mb-3" type="submit">Create / replace connection</button></form>
+<form method="post" th:action="@{/admin/events/{e}/sites/{s}/availability/disconnect(e=${eventId},s=${site.id})}"
+      onsubmit="return confirm('Disconnect this site and clear its counts?');"><button class="btn btn-outline-danger mb-3" type="submit">Disconnect availability</button></form>
+<p>Updates are current for 10 minutes. Google Forms remains responsible for registration; opening a form does not reserve a place.</p>
+<a th:href="@{/admin/events/{e}/sites(e=${eventId})}">Back to sites</a>
+</main></body></html>

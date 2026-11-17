@@ -44,7 +44,14 @@ class EventSiteMigrationIntegrationTest {
             "INSERT INTO event_sites(event_id,name,location) VALUES ("
                 + id
                 + ",'Example site','Example address')");
+        sql.executeUpdate(
+            "INSERT INTO event_site_availability(site_id,sync_key,capacity,remaining,accepting_responses,observed_at) SELECT id,'synthetic-site-key',8,5,true,CURRENT_TIMESTAMP FROM event_sites WHERE event_id="
+                + id);
         sql.executeUpdate("DELETE FROM events WHERE id=" + id);
+      }
+      try (var rows = sql.executeQuery("SELECT COUNT(*) FROM event_site_availability")) {
+        assertThat(rows.next()).isTrue();
+        assertThat(rows.getLong(1)).isZero();
       }
       try (var rows = sql.executeQuery("SELECT COUNT(*) FROM event_sites")) {
         assertThat(rows.next()).isTrue();

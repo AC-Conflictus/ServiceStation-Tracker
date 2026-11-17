@@ -14,6 +14,8 @@ services:
   app:
     image: sstation-next:ci
     environment:
+      # Synthetic, isolated CI stack only; never deploy this master secret.
+      SSTATION_SITE_SYNC_MASTER_SECRET: ci-test-only-site-sync-master-secret-000000
       SSTATION_DEMO_ADMIN_PASSWORD: ci-demo-admin-pw
       SSTATION_DEMO_STUDENT_PASSWORD: ci-demo-student-pw
       SSTATION_DEMO_MODERATOR_PASSWORD: ci-demo-moderator-pw

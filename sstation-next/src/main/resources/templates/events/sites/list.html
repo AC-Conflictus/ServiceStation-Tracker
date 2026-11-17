@@ -9,7 +9,7 @@
 <option value="DIRECT" th:selected="${!event.siteRegistration}">Direct event signup (ordinary events)</option>
 <option value="SITE_FORMS" th:selected="${event.siteRegistration}">Choose a nonprofit site and open its individual form</option>
 </select>
-<p class="small text-muted">Only admins can change this setting. Existing in-app registrations are kept. External form registrations do not appear in the in-app attendance roster. Availability counts are not available yet.</p>
+<p class="small text-muted">Only admins can change this setting. Existing in-app registrations are kept. External form registrations do not appear in the in-app attendance roster. Connect each site’s counter to show availability.</p>
 <button type="submit" class="btn btn-primary align-self-start">Save registration method</button>
 </form>
 <p class="alert alert-info" th:if="${event.siteRegistration}">Students can browse these sites and use configured registration links. A blank link shows “Registration coming soon”.</p>
@@ -17,6 +17,7 @@
 <p class="text-muted">Set the default schedule on the event; sites with no override use that schedule.</p>
 <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Order</th><th>Nonprofit / site</th><th>Location</th><th>Registration link</th><th>Actions</th></tr></thead>
 <tbody><tr th:each="site : ${sites}"><td th:text="${site.displayOrder}"></td><td th:text="${site.name}"></td><td th:text="${site.location}"></td><td th:text="${#strings.isEmpty(site.registrationUrl) ? 'Not configured' : 'Configured'}"></td><td class="text-nowrap">
+<a class="btn btn-sm btn-outline-primary" th:href="@{/admin/events/{event}/sites/{id}/availability(event=${event.id},id=${site.id})}">Availability</a>
 <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/events/{event}/sites/{id}/edit(event=${event.id},id=${site.id})}">Edit</a>
 <form class="d-inline" method="post" th:action="@{/admin/events/{event}/sites/{id}/delete(event=${event.id},id=${site.id})}" onsubmit="return confirm('Remove this site from this event?');"><button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
 </td></tr><tr th:if="${sites.isEmpty()}"><td colspan="5">No sites configured yet.</td></tr></tbody></table></div>

@@ -1,6 +1,6 @@
 # GDS and GreenServe: registration by nonprofit site
 
-Status: admin setup merged in [PR #26](https://github.com/AC-Conflictus/ServiceStation-Tracker/pull/26); student browsing (slice 2) in progress, 2026-11-17. No live Google Forms changed.
+Status: admin setup [PR #26](https://github.com/AC-Conflictus/ServiceStation-Tracker/pull/26), student browsing [PR #27](https://github.com/AC-Conflictus/ServiceStation-Tracker/pull/27), and the [counter bridge](https://github.com/jorj-pineda/GoogleFormAutoCounter/pull/1) are merged. Website integration (slice 4) is in progress, 2026-11-17. No live Google Forms changed.
 
 ## Product goal and confirmed decisions
 
@@ -25,18 +25,18 @@ vary. Most sites share an event time, with exceptions possible.
 
 ## Existing code and integration findings
 
-The app currently has an Event entity and a student event list with one direct signup POST per
-event. There is no EventSite model or student event detail page. External-form registrations must
+Before these slices, the app had an Event entity and a student event list with one direct signup POST per
+event. Slices 1–2 added EventSite and a student site-detail page. External-form registrations must
 not create an internal EventSignup merely because a student clicked a link. Existing internal
 roster/attendance-to-hours functionality cannot infer external registrations.
 
-Reviewed [GoogleFormAutoCounter](https://github.com/jorj-pineda/GoogleFormAutoCounter), specifically
+Initial review before slice 3 covered [GoogleFormAutoCounter](https://github.com/jorj-pineda/GoogleFormAutoCounter), specifically
 [Counter.gs](https://github.com/jorj-pineda/GoogleFormAutoCounter/blob/main/Counter.gs),
 [Front.html](https://github.com/jorj-pineda/GoogleFormAutoCounter/blob/main/Front.html), and its manifest.
 
 - Counter.gs opens one configured Google Form, computes `totalSpots - responses.length`, updates
   its title, and closes responses when full. Capacity is currently a local hardcoded value.
-- The repository exposes no count API or outbound notification. Front.html calls
+- At that initial review, the repository exposed no count API or outbound notification. Slice 3 now adds optional signed aggregate updates. Front.html calls
   `getRemainingSpots`, but that function and a `doGet` handler are absent from the checked-in code.
   Do not assume the deployed scripts exactly match the repository.
 - The trigger helper creates a one-minute timer; the README also describes on-submit triggers.
@@ -53,7 +53,7 @@ Keep Forms/counter responsible for registration and capacity enforcement. Extend
 an optional authenticated server-to-server update carrying only a stable site key, total capacity,
 remaining individual places, form-open state and observation time. The app displays the latest aggregate.
 Keep credentials in deployment settings / Apps Script properties, never in public links or Git.
-The exact transport is finalized in PR3 after checking a disposable script deployment.
+The signed POST contract is documented in [SITE-AVAILABILITY-SYNC.md](SITE-AVAILABILITY-SYNC.md). A disposable-form deployment check remains a rollout step.
 
 The app must not scrape a form title, expose participant responses, or decrement availability on
 link clicks. If updates fail, show “Availability unavailable” or a clearly dated last-known value;
@@ -99,10 +99,10 @@ reviewed deployment plan. Keep PRs open for user merge decisions.
       allocations again or require group-allocation fields in the app.
 - [ ] Confirm whether existing deployed counters differ from the repository and which trigger is
       installed; use a disposable form, not live office registrations, for the bridge experiment.
-- [ ] Suggested default: full/closed sites show a disabled registration control. If the office uses
-      waitlists, specify a separate waitlist link/state instead of treating it as an open seat.
-- [ ] Suggested default: site management is ADMIN-only, matching the request for admin-managed links.
-- [ ] Suggested default: students remain signed into the app to browse; Google Forms access/login is
+- [x] Full/closed sites disable registration while counts are current. Once stale, allow checking
+      the form. Waitlists remain outside this feature.
+- [x] Site management is ADMIN-only, matching the request for admin-managed links.
+- [x] Students remain signed into the app to browse; Google Forms access/login is
       governed by that form's settings. Do not promise that app login signs them into Google.
 
 ## Deferred
@@ -122,5 +122,5 @@ The student page uses a responsive site-card grid, site order, descriptions, loc
 and either site-specific times or the event default. Blank links are disabled placeholders.
 Configured links open in a new tab. Neither viewing a site nor opening a form creates an internal
 signup or attendance entry. Existing internal signups are retained when an admin changes the mode.
-The old direct-signup endpoint refuses site events. Counts remain explicitly unavailable until PR4;
-no fabricated full/empty counts are shown and the external form remains the final authority.
+The old direct-signup endpoint refuses site events. The availability integration adds current counts, full/closed states and stale observations;
+unsynced sites still show availability unavailable. The external form remains the final authority.

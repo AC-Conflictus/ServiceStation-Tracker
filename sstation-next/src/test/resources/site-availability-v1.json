@@ -1,0 +1,6 @@
+{
+  "description": "Synthetic cross-language receiver fixture. Never use this key in a real deployment.",
+  "secret": "test-only-secret-abcdefghijklmnopqrstuvwxyz",
+  "body": "{\"version\":1,\"siteKey\":\"gds-2027-example\",\"capacity\":8,\"remaining\":5,\"acceptingResponses\":true,\"observedAt\":\"2027-04-10T14:00:00.000Z\"}",
+  "signature": "sha256=c79596516a57b5df5f20b2003f49d4e2bba5333386e8dfc19a5a2e5b6ad9e39b"
+}
