@@ -1,6 +1,6 @@
 # TC-111 — Feature parity checklist (Grails → Spring Boot rewrite)
 
-**Status:** draft for stakeholder review · last updated 2026-09-11
+**Status:** draft for stakeholder review · last updated 2026-11-17
 
 ## What this is, and why it isn't an HTML diff
 
@@ -124,7 +124,8 @@ Two deliberate differences, both improvements:
 > `4` status, `5` AC box, `6` classification, `7` **ignored**, `8` email, with the first row treated
 > as a header. **Please import one real export and confirm the columns land in the right fields** —
 > a layout mismatch imports plausible-looking garbage rather than failing, which is the worst way for
-> this to be wrong. The result page makes this easy to eyeball.
+> this to be wrong. The result page shows counts and skipped rows only. Open the student list and each sampled
+> student’s edit form to compare the imported fields.
 
 No other Grails capability is missing.
 
@@ -135,10 +136,14 @@ No other Grails capability is missing.
 The E2E suite proves the flows work. It cannot prove they work *the way the office needs them to* —
 that requires a person who does this job clicking through it.
 
+Use the [office walkthrough](TC-111-walkthrough.md) for setup, expected results, findings, and
+private registrar-file validation. A local session can run before the hosted demo is configured.
+Do not upload real registrar data to the public demo.
+
 **Before sign-off:**
 
-- [ ] A Service Station staff member clicks through the demo (see [DEPLOY.md](../DEPLOY.md))
-- [ ] **One real registrar CSV is imported** and the columns are confirmed to land in the right
+- [ ] A Service Station staff member completes the walkthrough on a recorded build and environment
+- [ ] **One real registrar CSV is imported in the private local session** and the columns are confirmed to land in the right
       fields (see the warning above — this is the one thing that cannot be verified without a real
       file)
 - [ ] Anything they flag is either fixed or recorded as a known difference
