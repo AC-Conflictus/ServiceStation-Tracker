@@ -55,18 +55,18 @@ test that proves it works in a real browser.
 | Quick status AJAX dialog (`ajaxUpdateStatus`) | Replaced by the JSON endpoint above | 🟢 |
 | Admin-only status changes | `@PreAuthorize` — moderators are not offered the control | 🟢 asserted for moderators |
 | — (Grails had no audit trail) | `ServiceHourAuditLog`, written on every change (TC-106c) | 🟢 audit entry asserted after approve |
-| Create / edit a student's hours | `/admin/hours/new`, `/admin/hours/{id}/edit` | 🔵 |
+| Create / edit a student's hours | `/admin/hours/new`, `/admin/hours/{id}/edit` | 🟢 `OfficeManagementE2eTest` |
 
 ## CRUD on reference data
 
 | Grails capability | Rewrite equivalent | Coverage |
 |---|---|---|
-| CRUD students | `/admin/students` (TC-106) | 🔵 |
+| CRUD students | `/admin/students` (TC-106) | 🟢 create, edit, delete in `OfficeManagementE2eTest` |
 | **Bulk student CSV import** | `/admin/students/import` (TC-123) | 🟢 upload, bad-row reporting, re-import, and the permission change |
 | CRUD events | `/admin/events` | 🟢 full create → edit → delete cycle |
 | CRUD campus orgs (`ACGroupController`) | `/admin/campus-orgs` | 🔵 same controller shape as events |
 | CRUD community agencies (`CommOrgController`) | `/admin/agencies` | 🔵 same controller shape as events |
-| Promote / demote moderators | `/admin/moderators`, ADMIN-only (TC-106) | 🔵 |
+| Promote / demote moderators | `/admin/moderators`, ADMIN-only (TC-106) | 🟢 student flag toggles persist; moderator denied management page |
 | — (Grails cascade-deleted) | Deleting reference data **detaches** it from hours instead | 🔵 |
 | Form validation | `@Valid` + `BindingResult` re-render with field errors | 🟢 blank event form asserted to re-render with errors |
 
@@ -92,8 +92,8 @@ These have no parity obligation; they are listed so the reviewer knows what is n
 | PDF export of the student report | TC-108d | 🟢 magic bytes checked, not just content type |
 | Date-range filter on the dashboard | TC-108e | 🟢 |
 | Student event sign-up + admin roster | TC-108f | 🟢 sign-up flow |
-| Self-service password reset | TC-108g | 🔵 |
-| In-app password change | TC-121 | 🔵 |
+| Self-service password reset | TC-108g | 🟢 `PasswordFlowsE2eTest`, real email captured in test mailbox, single-use link |
+| In-app password change | TC-121 | 🟢 wrong-current-password rejection, successful change, re-login |
 | Custom 403/404/500 error pages | TC-120 | 🟢 403 asserted for two roles |
 | Day-one admin bootstrap | TC-121 | 🔵 Postgres integration test |
 
